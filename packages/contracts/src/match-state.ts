@@ -66,6 +66,11 @@ export const matchStateSchema = z.object({
     /** `startedAt + config.matchDurationMs`, or `null` when `matchDurationMs` is 0. */
     endsAt: z.number().int().nullable(),
     countdownEndsAt: z.number().int().nullable(),
+    /** When the current turn (attribute pick or card play) must resolve by - `null` when
+     *  `config.turnTimeoutMs` is 0 (no limit) or no turn is currently pending (LOBBY,
+     *  COUNTDOWN, FINISHED). Re-armed by the engine every time turn-taking responsibility
+     *  moves to a new player. */
+    turnDeadline: z.number().int().nullable(),
     /** Stashed between `match.beginCountdown` and the countdown actually elapsing, so the
      *  engine never needs to fetch or rebuild a deck itself (ADR 0003: no I/O). */
     pendingDeck: z.array(cardSchema).nullable(),
@@ -78,6 +83,11 @@ export const matchStateSchema = z.object({
     /** Active (non-eliminated, non-spectator) player ids, in rotation order. */
     turnOrder: z.array(z.string().min(1)),
     currentTurnIndex: z.number().int().min(0),
+    /** How many rounds have started so far (0 before the first one). `round` itself goes back
+     *  to `null` between rounds (nothing to show once one resolves and before the next
+     *  leader picks an attribute), so this - not `round.index` - is the durable counter the
+     *  next round's `index` is derived from. */
+    roundIndex: z.number().int().min(0),
     round: roundStateSchema.nullable(),
     /** Cards carried over from tied rounds, waiting for the next clear winner. */
     pot: z.array(cardSchema),
@@ -117,6 +127,7 @@ export const redactedMatchStateSchema = z.object({
     startedAt: z.number().int().nullable(),
     endsAt: z.number().int().nullable(),
     countdownEndsAt: z.number().int().nullable(),
+    turnDeadline: z.number().int().nullable(),
     players: z.array(playerSchema),
     hostId: z.string().min(1).nullable(),
     turnOrder: z.array(z.string().min(1)),
