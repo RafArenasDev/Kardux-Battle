@@ -17,7 +17,13 @@ export interface HealthResponse {
 @Controller('health')
 export class HealthController {
     @Get()
-    @ApiOperation({ summary: 'Liveness check' })
+    @ApiOperation({
+        summary: 'Liveness check',
+        description:
+            'Returns `200 OK` with the process uptime if the API is running - no parameters, ' +
+            'no auth, no database/cache dependency. Use this for uptime monitoring or the ' +
+            'keep-alive trigger; it does not confirm Postgres/Redis are reachable.',
+    })
     @ApiOkResponse({ description: 'The API process is running.' })
     check(): HealthResponse {
         return {
