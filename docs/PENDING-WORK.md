@@ -156,15 +156,57 @@ Another deliberately small, complete slice under the same time pressure. **Merge
   user had Bruno open but couldn't figure out collection/environment setup, and separately
   hit Swagger while the API happened to be stopped).
 
+## Session 2026-09-21 (cont'd) — First real deployment: Aiven + Render
+
+Explicit ask: get the API online somewhere real, on free tiers, with data survivable in the
+cloud - not just local. Done, verified live, **not merged as code** (no repo changes; this is
+infrastructure state, tracked here since there's nothing to commit):
+
+- **Database**: Aiven PostgreSQL, free tier ("Gratis-1-1gb": 1 CPU / 1GB RAM / 1GB storage,
+  free forever, auto-suspends when idle). Service name `kardux-battle`, region North America
+  (DigitalOcean `sfo`). Migration `20260921174701_init` applied (`prisma migrate deploy`) and
+  the dev seed run against it - verified for real with `psql \dt` and a direct `SELECT`, same
+  standard as local.
+- **Cache**: Aiven Valkey (Redis-compatible), also free tier, service name
+  `kardux-battle-cache`, same region. Nothing in the app talks to it yet (Phase 2b), but
+  `REDIS_URL` needs to resolve to something real once `MatchRuntimeService` exists.
+- **API**: deployed to Render as a Web Service (free tier: 0.1 CPU / 512MB RAM, auto-sleeps
+  after inactivity, ~50s+ cold-start delay on the next request) - picked over Vercel
+  specifically because it runs a real persistent Node process, which the Socket.IO gateway
+  (Phase 2b) needs; Vercel's serverless functions don't hold a long-lived connection the way
+  a game's real-time gateway requires. Connected directly to the private GitHub repo (already
+  authorized in this Render account). Root directory left at the repo root on purpose (not
+  `apps/api`) so a change to `packages/engine`/`packages/contracts` still triggers a redeploy;
+  build command runs `pnpm --filter @kardux/api... build` (builds the workspace dependencies
+  first), start command is `node apps/api/dist/main.js`.
+- **Verified live, not just "deploy succeeded"**: `curl`'d
+  `https://kardux-battle.onrender.com/health` and `/api/docs` after the deploy finished - both
+  responded correctly.
+- **Explicitly deferred** (per instruction - "al final pulimos toda la parte online"): the
+  real-query keep-alive trigger for both Aiven services (a ping alone isn't reliable enough,
+  per explicit feedback - needs an actual query, e.g. `SELECT count(*) FROM "User"` /
+  a Valkey `PING`+`SET`/`GET`, on a schedule via GitHub Actions so it doesn't depend on Render
+  itself being awake). Not built yet - the DBs may go idle again before this lands, which is
+  fine, they wake back up on the next real connection attempt (just slower).
+- Real secrets for the deployed environment live in `apps/api/.env.production` (git-ignored,
+  local reference only - Render's own dashboard is the actual source of truth for its env
+  vars, this file just avoids having to re-derive them by hand later).
+
 ## What's next (not started)
 
-1. **Phase 2b** (`docs/tasks/TASK-01-backend.md`, part 2, the rest of it): `AuthModule`,
-   `MatchModule` + `MatchRuntimeService` (now with a real Prisma schema + `PrismaService` to
-   wire in), `GameGateway`, `DeckModule`/`LeaderboardModule` stubs, `docker-compose.yml`, and
-   `unplugin-swc` for Vitest once a real constructor-injected service needs testing.
-2. **Phase 3** (`packages/providers`) includes the `CardPoolEntry` mirror + sync job from
+1. **Phase 2b, now the priority** (explicit instruction: keep building the real backend
+   locally while the deployed environment sits as-is; polish "online" later): `AuthModule`
+   (guest JWT), `MatchModule` + `MatchRuntimeService` (in-memory match state + Redis-backed
+   per-room lock, wired to a real `PrismaService`, injecting `@kardux/engine`'s `reduce()`),
+   `GameGateway` (Socket.IO namespace `/game`), `DeckModule`/`LeaderboardModule` stubs, and
+   `unplugin-swc` for Vitest once a real constructor-injected service needs testing. Local
+   dev keeps using local Postgres/Redis, exactly as now - the cloud services are for the
+   deployed environment only, never local iteration.
+2. Once Phase 2b is real: the GitHub Actions keep-alive workflow for Aiven, and
+   `docker-compose.yml` for anyone without native Postgres/Redis.
+3. **Phase 3** (`packages/providers`) includes the `CardPoolEntry` mirror + sync job from
    ADR 0006, in addition to the provider adapters `TASK-02-providers.md` already describes.
-3. Revisit Prisma 7's `prisma.config.ts` + driver-adapter model deliberately, once there's
+4. Revisit Prisma 7's `prisma.config.ts` + driver-adapter model deliberately, once there's
    time to do it properly instead of downgrading again.
 
 ## Workflow for this project, going forward

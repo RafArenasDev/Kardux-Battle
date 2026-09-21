@@ -14,10 +14,12 @@ desktop, and mobile.
 
 **Early development.** Phase 0 (monorepo scaffold), `@kardux/contracts`, and `@kardux/engine`
 (68 passing tests, ≥90% coverage) are done and merged. `apps/api` boots for real
-(`pnpm --filter @kardux/api dev`) with logging, Swagger, rate limiting, and a health check -
-but nothing game-related yet: no auth, no Postgres/Redis, no gateway. See
-[`docs/PENDING-WORK.md`](docs/PENDING-WORK.md) for the live session-by-session log of what
-shipped and what's next.
+(`pnpm --filter @kardux/api dev`) with logging, Swagger, rate limiting, a health check, and a
+full Prisma schema/migration - but nothing game-related yet: no auth, no gateway, nothing
+actually reads or writes through Prisma at runtime. Also deployed for real (free tiers): API
+on [Render](https://kardux-battle.onrender.com) (sleeps when idle, first request after that
+takes ~50s+), database + cache on Aiven. See [`docs/PENDING-WORK.md`](docs/PENDING-WORK.md)
+for the live session-by-session log of what shipped and what's next.
 
 ## The game
 
