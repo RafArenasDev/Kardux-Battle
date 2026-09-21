@@ -51,21 +51,41 @@ behavior, not a sign that a push failed. When in doubt, verify against the GitHu
 (`gh api repos/<owner>/<repo>/commits`) rather than a browser tab that might be in a
 logged-out or different-account session.
 
+## Session 2026-09-21 (cont'd) — `@kardux/contracts` shipped; README consolidated; card-mirror decision
+
+**Merged to `main`**:
+
+- **Phase 1a done**: `@kardux/contracts` real content — `Card`, `MatchConfig` (with the
+  cross-field validation CLAUDE.md calls for), `Player`, `MatchState`/`RedactedMatchState`/
+  `PublicRoundView`/`RoundResult`, typed error codes with es/en messages, and the full `/game`
+  socket contract (`ClientEvents`/`ServerEvents`). 20 Vitest cases, all passing.
+- **README.md rewritten as the single entry point** per explicit instruction — setup,
+  architecture (with real Mermaid diagrams for the monorepo layout and the match state
+  machine), tech stack + rationale (linking to ADRs for depth, not replacing this file with
+  them), and current status all live directly in `README.md` now, not deferred to a future
+  "docs phase." It gets updated every session, not written once at the end.
+- **Architecture decision (ADR 0006)**: deck data will be mirrored into a local
+  `CardPoolEntry` table per source (Postgres), refreshed by a scheduled sync job, instead of
+  every match-creation calling the live external API. This makes deck building depend on our
+  own database, not on a small community API's uptime — see `CLAUDE.md`'s updated "FUENTES DE
+  CARTAS" section and ADR 0006 for the full design. **Not built yet** — this is a Phase 3
+  (`packages/providers`) design decision, recorded now so it isn't lost before that phase
+  starts.
+
 ## What's next (not started)
 
-1. **Phase 1a** (`docs/tasks/TASK-01-backend.md`): real content for `@kardux/contracts` —
-   `Card`, `Player`, `MatchConfig`, `MatchState`, `RedactedMatchState`, `RoundResult` types,
-   Zod schemas for all of them, typed `ClientEvents`/`ServerEvents` socket event maps, typed
-   error codes (`ERR_NOT_YOUR_TURN`, `ERR_MATCH_FULL`, `ERR_INVALID_CONFIG`, ...).
-2. **Phase 1b**: real content for `@kardux/engine` — `createMatch`/`reduce`, seeded RNG
-   (`sfc32`) + deterministic shuffle, the full rule set from `CLAUDE.md` (dealing, first-turn
-   search order, attribute comparison, tie pot, elimination, turn/match timeouts, `redactFor`),
-   and the exhaustive Vitest suite the coverage thresholds in `vitest.config.ts` are already
-   wired for.
-3. Only once the engine is green (per `README-COMO-USAR.md`'s own warning — debugging engine
+1. **Phase 1b** (in progress): real content for `@kardux/engine` — `createMatch`/`reduce`,
+   seeded RNG (`sfc32`) + deterministic shuffle, the full rule set from `CLAUDE.md` (dealing,
+   first-turn search order, attribute comparison, tie pot, elimination, turn/match timeouts,
+   `redactFor`), and the exhaustive Vitest suite the coverage thresholds in
+   `vitest.config.ts` are already wired for.
+2. Only once the engine is green (per `README-COMO-USAR.md`'s own warning — debugging engine
    bugs through live sockets later is much worse): **Phase 2**, real `apps/api` code —
    Nest modules, the Socket.IO gateway, Prisma schema + migration, the Redis-backed per-room
-   lock, guest JWT auth, and the first Bruno collection.
+   lock, guest JWT auth, and the first Bruno collection. This is also when the README's
+   "Run it" section gets the real `pnpm --filter @kardux/api dev`-style command.
+3. **Phase 3** (`packages/providers`) now includes the `CardPoolEntry` mirror + sync job from
+   ADR 0006, in addition to the provider adapters `TASK-02-providers.md` already describes.
 
 ## Workflow for this project, going forward
 
