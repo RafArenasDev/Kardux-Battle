@@ -72,19 +72,38 @@ logged-out or different-account session.
   (`packages/providers`) design decision, recorded now so it isn't lost before that phase
   starts.
 
+## Session 2026-09-21 (cont'd) — `@kardux/engine` shipped: Phase 1 complete
+
+**Merged to `main`**:
+
+- **Phase 1b done**: `@kardux/engine` — seeded RNG (`cyrb128` + `sfc32`, pure functions over
+  an explicit state tuple), shuffle-then-truncate dealing, the `1A, 1B, ...` first-turn
+  search, round resolution (clear win / tie / chained ties / mid-round elimination), all
+  three `onTurnTimeout` policies plus the card-play auto-play timeout, `matchDurationMs`
+  expiry (winner or draw), and `redactFor`.
+- 68 Vitest cases across 5 files, covering every named scenario from `TASK-01-backend.md`:
+  a chained triple tie that ends with one player holding the whole deck, multi-player
+  elimination in a single round, a non-divisible deck, a match finished by clock with a tied
+  card count, all three turn-timeout policies, and a full match proven byte-for-byte
+  reproducible from a fixed seed run twice. Coverage 95.4% statements / 85.5% branches / 97.5%
+  functions (thresholds: 90/85/90).
+- `MatchState` (in `@kardux/contracts`) gained two fields the engine needs to stay pure that
+  the abbreviated task spec didn't spell out: `turnDeadline` and `roundIndex` (a durable round
+  counter, since `round` itself goes back to `null` between rounds).
+- **`packages/contracts` + `packages/engine` are both fully done and green.** This was the
+  explicit gate before touching `apps/api` (`README-COMO-USAR.md`'s own warning: debugging
+  engine bugs through live sockets is much worse) — that gate has been met.
+
 ## What's next (not started)
 
-1. **Phase 1b** (in progress): real content for `@kardux/engine` — `createMatch`/`reduce`,
-   seeded RNG (`sfc32`) + deterministic shuffle, the full rule set from `CLAUDE.md` (dealing,
-   first-turn search order, attribute comparison, tie pot, elimination, turn/match timeouts,
-   `redactFor`), and the exhaustive Vitest suite the coverage thresholds in
-   `vitest.config.ts` are already wired for.
-2. Only once the engine is green (per `README-COMO-USAR.md`'s own warning — debugging engine
-   bugs through live sockets later is much worse): **Phase 2**, real `apps/api` code —
-   Nest modules, the Socket.IO gateway, Prisma schema + migration, the Redis-backed per-room
-   lock, guest JWT auth, and the first Bruno collection. This is also when the README's
-   "Run it" section gets the real `pnpm --filter @kardux/api dev`-style command.
-3. **Phase 3** (`packages/providers`) now includes the `CardPoolEntry` mirror + sync job from
+1. **Phase 2** (`docs/tasks/TASK-01-backend.md`, part 2): real `apps/api` code — `AuthModule`
+   (guest JWT), `MatchModule` + `MatchRuntimeService` (in-memory match state + Redis-backed
+   per-room lock, injecting `@kardux/engine`'s `reduce()`), `GameGateway` (Socket.IO namespace
+   `/game`, handshake validates JWT + tabId), `DeckModule`/`LeaderboardModule` stubs, Prisma
+   schema + first migration, Swagger/`nestjs-zod` docs wiring, the first Bruno collection, and
+   `docker-compose.yml`. **This is also when the README's "Run it" section gets the real
+   command** to launch the API - promised, not delivered yet.
+2. **Phase 3** (`packages/providers`) includes the `CardPoolEntry` mirror + sync job from
    ADR 0006, in addition to the provider adapters `TASK-02-providers.md` already describes.
 
 ## Workflow for this project, going forward
