@@ -1,0 +1,36 @@
+import { z } from 'zod';
+import { matchConfigPatchSchema, matchConfigSchema } from './match-config.js';
+
+/**
+ * Coarse, DB-level lifecycle (`Match.status` in Prisma) - distinct from the engine's
+ * fine-grained `MatchPhase` (`LOBBY -> COUNTDOWN -> DEALING -> ...` in `match-state.ts`),
+ * which only exists once `MatchRuntimeService` has a live match loaded. A row can sit in
+ * `LOBBY` for a long time before any engine state exists for it at all.
+ */
+export const MATCH_RECORD_STATUSES = ['LOBBY', 'IN_PROGRESS', 'FINISHED'] as const;
+export type MatchRecordStatus = (typeof MATCH_RECORD_STATUSES)[number];
+export const matchRecordStatusSchema = z.enum(MATCH_RECORD_STATUSES);
+
+/** `POST /matches` body: every `MatchConfig` field is optional here and filled with
+ *  `matchConfigSchema`'s defaults server-side (CLAUDE.md: "todo configurable desde el
+ *  lobby", but nothing is required to create the room). */
+export const createMatchRequestSchema = matchConfigPatchSchema;
+export type CreateMatchRequest = z.infer<typeof createMatchRequestSchema>;
+
+/** What `POST /matches`, `GET /matches/:code`, and each item of `GET /matches/public`
+ *  return - a snapshot of the `Match` row, not the live engine state (see `MatchRecordStatus`
+ *  above). `hostNickname`/`hostAvatarUrl` are joined in from `User` so a lobby screen can
+ *  render the host without a second request. */
+export const matchSummarySchema = z.object({
+    matchId: z.string().min(1),
+    code: z.string().length(6),
+    status: matchRecordStatusSchema,
+    config: matchConfigSchema,
+    hostId: z.string().min(1),
+    hostNickname: z.string().min(1),
+    hostAvatarUrl: z.string().url(),
+    createdAt: z.string().datetime(),
+});
+export type MatchSummary = z.infer<typeof matchSummarySchema>;
+
+export const matchSummaryListSchema = z.array(matchSummarySchema);

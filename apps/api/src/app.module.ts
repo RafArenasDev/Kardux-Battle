@@ -5,7 +5,10 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { AppConfigModule } from './config/app-config.module.js';
 import type { AppConfig } from './config/app-config.js';
+import { AuthModule } from './auth/auth.module.js';
 import { HealthModule } from './health/health.module.js';
+import { MatchModule } from './match/match.module.js';
+import { PrismaModule } from './prisma/prisma.module.js';
 
 @Module({
     imports: [
@@ -37,7 +40,10 @@ import { HealthModule } from './health/health.module.js';
                 },
             ],
         }),
+        PrismaModule,
         HealthModule,
+        AuthModule,
+        MatchModule,
     ],
     providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
