@@ -13,8 +13,9 @@ desktop, and mobile.
 ## Status
 
 **Early development.** Phase 0 (monorepo scaffold), `@kardux/contracts`, and `@kardux/engine`
-(68 passing tests, ≥90% coverage) are done and merged - the whole rules engine works and is
-tested in isolation, with nothing running over a network yet. `apps/api` is next. See
+(68 passing tests, ≥90% coverage) are done and merged. `apps/api` boots for real
+(`pnpm --filter @kardux/api dev`) with logging, Swagger, rate limiting, and a health check -
+but nothing game-related yet: no auth, no Postgres/Redis, no gateway. See
 [`docs/PENDING-WORK.md`](docs/PENDING-WORK.md) for the live session-by-session log of what
 shipped and what's next.
 
@@ -87,7 +88,7 @@ that specific player is allowed to see (`@kardux/engine`'s `redactFor`).
 ```
 kardux-battle/
 ├─ apps/
-│  ├─ api/          NestJS: REST + Socket.IO gateway              (not started)
+│  ├─ api/          NestJS: REST + Socket.IO gateway              (bootstrap only)
 │  ├─ web/          React + Vite, PWA                              (not started)
 │  ├─ desktop/      Tauri 2, wraps the web build                   (not started)
 │  └─ mobile/       Expo / React Native                            (not started)
@@ -197,16 +198,30 @@ psql -U postgres -h localhost -c "CREATE DATABASE kardux_dev;"
 
 ### Run it
 
-`apps/api` doesn't have a runnable server yet (Phase 2, not started — `@kardux/engine` has to
-be complete and tested first, per this project's own working rule). Once it does, this section
-gets the exact command to run it, here, not somewhere else.
-
-For what already exists:
-
 ```bash
 pnpm install                              # once, from the repo root
+pnpm --filter @kardux/api dev             # starts the API on http://localhost:3000
+```
+
+That's the real command — the API boots, validates `.env` at startup (fails fast with a clear
+message if something's missing), and serves:
+
+- `GET /health` — liveness check.
+- `GET /api/docs` — Swagger UI, generated from the same Zod schemas used for validation
+  (ADR 0005), so it's never out of sync with what the API actually accepts.
+- `GET /api/docs-json` — the raw OpenAPI document, importable by any HTTP client.
+
+`apps/api/bruno/` has a matching [Bruno](https://www.usebruno.com/) collection (open the
+folder in Bruno, pick the `local` environment) if you'd rather click through requests than
+use Swagger's "Try it out."
+
+Nothing here touches Postgres or Redis yet — `AuthModule`/`MatchModule`/`GameGateway` (the
+pieces that actually need them) are the next phase. Until then:
+
+```bash
 pnpm --filter @kardux/contracts test      # 20 passing
-pnpm --filter @kardux/engine test         # once Phase 1 lands
+pnpm --filter @kardux/engine test         # 68 passing
+pnpm --filter @kardux/api test            # 1 passing (health check)
 pnpm -r list --depth -1                   # sanity-check the workspace sees every package
 ```
 
@@ -216,8 +231,11 @@ pnpm -r list --depth -1                   # sanity-check the workspace sees ever
   85% branches (`packages/engine/vitest.config.ts`) — covering chained ties, mid-round
   elimination, all three turn-timeout policies, a non-divisible deck, a match ending by clock
   with a tied card count, and a full reproducible match given a fixed seed.
-- `apps/api` (once it exists): Supertest for REST, `socket.io-client` for gateway integration
-  (including a client that tries to act out of turn and gets `ERR_NOT_YOUR_TURN`).
+- `apps/api`: Supertest for REST (one passing test so far, the health check); once the gateway
+  exists, `socket.io-client` for integration tests (including a client that tries to act out
+  of turn and gets `ERR_NOT_YOUR_TURN`). Nest's DI needs a real `emitDecoratorMetadata`-aware
+  transform for services with constructor-injected dependencies - not needed yet (nothing has
+  one), noted in `apps/api/vitest.config.ts` for when it is.
 - `apps/web` (once it exists): Vitest + Testing Library for components, Playwright with real
   multi-browser-context sessions for a full 7-player match end to end.
 - Every package runs its own `pnpm --filter <name> test`; `pnpm test` at the root runs all of
