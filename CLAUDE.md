@@ -139,6 +139,30 @@ Providers a implementar (todas gratuitas y sin API key salvo aviso):
 - Añadir un provider `local` con un mazo semilla embebido para desarrollo y tests offline.
 - Adjuntar la atribución de cada API en un `CREDITS.md` y en el footer de la app.
 
+### Espejo local persistente (`CardPoolEntry`) — decisión 2026-09-21
+
+Pedido explícito: no depender de que las APIs externas estén arriba en el momento de crear
+CADA partida, y garantizar que siempre tengamos el dataset COMPLETO de cada fuente disponible,
+aunque la API original desaparezca. El caché Redis de 24h de arriba resuelve caídas cortas;
+esto resuelve la caída permanente de una fuente.
+
+- Tabla nueva `CardPoolEntry` (Postgres, vía Prisma): `source`, `externalId`, `quartetKey`,
+  `name`, `imageUrl`, `stats` (JSONB), `syncedAt`. Único por `(source, externalId)`, índice
+  por `(source, quartetKey)`.
+- **Job de sincronización por provider** (`@nestjs/schedule`, cron semanal + endpoint admin
+  para forzar un refresh manual): pagina el dataset COMPLETO de la API de origen (todos los
+  Pokémon, todos los personajes de Dragon Ball, etc.), normaliza cada entidad igual que
+  `DeckProvider.build()` ya hace, y hace upsert en `CardPoolEntry`.
+- **`DeckBuilder.build()` deja de llamar a la API en vivo en el camino normal**: arma el mazo
+  muestreando (con el RNG sembrado, para que siga siendo determinista/reproducible)
+  `CardPoolEntry` de nuestra propia BD, agrupando por `quartetKey`. Sólo llama a la API en
+  vivo cuando el pool local de esa fuente está vacío (primer arranque) o cuando el job de
+  sync corre — nunca en el camino crítico de "crear partida".
+- Consecuencia: si `dattebayo-api.onrender.com` desaparece mañana, seguimos pudiendo armar
+  mazos de Naruto indefinidamente con lo que ya sincronizamos — sólo dejamos de recibir
+  personajes NUEVOS de esa fuente, nunca perdemos la capacidad de jugar con ella.
+- Ver ADR 0006 para el detalle completo y las alternativas consideradas.
+
 ## ARQUITECTURA
 
 Monorepo pnpm + Turborepo:
