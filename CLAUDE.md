@@ -318,6 +318,15 @@ Debe incluir, con diagramas **Mermaid**:
 11. Scripts, testing, cómo probar multi-pestaña, despliegue, roadmap, créditos de las APIs, licencia MIT.
 12. Versión en español e inglés (`README.md` / `README.es.md`).
 
+### Idioma de la documentación Swagger — decisión 2026-09-21
+
+Revertido: el pedido original de descripciones bilingües (ES/EN) en cada endpoint se sentía
+"apeñuscado" en Swagger UI (dos idiomas mezclados en el mismo bloque de texto). A partir de
+ahora toda la documentación de OpenAPI/Swagger (`@ApiOperation`, `@ApiBody`, `@ApiResponse`,
+tags) se escribe **solo en inglés** — estándar profesional para documentación de API — igual
+que el resto del código. El español queda para la eventual UI del frontend (y ahí también se
+traduce a inglés más adelante, per la sección MULTIPLATAFORMA).
+
 ## CALIDAD
 
 - TypeScript `strict`, ESLint + Prettier, Husky + lint-staged, Commitlint (Conventional Commits).
