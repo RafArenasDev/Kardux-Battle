@@ -12,8 +12,9 @@ desktop, and mobile.
 
 ## Status
 
-**Early development.** Phase 0 (monorepo scaffold) and the `@kardux/contracts` package are
-done and merged. `@kardux/engine` (the rules engine) is in progress. See
+**Early development.** Phase 0 (monorepo scaffold), `@kardux/contracts`, and `@kardux/engine`
+(68 passing tests, ≥90% coverage) are done and merged - the whole rules engine works and is
+tested in isolation, with nothing running over a network yet. `apps/api` is next. See
 [`docs/PENDING-WORK.md`](docs/PENDING-WORK.md) for the live session-by-session log of what
 shipped and what's next.
 
@@ -86,13 +87,13 @@ that specific player is allowed to see (`@kardux/engine`'s `redactFor`).
 ```
 kardux-battle/
 ├─ apps/
-│  ├─ api/          NestJS: REST + Socket.IO gateway              (in progress)
+│  ├─ api/          NestJS: REST + Socket.IO gateway              (not started)
 │  ├─ web/          React + Vite, PWA                              (not started)
 │  ├─ desktop/      Tauri 2, wraps the web build                   (not started)
 │  └─ mobile/       Expo / React Native                            (not started)
 ├─ packages/
 │  ├─ contracts/    types + Zod schemas + socket event contract    (done)
-│  ├─ engine/       pure, deterministic rules engine                (in progress)
+│  ├─ engine/       pure, deterministic rules engine                (done)
 │  ├─ providers/    deck adapters for each card API                 (not started)
 │  └─ ui/           shared design tokens/components                 (not started)
 ├─ docker/          compose: postgres, redis, api, web              (not started)
