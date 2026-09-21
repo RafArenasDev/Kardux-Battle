@@ -1,0 +1,155 @@
+// CLAUDE.md's "BASE DE DATOS" section, as a real Prisma schema.
+//
+// Provider is fixed to postgresql, not switched via DATABASE_PROVIDER: Prisma has to know
+// the connector at `generate` time to produce the right client code, so a schema can't
+// conditionally pick postgresql-vs-sqlite from an env var at runtime - only the connection
+// URL can come from env. Supporting sqlite for dev would mean maintaining a second schema
+// file and swapping which one `generate`/`migrate` reads; not worth it while this project's
+// dev machine already has real Postgres (ADR 0004). `DATABASE_PROVIDER` in `.env` stays
+// documentation of intent for now, not something this file reads.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// A guest identity (CLAUDE.md: "Auth: JWT de invitado (nickname + tabId)"). Created on
+/// first `POST /auth/guest`, not tied to a password - there's nothing to sign up for.
+model User {
+  id         String   @id @default(cuid())
+  nickname   String
+  avatarSeed String
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  hostedMatches   Match[]         @relation("MatchHost")
+  matchPlayers    MatchPlayer[]
+  leaderboardStat LeaderboardStat?
+
+  @@index([nickname])
+}
+
+enum MatchStatus {
+  LOBBY
+  IN_PROGRESS
+  FINISHED
+}
+
+/// One playthrough. `config`/`winnerId` mirror `@kardux/contracts`'s `MatchConfig`/
+/// `MatchState.winnerId` - this row is the durable record of a match that otherwise lives
+/// as in-memory `MatchState` while it's actually being played (`MatchRuntimeService`, Phase
+/// 2b) plus a `DeckSnapshot`/`MatchEvent` trail for replay.
+model Match {
+  id        String      @id @default(cuid())
+  /// 6-character hex room code. Not globally unique in the schema on purpose: CLAUDE.md
+  /// calls for uniqueness only "sobre partidas activas" (a finished match's code can be
+  /// reused later) - Prisma's declarative schema can't express a partial/filtered unique
+  /// index, so that rule is enforced in `MatchModule` (Phase 2b: reject creating a match
+  /// whose code collides with another LOBBY/IN_PROGRESS match) rather than at the DB level.
+  code      String
+  config    Json
+  status    MatchStatus @default(LOBBY)
+  seed      String
+  hostId    String
+  host      User        @relation("MatchHost", fields: [hostId], references: [id])
+  startedAt DateTime?
+  endedAt   DateTime?
+  winnerId  String?
+  isDraw    Boolean     @default(false)
+  /// Set once the post-match Elo update has run - TASK-04-leaderboard.md's idempotency
+  /// requirement ("si el job se reintenta, no debe recalcular dos veces").
+  ratedAt   DateTime?
+  createdAt DateTime    @default(now())
+
+  players      MatchPlayer[]
+  rounds       Round[]
+  deckSnapshot DeckSnapshot?
+  events       MatchEvent[]
+
+  @@index([code])
+  @@index([status])
+}
+
+/// A user's participation in one match - the durable counterpart of `@kardux/contracts`'s
+/// `Player`, minus everything that only matters while the match is live (cards, connection
+/// state).
+model MatchPlayer {
+  id            String    @id @default(cuid())
+  matchId       String
+  match         Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  seat          Int
+  joinOrder     Int
+  finalCards    Int?
+  placement     Int?
+  eliminatedAt  DateTime?
+
+  @@unique([matchId, userId])
+  @@index([matchId])
+}
+
+/// One resolved round. `leaderId`/`winnerId` reference `User.id` (the durable identity),
+/// not the engine's opaque per-session player id - a round's leader/winner still make sense
+/// to query long after the socket session that produced them is gone.
+model Round {
+  id          String   @id @default(cuid())
+  matchId     String
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  index       Int
+  attribute   String
+  leaderId    String
+  winnerId    String?
+  isTie       Boolean  @default(false)
+  potSize     Int
+  playedCards Json
+  createdAt   DateTime @default(now())
+
+  @@unique([matchId, index])
+}
+
+/// The built deck for a match, persisted once at creation so the match stays playable and
+/// reproducible even if the source API (or, once ADR 0006 lands, the CardPoolEntry mirror)
+/// changes underneath it mid-match.
+model DeckSnapshot {
+  id      String @id @default(cuid())
+  matchId String @unique
+  match   Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  cards   Json
+}
+
+/// Global stats, one row per user - `TASK-04-leaderboard.md`'s Elo (K=32, base 1200) and
+/// aggregate counters.
+model LeaderboardStat {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id])
+  elo               Int      @default(1200)
+  gamesPlayed       Int      @default(0)
+  wins              Int      @default(0)
+  losses            Int      @default(0)
+  draws             Int      @default(0)
+  streak            Int      @default(0)
+  roundsWon         Int      @default(0)
+  cardsWonTotal     Int      @default(0)
+  favoriteAttribute String?
+  updatedAt         DateTime @updatedAt
+
+  @@index([elo(sort: Desc)])
+}
+
+/// Append-only log of everything that happened in a match, for replays/debugging - never
+/// updated or deleted once written.
+model MatchEvent {
+  id        String   @id @default(cuid())
+  matchId   String
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  type      String
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([matchId, createdAt])
+}
