@@ -131,14 +131,41 @@ needs `emitDecoratorMetadata`-aware test transform (`unplugin-swc`, not Vitest's
 esbuild) the moment a test needs to resolve a constructor-injected dependency - not needed for
 the health check (no constructor args), but `AuthModule`/`MatchModule`'s services will need it.
 
+## Session 2026-09-21 (cont'd) — Phase 2a.2: Prisma schema, migration, dev seed
+
+Another deliberately small, complete slice under the same time pressure. **Merged to `main`**:
+
+- `apps/api/prisma/schema.prisma`: all 7 models from CLAUDE.md's "BASE DE DATOS" section
+  (`User`, `Match`, `MatchPlayer`, `Round`, `DeckSnapshot`, `LeaderboardStat`, `MatchEvent`).
+  `Match.code` is deliberately not schema-unique - CLAUDE.md only requires uniqueness among
+  _active_ matches, which Prisma's declarative schema can't express as a partial index; that
+  rule is `MatchModule`'s job (Phase 2b), not the DB's.
+- **Real breaking change hit and worked around**: `prisma`/`@prisma/client` were on `7.10.0`
+  (Phase 0's pin). Prisma 7 removed the datasource `url` field from `schema.prisma` entirely -
+  connections now need a separate `prisma.config.ts` plus a runtime driver adapter. Adopting
+  that properly was out of scope for the time available, so both packages were downgraded to
+  `6.19.3` (the last 6.x, still using the classic `url = env("DATABASE_URL")` pattern). Revisit
+  the Prisma 7 config model later, deliberately, not by accident.
+- Migration `20260921174701_init` applied and verified for real against the local Postgres:
+  `psql \dt` confirmed all 7 tables exist.
+- `prisma/seed.ts` (4 guest users + a starting `LeaderboardStat` row each) run for real - rows
+  confirmed with a direct `SELECT`, not just "the script exited 0."
+- `apps/api/bruno/README.md`: a walkthrough for actually opening the Bruno collection, picking
+  the `local` environment, and sending the health check request - written because the
+  collection by itself wasn't self-explanatory enough to use unassisted (confirmed live: the
+  user had Bruno open but couldn't figure out collection/environment setup, and separately
+  hit Swagger while the API happened to be stopped).
+
 ## What's next (not started)
 
 1. **Phase 2b** (`docs/tasks/TASK-01-backend.md`, part 2, the rest of it): `AuthModule`,
-   `MatchModule` + `MatchRuntimeService`, `GameGateway`, Prisma schema + first migration,
-   `DeckModule`/`LeaderboardModule` stubs, `docker-compose.yml`, and `unplugin-swc` for Vitest
-   once a real constructor-injected service needs testing.
+   `MatchModule` + `MatchRuntimeService` (now with a real Prisma schema + `PrismaService` to
+   wire in), `GameGateway`, `DeckModule`/`LeaderboardModule` stubs, `docker-compose.yml`, and
+   `unplugin-swc` for Vitest once a real constructor-injected service needs testing.
 2. **Phase 3** (`packages/providers`) includes the `CardPoolEntry` mirror + sync job from
    ADR 0006, in addition to the provider adapters `TASK-02-providers.md` already describes.
+3. Revisit Prisma 7's `prisma.config.ts` + driver-adapter model deliberately, once there's
+   time to do it properly instead of downgrading again.
 
 ## Workflow for this project, going forward
 
