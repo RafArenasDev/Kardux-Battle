@@ -94,15 +94,49 @@ logged-out or different-account session.
   explicit gate before touching `apps/api` (`README-COMO-USAR.md`'s own warning: debugging
   engine bugs through live sockets is much worse) — that gate has been met.
 
+## Session 2026-09-21 (cont'd) — Phase 2a: `apps/api` actually boots
+
+Split off Phase 2 on purpose, to land a complete, working slice before the session's usage
+window reset rather than leaving Phase 2 half-built mid-way (CLAUDE.md: "código completo o
+nada"). **Merged to `main`**:
+
+- `apps/api` is a real, runnable NestJS app: `pnpm --filter @kardux/api dev` boots it on
+  `http://localhost:3000` with structured Pino logging, Helmet, CORS (origins from
+  `CORS_ORIGINS`), global rate limiting (`@nestjs/throttler`, limits from `.env`), and
+  `GET /health`.
+- `.env` is validated in full at boot via Zod (`src/config/app-config.ts`) - every field in
+  `.env.example`, even `DB_*`/`REDIS_URL` which nothing consumes yet, so a misconfigured
+  `.env` fails immediately with one clear error instead of a confusing crash three requests
+  in once Prisma/Redis land.
+- Swagger UI at `/api/docs` (and raw JSON at `/api/docs-json`), wired through `nestjs-zod`'s
+  `cleanupOpenApiDoc` (not the `patchNestJsSwagger` ADR 0005 originally named - that function
+  doesn't exist in the installed `nestjs-zod@5.5.0`; `cleanupOpenApiDoc` is that version's
+  actual mechanism for the same job, applied to the built document instead of monkey-patching
+  `@nestjs/swagger` ahead of time).
+- First Bruno collection (`apps/api/bruno/`) with a `local` environment and the health check
+  request.
+- Verified for real, not just "tests pass": ran `pnpm --filter @kardux/api dev`, confirmed the
+  Pino startup log, `curl`'d `/health` and `/api/docs-json`, both responded correctly, then
+  stopped the process before committing.
+- README's "Run it" section now has the actual command, replacing the placeholder.
+
+**Deliberately not in this slice** (real DI/config-dependent work, saved for Phase 2b so
+Phase 2a could land clean and complete): `AuthModule` (guest JWT), `MatchModule` +
+`MatchRuntimeService` (in-memory match state + Redis-backed per-room lock, injecting
+`@kardux/engine`'s `reduce()`), `GameGateway` (Socket.IO namespace `/game`), Prisma schema +
+first migration, `DeckModule`/`LeaderboardModule`. None of these exist yet.
+
+One thing to pick up when Phase 2b starts: `apps/api/vitest.config.ts` notes that Nest's DI
+needs `emitDecoratorMetadata`-aware test transform (`unplugin-swc`, not Vitest's default
+esbuild) the moment a test needs to resolve a constructor-injected dependency - not needed for
+the health check (no constructor args), but `AuthModule`/`MatchModule`'s services will need it.
+
 ## What's next (not started)
 
-1. **Phase 2** (`docs/tasks/TASK-01-backend.md`, part 2): real `apps/api` code — `AuthModule`
-   (guest JWT), `MatchModule` + `MatchRuntimeService` (in-memory match state + Redis-backed
-   per-room lock, injecting `@kardux/engine`'s `reduce()`), `GameGateway` (Socket.IO namespace
-   `/game`, handshake validates JWT + tabId), `DeckModule`/`LeaderboardModule` stubs, Prisma
-   schema + first migration, Swagger/`nestjs-zod` docs wiring, the first Bruno collection, and
-   `docker-compose.yml`. **This is also when the README's "Run it" section gets the real
-   command** to launch the API - promised, not delivered yet.
+1. **Phase 2b** (`docs/tasks/TASK-01-backend.md`, part 2, the rest of it): `AuthModule`,
+   `MatchModule` + `MatchRuntimeService`, `GameGateway`, Prisma schema + first migration,
+   `DeckModule`/`LeaderboardModule` stubs, `docker-compose.yml`, and `unplugin-swc` for Vitest
+   once a real constructor-injected service needs testing.
 2. **Phase 3** (`packages/providers`) includes the `CardPoolEntry` mirror + sync job from
    ADR 0006, in addition to the provider adapters `TASK-02-providers.md` already describes.
 

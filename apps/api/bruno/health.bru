@@ -1,0 +1,16 @@
+meta {
+  name: Health check
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: none
+}
+
+docs {
+  Liveness check - confirms the API process is running. No auth, no dependencies on
+  Postgres/Redis yet (those land with the Match/Auth modules in the next phase).
+}
