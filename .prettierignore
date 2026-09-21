@@ -1,0 +1,7 @@
+dist
+build
+.turbo
+coverage
+pnpm-lock.yaml
+apps/desktop/src-tauri/target
+apps/mobile/.expo
