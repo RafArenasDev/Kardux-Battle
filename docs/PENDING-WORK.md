@@ -192,21 +192,58 @@ infrastructure state, tracked here since there's nothing to commit):
   local reference only - Render's own dashboard is the actual source of truth for its env
   vars, this file just avoids having to re-derive them by hand later).
 
+## 2026-09-21 - Phase 2b, part 1: guest auth + REST endpoints (merged, PR #10)
+
+Shipped, all on real local Postgres, `pnpm --filter @kardux/api typecheck|lint|test|build`
+green:
+
+- `AuthModule`: `POST /auth/guest` mints a guest JWT (no accounts/passwords), user's
+  `avatarUrl` derived from `avatarSeed` via DiceBear (MIT, free, no API key) - not persisted,
+  computed on every response so swapping the provider later needs no migration.
+- `JwtAuthGuard` + `@CurrentUser()` decorator (hand-rolled `JwtService.verifyAsync`, no
+  `passport`/`passport-jwt` dependency) for REST endpoints that need the caller's identity.
+- `MatchModule`: `POST /matches` (host-only, JWT-guarded) reserves a `LOBBY` room and
+  generates its 6-char code; `GET /matches/public`, `GET /matches/:code` look one up. This is
+  the room-reservation layer only - live engine state (piles, turn order, RNG) still doesn't
+  exist until `MatchRuntimeService`/`GameGateway` boot a match for real play (still pending,
+  see below).
+- `DeckModule`: `GET /decks/sources` - static catalog of the 10 providers CLAUDE.md
+  documents. Only `local` is `ready: true` today; the rest are metadata until
+  `packages/providers` (Phase 3) exists.
+- `LeaderboardModule`: `GET /leaderboard` - global Elo ranking, real keyset pagination
+  (`elo desc, id desc`, opaque base64url cursor). Per-source/period/friends filters from
+  CLAUDE.md are NOT implemented - they'd need new columns/tables that aren't approved yet.
+- Global `KarduxError` + exception filter mapping `@kardux/contracts`'s typed error codes to
+  HTTP responses.
+- **Fixed a real regression**: an earlier `eslint --fix` run rewrote DI-critical imports
+  (`JwtService`, `PrismaService`, cross-module service imports) to `import type`, which
+  erases the `design:paramtypes` metadata NestJS needs to resolve constructor-injected
+  dependencies - the app crashed at boot with `UnknownDependenciesException`. Fixed by
+  reverting to value imports with an inline `eslint-disable` + comment on each one (the
+  linter can't distinguish a real DI dependency from a type-only parameter annotation, so
+  this will keep coming up in every new injectable - the comment explains why so nobody
+  "fixes" it again).
+- **Decision (see CLAUDE.md)**: Swagger docs switched from the originally-planned bilingual
+  ES/EN text to English-only - it read as cramped in Swagger UI with both languages
+  concatenated in one description block.
+
 ## What's next (not started)
 
-1. **Phase 2b, now the priority** (explicit instruction: keep building the real backend
-   locally while the deployed environment sits as-is; polish "online" later): `AuthModule`
-   (guest JWT), `MatchModule` + `MatchRuntimeService` (in-memory match state + Redis-backed
-   per-room lock, wired to a real `PrismaService`, injecting `@kardux/engine`'s `reduce()`),
-   `GameGateway` (Socket.IO namespace `/game`), `DeckModule`/`LeaderboardModule` stubs, and
-   `unplugin-swc` for Vitest once a real constructor-injected service needs testing. Local
-   dev keeps using local Postgres/Redis, exactly as now - the cloud services are for the
-   deployed environment only, never local iteration.
-2. Once Phase 2b is real: the GitHub Actions keep-alive workflow for Aiven, and
+1. **Phase 2b, part 2 - the actual game loop**: `MatchRuntimeService` (in-memory match state
+    - Redis-backed per-room lock, wired to `@kardux/engine`'s `reduce()`) and `GameGateway`
+      (Socket.IO namespace `/game` - handshake, `playerKey = userId:tabId`, rooms per
+      `matchId`, redacted broadcasts, reconnection grace). This is the biggest remaining piece
+      and the one that makes a match actually playable end to end - REST only reserves rooms
+      today, nothing deals cards or resolves a round yet.
+2. Manual API testing docs: a curl-based walkthrough + Bruno environment/header setup guide
+   in the README (deferred this session for time; the endpoints themselves are done and
+   documented in Swagger at `/api/docs`).
+3. Once the gateway is real: the GitHub Actions keep-alive workflow for Aiven, and
    `docker-compose.yml` for anyone without native Postgres/Redis.
-3. **Phase 3** (`packages/providers`) includes the `CardPoolEntry` mirror + sync job from
-   ADR 0006, in addition to the provider adapters `TASK-02-providers.md` already describes.
-4. Revisit Prisma 7's `prisma.config.ts` + driver-adapter model deliberately, once there's
+4. **Phase 3** (`packages/providers`) includes the `CardPoolEntry` mirror + sync job from
+   ADR 0006, in addition to the provider adapters `TASK-02-providers.md` already describes -
+   this is what would flip the other 9 deck sources from `ready: false` to `true`.
+5. Revisit Prisma 7's `prisma.config.ts` + driver-adapter model deliberately, once there's
    time to do it properly instead of downgrading again.
 
 ## Workflow for this project, going forward
