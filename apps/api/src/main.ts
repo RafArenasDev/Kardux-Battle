@@ -49,6 +49,8 @@ async function bootstrap(): Promise<void> {
                     'matches',
                     'Create/find match rooms (lobby only - live play is Socket.IO, not REST).',
                 )
+                .addTag('decks', 'Card deck sources catalog.')
+                .addTag('leaderboard', 'Global, persisted player rankings.')
                 .addBearerAuth()
                 .build(),
         ),
