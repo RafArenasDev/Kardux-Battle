@@ -10,6 +10,9 @@ import { z } from 'zod';
  * `ready: false`.
  */
 export const DECK_SOURCE_IDS = [
+    'mythic',
+    'fauna',
+    'naipes',
     'local',
     'pokeapi',
     'deckofcards',

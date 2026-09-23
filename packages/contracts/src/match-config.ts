@@ -22,11 +22,11 @@ export const matchConfigShape = {
     packs: z.number().int().min(1).default(4),
     cardsPerPack: z.number().int().min(1).max(26).default(8),
     attributeCount: z.number().int().min(3).max(6).default(4),
-    deckSources: z.array(deckSourceIdSchema).min(1).default(['local']),
+    deckSources: z.array(deckSourceIdSchema).min(1).default(['mythic']),
     mixSources: z.boolean().default(false),
     allowSpectators: z.boolean().default(true),
     fillWithBots: z.boolean().default(false),
-    visibility: z.enum(['public', 'private']).default('public'),
+    visibility: z.enum(['public', 'private']).default('private'),
     seed: z.string().min(1).optional(),
 };
 

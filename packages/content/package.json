@@ -1,0 +1,29 @@
+{
+    "name": "@kardux/content",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "description": "Original, copyright-free game content: decks, avatars and vector card art.",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+        "lint": "eslint .",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "icons": "node scripts/generate-icons.mjs"
+    },
+    "dependencies": {
+        "@kardux/contracts": "workspace:*"
+    },
+    "devDependencies": {
+        "@iconify-json/game-icons": "^1.2.2",
+        "typescript": "^5.6.3"
+    }
+}

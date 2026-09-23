@@ -29,6 +29,8 @@ export const matchSummarySchema = z.object({
     hostId: z.string().min(1),
     hostNickname: z.string().min(1),
     hostAvatarUrl: z.string().url(),
+    /** Approved players currently seated (the host included once they joined). */
+    playerCount: z.number().int().min(0),
     createdAt: z.string().datetime(),
 });
 export type MatchSummary = z.infer<typeof matchSummarySchema>;

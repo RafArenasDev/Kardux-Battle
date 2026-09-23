@@ -98,6 +98,13 @@ export const registerRequestSchema = z.object({
         .describe(
             'EN: A UUID generated client-side once per browser tab (crypto.randomUUID()) - the fresh token this issues is bound to it, same as `guest`/`login`. ES: Un UUID generado en el navegador una vez por pestaña (crypto.randomUUID()) - el token nuevo que esto emite queda ligado a él, igual que `guest`/`login`.',
         ),
+    avatarSeed: z
+        .string()
+        .regex(/^[a-z-]+:[a-z]+$/, 'Avatar must be an "icon:color" pair from the catalog.')
+        .optional()
+        .describe(
+            'EN: The avatar the player picked, as "icon:color" from the avatar catalog (GET the catalog from @kardux/content). A random one is assigned when omitted.',
+        ),
 });
 
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;

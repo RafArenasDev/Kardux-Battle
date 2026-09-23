@@ -34,6 +34,14 @@ export const deckSourceDescriptorSchema = z.object({
     cardCount: z.number().int().nonnegative(),
     /** Up to 4 real sample cards pulled from the synced data. Empty when `ready` is `false`. */
     preview: z.array(deckPreviewCardSchema).max(4),
+    /** Short one-line pitch shown under the deck name in the lobby. */
+    tagline: z.string(),
+    description: z.string(),
+    /** Accent color for the deck tile (CSS color). */
+    accent: z.string(),
+    /** Upper bounds the lobby form must respect for this deck. */
+    maxPacks: z.number().int().positive(),
+    maxCardsPerPack: z.number().int().positive(),
 });
 
 export type DeckSourceDescriptor = z.infer<typeof deckSourceDescriptorSchema>;

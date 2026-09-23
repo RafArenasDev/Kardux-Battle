@@ -16,11 +16,11 @@ describe('matchConfigSchema', () => {
             packs: 4,
             cardsPerPack: 8,
             attributeCount: 4,
-            deckSources: ['local'],
+            deckSources: ['mythic'],
             mixSources: false,
             allowSpectators: true,
             fillWithBots: false,
-            visibility: 'public',
+            visibility: 'private',
         });
     });
 

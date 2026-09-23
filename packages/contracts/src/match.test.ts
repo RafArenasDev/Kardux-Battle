@@ -24,7 +24,8 @@ const validSummary = {
     },
     hostId: 'user_1',
     hostNickname: 'Ash',
-    hostAvatarUrl: 'https://api.dicebear.com/9.x/adventurer/svg?seed=ash-1',
+    hostAvatarUrl: 'data:image/svg+xml;utf8,%3Csvg%3E%3C%2Fsvg%3E',
+    playerCount: 1,
     createdAt: '2026-09-21T00:00:00.000Z',
 };
 
