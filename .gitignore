@@ -42,3 +42,6 @@ apps/mobile/android/
 # Redis / Postgres local data (if ever dumped into the repo folder)
 *.rdb
 *.dump
+
+# Local Claude Code tooling (agent worktrees, settings)
+.claude/
