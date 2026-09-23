@@ -13,10 +13,12 @@ import { errorMessage, isErrorPayload } from '../../lib/errors';
 import { formatDuration } from '../../lib/format';
 import { getUser, isAuthenticated, setPostAuthRedirect } from '../../lib/session';
 import { whenConnected } from '../../lib/socket';
+import { useI18n } from '../../lib/i18n';
 
 const CODE_PATTERN = /^[0-9A-F]{6}$/;
 
 export default function JoinPage(): JSX.Element {
+    const { l } = useI18n();
     const params = useParams();
     const code = (params.code ?? '').toUpperCase();
     useDocumentTitle(`Sala ${code}`);
@@ -93,7 +95,7 @@ export default function JoinPage(): JSX.Element {
                             <div className="config-summary" style={{ justifyContent: 'center' }}>
                                 {deck ? (
                                     <span className="badge">
-                                        <Icon name={deck.coverIcon} /> {deck.label}
+                                        <Icon name={deck.coverIcon} /> {l(deck.label)}
                                     </span>
                                 ) : null}
                                 <span className="badge badge--muted">

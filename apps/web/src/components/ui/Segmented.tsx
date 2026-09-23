@@ -111,7 +111,7 @@ export function ChoiceChips<T extends string | number>({
                         aria-checked={selected}
                         className={`chip ${selected ? 'is-selected' : ''}`}
                         onClick={() => onChange(option.value)}
-                        title={option.label}
+                        data-tip={option.label}
                     >
                         {option.icon ? <Icon name={option.icon} /> : null}
                         {option.icon ? (

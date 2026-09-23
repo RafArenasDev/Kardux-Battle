@@ -518,3 +518,97 @@ svg,
 video {
     max-width: 100%;
 }
+
+/* ---------- Language switch ---------- */
+.lang-switch {
+    display: inline-flex;
+    padding: 3px;
+    gap: 2px;
+    border-radius: var(--r-pill);
+    background: rgba(8, 7, 12, 0.7);
+    border: 1px solid var(--hairline);
+}
+
+.lang-switch__option {
+    min-width: 38px;
+    padding: 5px 10px;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--text-2);
+    font: 800 0.78rem/1 var(--font-body);
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition:
+        background var(--dur) var(--ease-out),
+        color var(--dur) var(--ease-out);
+}
+
+.lang-switch__option.is-active {
+    color: var(--text-on-gold);
+    background: linear-gradient(180deg, #ffe3a0, #c9953a);
+}
+
+/* ---------- Checkbox ---------- */
+.check {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: start;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.check input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.check__box {
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    border-radius: 50%;
+    border: 1.5px solid var(--hairline-strong);
+    background: rgba(8, 7, 12, 0.7);
+    display: grid;
+    place-items: center;
+    transition:
+        background var(--dur) var(--ease-out),
+        border-color var(--dur) var(--ease-out);
+}
+
+.check__box::after {
+    content: '';
+    width: 6px;
+    height: 11px;
+    margin-top: -2px;
+    border: solid var(--text-on-gold);
+    border-width: 0 2.5px 2.5px 0;
+    rotate: 45deg;
+    scale: 0;
+    transition: scale var(--dur-fast) var(--ease-out);
+}
+
+.check input:checked + .check__box {
+    background: linear-gradient(180deg, #ffe3a0, #c9953a);
+    border-color: var(--gold-200);
+}
+
+.check input:checked + .check__box::after {
+    scale: 1;
+}
+
+.check input:focus-visible + .check__box {
+    box-shadow: var(--glow-gold);
+}
+
+.check__text {
+    display: grid;
+    gap: 2px;
+    line-height: 1.35;
+}
+
+.check__text .text-3 {
+    font-size: 0.8rem;
+}

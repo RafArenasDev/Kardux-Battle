@@ -6,6 +6,8 @@ import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { BrandLockup } from '../brand/Brand';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
+import { LanguageSwitch } from '../ui/LanguageSwitch';
+import { useI18n } from '../../lib/i18n';
 import { AppFooter } from './AppFooter';
 
 interface AppShellProps {
@@ -20,6 +22,7 @@ export function AppShell({ children, immersive = false, headerExtra }: AppShellP
     const breakpoint = useBreakpoint();
     const user = getUser();
     const guest = isGuest();
+    const { t } = useI18n();
 
     function logout(): void {
         disconnectGameSocket();
@@ -33,6 +36,7 @@ export function AppShell({ children, immersive = false, headerExtra }: AppShellP
                 <div className="app-header__inner">
                     <BrandLockup to="/home" />
                     {headerExtra ? <div className="app-header__extra">{headerExtra}</div> : null}
+                    <LanguageSwitch className="app-header__lang" />
                     {user ? (
                         <div className="app-header__user">
                             <Avatar
@@ -42,7 +46,9 @@ export function AppShell({ children, immersive = false, headerExtra }: AppShellP
                             {breakpoint !== 'mobile' ? (
                                 <div className="app-header__who">
                                     <strong>{user.nickname}</strong>
-                                    <span className="text-3">{guest ? 'Invitado' : 'Jugador'}</span>
+                                    <span className="text-3">
+                                        {guest ? t('Invitado', 'Guest') : t('Jugador', 'Player')}
+                                    </span>
                                 </div>
                             ) : null}
                             <Button
@@ -50,8 +56,9 @@ export function AppShell({ children, immersive = false, headerExtra }: AppShellP
                                 size="sm"
                                 icon="exit-door"
                                 onClick={logout}
-                                aria-label="Cerrar sesión"
-                                title="Cerrar sesión"
+                                aria-label={t('Cerrar sesión', 'Sign out')}
+                                data-tip={t('Cerrar sesión', 'Sign out')}
+                                data-tip-pos="bottom"
                             />
                         </div>
                     ) : null}

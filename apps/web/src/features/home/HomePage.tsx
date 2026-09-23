@@ -15,6 +15,7 @@ import { errorMessage, isErrorPayload } from '../../lib/errors';
 import { clearSession, getUser, isGuest } from '../../lib/session';
 import { extractRoomCode, readClipboardCode } from '../../lib/share';
 import { disconnectGameSocket, whenConnected } from '../../lib/socket';
+import { useI18n } from '../../lib/i18n';
 
 const CODE_PATTERN = /^[0-9A-F]{6}$/;
 
@@ -30,6 +31,7 @@ const cardMotion = {
 };
 
 export default function HomePage(): JSX.Element {
+    const { l } = useI18n();
     useDocumentTitle('');
     const navigate = useNavigate();
     const location = useLocation();
@@ -138,7 +140,7 @@ export default function HomePage(): JSX.Element {
                                     ? 'Partida rápida'
                                     : `Sala ${active.code}`}{' '}
                                 · {STATUS_LABEL[active.status]} ·{' '}
-                                {getDeckInfo(active.config.deckSources[0] ?? 'pokeapi')?.label}
+                                {l(getDeckInfo(active.config.deckSources[0] ?? 'pokeapi')?.label)}
                             </span>
                         </div>
                         <div className="resume-banner__actions">
@@ -310,11 +312,11 @@ export default function HomePage(): JSX.Element {
                                         <span className="room-item__code">{room.code}</span>
                                         <span className="room-item__meta">
                                             <strong>
-                                                {
+                                                {l(
                                                     getDeckInfo(
                                                         room.config.deckSources[0] ?? 'pokeapi',
-                                                    )?.label
-                                                }
+                                                    )?.label,
+                                                )}
                                             </strong>
                                             <span className="text-3">
                                                 {room.playerCount}/{room.config.maxPlayers}{' '}

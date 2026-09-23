@@ -31,11 +31,17 @@ export class JwtAuthGuard implements CanActivate {
             throw new KarduxError('ERR_UNAUTHORIZED', 'Missing bearer token.');
         }
 
+        let payload: GuestJwtPayload & { typ?: string };
         try {
-            request.user = await this.jwt.verifyAsync<GuestJwtPayload>(token);
+            payload = await this.jwt.verifyAsync<GuestJwtPayload & { typ?: string }>(token);
         } catch {
             throw new KarduxError('ERR_UNAUTHORIZED', 'Invalid or expired token.');
         }
+        // A remember token only works on `POST /auth/resume`, never as a session.
+        if (payload.typ === 'remember' || !payload.tabId) {
+            throw new KarduxError('ERR_UNAUTHORIZED', 'Invalid or expired token.');
+        }
+        request.user = payload;
 
         return true;
     }

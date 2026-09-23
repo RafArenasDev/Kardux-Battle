@@ -11,6 +11,7 @@ import { useNow } from '../../hooks/useNow';
 import { attributeMeta, formatStat } from '../../lib/deck-meta';
 import type { RevealState } from './useMatchSession';
 import { DEAL_MS } from './useMatchSession';
+import { useI18n } from '../../lib/i18n';
 
 interface GameTableProps {
     state: RedactedMatchState;
@@ -220,6 +221,7 @@ function CenterStage({
     breakpoint: Breakpoint;
     tableRef: RefObject<HTMLDivElement>;
 }): JSX.Element {
+    const { l, t } = useI18n();
     const playersById = new Map(state.players.map((player) => [player.id, player]));
     const cardSize: CardSize = breakpoint === 'mobile' ? 'sm' : 'md';
     const leader = leaderId ? playersById.get(leaderId) : undefined;
@@ -279,7 +281,8 @@ function CenterStage({
     } else if (state.phase === 'AWAITING_CARDS' && attribute) {
         banner = (
             <div className="banner">
-                <Icon name={attribute.icon} /> Se juega <strong>{attribute.label}</strong>
+                <Icon name={attribute.icon} /> {t('Se juega', 'Playing')}{' '}
+                <strong>{l(attribute.label)}</strong>
             </div>
         );
     } else {
@@ -596,24 +599,28 @@ function MyZone({
 }
 
 function TurnTimer({ state, active }: { state: RedactedMatchState; active: boolean }): JSX.Element {
+    const { t } = useI18n();
     const now = useNow(200, state.turnDeadline !== null);
     const enabled = state.turnDeadline !== null && state.config.turnTimeoutMs > 0 && active;
     const remaining = enabled ? Math.max(0, state.turnDeadline! - now) : 0;
     const ratio = enabled ? Math.min(1, remaining / state.config.turnTimeoutMs) : 0;
     const tone = ratio > 0.5 ? 'calm' : ratio > 0.2 ? 'warn' : 'urgent';
+    const seconds = Math.ceil(remaining / 1000);
 
     return (
         <div
             className={`turn-timer turn-timer--${tone} ${enabled ? '' : 'turn-timer--idle'}`}
             role="timer"
             aria-label={
-                enabled ? `${Math.ceil(remaining / 1000)} segundos para elegir` : 'Sin turno activo'
+                enabled
+                    ? t(`${seconds} segundos para elegir`, `${seconds} seconds to choose`)
+                    : t('Sin turno activo', 'No active turn')
             }
         >
-            <span className="turn-timer__bar" style={{ transform: `scaleX(${ratio})` }} />
-            {enabled ? (
-                <span className="turn-timer__text tabular">{Math.ceil(remaining / 1000)} s</span>
-            ) : null}
+            <span className="turn-timer__track">
+                <span className="turn-timer__bar" style={{ transform: `scaleX(${ratio})` }} />
+            </span>
+            <span className="turn-timer__text tabular">{enabled ? `${seconds} s` : ''}</span>
         </div>
     );
 }

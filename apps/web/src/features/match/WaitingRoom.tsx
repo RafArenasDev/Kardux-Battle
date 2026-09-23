@@ -17,6 +17,7 @@ import {
     telegramUrl,
     whatsappUrl,
 } from '../../lib/share';
+import { useI18n } from '../../lib/i18n';
 
 interface WaitingRoomProps {
     state: RedactedMatchState;
@@ -31,6 +32,7 @@ export function WaitingRoom({
     onCancelCountdown,
     onLeave,
 }: WaitingRoomProps): JSX.Element {
+    const { l } = useI18n();
     const toast = useToast();
     const now = useNow(200, state.phase === 'COUNTDOWN');
     const isHost = state.hostId === state.yourId;
@@ -122,7 +124,7 @@ export function WaitingRoom({
                 <div className="config-summary" style={{ justifyContent: 'center' }}>
                     {deck ? (
                         <span className="badge">
-                            <Icon name={deck.coverIcon} /> {deck.label}
+                            <Icon name={deck.coverIcon} /> {l(deck.label)}
                         </span>
                     ) : null}
                     <span className="badge badge--muted">

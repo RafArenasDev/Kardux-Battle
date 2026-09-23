@@ -180,7 +180,7 @@ export class MatchService {
         // Fail at creation, not when the host presses "Iniciar": the deck must be buildable.
         const deckProblem = validateDeckConfig(result.data);
         if (deckProblem) {
-            throw new KarduxError('ERR_INVALID_CONFIG', deckProblem.en);
+            throw new KarduxError('ERR_INVALID_CONFIG', deckProblem.en, { localized: deckProblem });
         }
 
         return result.data;

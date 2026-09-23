@@ -59,8 +59,8 @@ export const POKEMON_DECK: RemoteDeckMeta = {
         },
     ],
     credits: text(
-        'Datos vía PokéAPI (pokeapi.co). Proyecto de fans sin fines de lucro, no afiliado ni respaldado por Nintendo, Game Freak ni The Pokémon Company.',
-        'Data via PokéAPI (pokeapi.co). Non-profit fan project, not affiliated with or endorsed by Nintendo, Game Freak or The Pokémon Company.',
+        'Datos vía PokéAPI (pokeapi.co). Pokémon es marca de sus dueños; proyecto de fans no afiliado.',
+        'Data via PokéAPI (pokeapi.co). Pokémon is a trademark of its owners; unaffiliated fan project.',
     ),
     maxPacks: 6,
     maxCardsPerPack: 16,

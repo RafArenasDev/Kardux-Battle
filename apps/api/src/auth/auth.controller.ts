@@ -1,5 +1,5 @@
 import { Throttle } from '@nestjs/throttler';
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Query } from '@nestjs/common';
 import {
     ApiBody,
     ApiCreatedResponse,
@@ -24,7 +24,11 @@ import {
     GuestAuthResponseDto,
     LoginRequestDto,
     RegisterRequestDto,
+    ResumeRequestDto,
 } from './auth.dto.js';
+
+/** Any UUID works; the browser generates one per tab. */
+const EXAMPLE_TAB_ID = '3f6c1f8e-5c4b-4b8e-9a51-2f0d7a1c9b42';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -52,7 +56,8 @@ export class AuthController {
     })
     @ApiBody({
         type: GuestAuthRequestDto,
-        description: 'tabId (a client-generated UUID, one per browser tab) - nothing else.',
+        description: 'Only the tab id (a UUID generated in the browser, one per tab).',
+        examples: { guest: { summary: 'New guest', value: { tabId: EXAMPLE_TAB_ID } } },
     })
     @ApiCreatedResponse({
         description: 'The guest was created; `token` is ready to use immediately.',
@@ -77,7 +82,21 @@ export class AuthController {
             "username is already taken - the error body's `data.suggestions` carries 2-3 " +
             'available alternatives, the same ones `GET /auth/check-username` would offer.',
     })
-    @ApiBody({ type: RegisterRequestDto })
+    @ApiBody({
+        type: RegisterRequestDto,
+        examples: {
+            register: {
+                summary: 'New account that stays signed in',
+                value: {
+                    username: 'NewPlayer_01',
+                    password: 'Player-123*',
+                    tabId: EXAMPLE_TAB_ID,
+                    avatarSeed: 'fox-head:ember',
+                    remember: true,
+                },
+            },
+        },
+    })
     @ApiCreatedResponse({
         description: 'Account created; `token` is ready to use immediately.',
         type: GuestAuthResponseDto,
@@ -113,9 +132,50 @@ export class AuthController {
             'Like `POST /auth/guest`, this is a new entry point (needs its own `tabId`), not ' +
             'a continuation of an existing tab session.',
     })
-    @ApiBody({ type: LoginRequestDto })
+    @ApiBody({
+        type: LoginRequestDto,
+        examples: {
+            demo: {
+                summary: 'Demo account',
+                value: {
+                    username: 'RafArenas',
+                    password: 'Rafa-123*',
+                    tabId: EXAMPLE_TAB_ID,
+                    remember: false,
+                },
+            },
+        },
+    })
     @ApiOkResponse({ description: 'Signed in.', type: GuestAuthResponseDto })
     async login(@Body() body: LoginRequestDto): Promise<GuestAuthResponseDto> {
         return this.authService.login(body);
+    }
+
+    @Throttle({ default: { limit: 20, ttl: 60_000 } })
+    @Post('resume')
+    @HttpCode(200)
+    @ApiOperation({
+        summary: 'Resume a remembered session',
+        description:
+            'For devices that signed in with `remember: true`. Exchanges the saved ' +
+            '`rememberToken` for a session bound to the new tab and returns a rotated ' +
+            '`rememberToken`. Accounts only; fails with `ERR_UNAUTHORIZED` once it expires ' +
+            '(30 days).',
+    })
+    @ApiBody({
+        type: ResumeRequestDto,
+        examples: {
+            resume: {
+                summary: 'Resume on a new tab',
+                value: {
+                    rememberToken: '<rememberToken from login>',
+                    tabId: EXAMPLE_TAB_ID,
+                },
+            },
+        },
+    })
+    @ApiOkResponse({ description: 'Signed in again.', type: GuestAuthResponseDto })
+    async resume(@Body() body: ResumeRequestDto): Promise<GuestAuthResponseDto> {
+        return this.authService.resume(body);
     }
 }

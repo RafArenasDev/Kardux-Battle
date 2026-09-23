@@ -50,6 +50,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@kardux/casino-engine':
+        specifier: workspace:*
+        version: link:../../packages/casino-engine
       '@kardux/content':
         specifier: workspace:*
         version: link:../../packages/content

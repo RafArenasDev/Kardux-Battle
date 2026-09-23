@@ -10,7 +10,7 @@ import type {
     MatchSummaryWithRole,
     RegisterRequest,
 } from '@kardux/contracts';
-import { getToken } from './session';
+import { forgetDevice, getRememberToken, getTabId, getToken, saveSession } from './session';
 
 import { API_BASE_URL as BASE_URL } from './config';
 
@@ -28,11 +28,40 @@ interface RequestOptions {
     method?: string;
     body?: unknown;
     auth?: boolean;
+    /** Retry once after silently resuming a remembered session on a 401. */
+    retry?: boolean;
     query?: Record<string, string | undefined>;
 }
 
+/** Only one resume in flight: parallel 401s all wait for the same fresh session. */
+let resuming: Promise<boolean> | null = null;
+
+/** Trades the device's remember token for a new session in this tab. */
+export function resumeRememberedSession(): Promise<boolean> {
+    const rememberToken = getRememberToken();
+    if (!rememberToken) return Promise.resolve(false);
+    resuming ??= request<GuestAuthResponse>('/auth/resume', {
+        method: 'POST',
+        body: { rememberToken, tabId: getTabId() },
+        auth: false,
+        retry: false,
+    })
+        .then((auth) => {
+            saveSession(auth, 'account');
+            return true;
+        })
+        .catch((error: unknown) => {
+            if (error instanceof ApiError && error.status === 401) forgetDevice();
+            return false;
+        })
+        .finally(() => {
+            resuming = null;
+        });
+    return resuming;
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    const { method = 'GET', body, auth = true, query } = options;
+    const { method = 'GET', body, auth = true, retry = true, query } = options;
 
     const url = new URL(path, BASE_URL);
     if (query) {
@@ -65,6 +94,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     const text = isJson ? await response.text() : '';
     // `null` bodies (e.g. GET /matches/active with no match) come back as an empty 200.
     const data: unknown = text ? JSON.parse(text) : isJson ? null : undefined;
+
+    // The 12 h session expired but the device is remembered: renew it and try once more.
+    if (response.status === 401 && auth && retry && (await resumeRememberedSession())) {
+        return request<T>(path, { ...options, retry: false });
+    }
 
     if (!response.ok) {
         throw new ApiError(

@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
 import type { JSX, ReactNode } from 'react';
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { InstallPrompt } from '../components/layout/InstallPrompt';
-import { isAuthenticated } from '../lib/session';
+import { resumeRememberedSession } from '../lib/api';
+import { getRememberToken, isAuthenticated } from '../lib/session';
 import AuthPage from '../features/auth/AuthPage';
 import HomePage from '../features/home/HomePage';
 
@@ -48,8 +49,20 @@ function Loading(): JSX.Element {
     );
 }
 
+/** A remembered device signs back in before any route decides where to send the player. */
+function useRememberedSession(): boolean {
+    const [ready, setReady] = useState(() => isAuthenticated() || getRememberToken() === null);
+    useEffect(() => {
+        if (ready) return;
+        void resumeRememberedSession().finally(() => setReady(true));
+    }, [ready]);
+    return ready;
+}
+
 export default function App(): JSX.Element {
     const location = useLocation();
+    const ready = useRememberedSession();
+    if (!ready) return <Loading />;
 
     return (
         <Suspense fallback={<Loading />}>

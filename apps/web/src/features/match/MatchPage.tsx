@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
 import { Button } from '../../components/ui/Button';
+import { useI18n } from '../../lib/i18n';
 import { Icon } from '../../components/ui/Icon';
 import { useToast } from '../../components/ui/Toast';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
@@ -213,22 +214,31 @@ function MatchHud({
     showCode: boolean;
 }): JSX.Element {
     const now = useNow(1_000, state.endsAt !== null);
+    const { t } = useI18n();
 
     return (
-        <div className="hud" role="group" aria-label="Estado de la partida">
+        <div className="hud" role="group" aria-label={t('Estado de la partida', 'Match status')}>
             {showCode ? (
-                <span className="hud__item" title="Código de sala">
+                <span
+                    className="hud__item"
+                    data-tip={t('Código de sala', 'Room code')}
+                    data-tip-pos="bottom"
+                >
                     <Icon name="linked-rings" /> {state.code}
                 </span>
             ) : null}
             {state.round ? (
-                <span className="hud__item" title="Ronda">
-                    <Icon name="card-play" /> Ronda {state.round.index + 1}
+                <span className="hud__item" data-tip={t('Ronda', 'Round')} data-tip-pos="bottom">
+                    <Icon name="card-play" /> {t('Ronda', 'Round')} {state.round.index + 1}
                 </span>
             ) : null}
-            <span className="hud__item tabular" title="Tiempo restante">
+            <span
+                className="hud__item tabular"
+                data-tip={t('Tiempo restante', 'Time left')}
+                data-tip-pos="bottom"
+            >
                 <Icon name={state.endsAt ? 'stopwatch' : 'infinity'} />{' '}
-                {state.endsAt ? formatClock(state.endsAt - now) : 'Sin límite'}
+                {state.endsAt ? formatClock(state.endsAt - now) : t('Sin límite', 'No limit')}
             </span>
         </div>
     );

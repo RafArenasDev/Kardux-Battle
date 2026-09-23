@@ -4,6 +4,7 @@ import type { CSSProperties, JSX } from 'react';
 import { attributeMeta, deckOf, formatStat } from '../../lib/deck-meta';
 import { Icon } from '../ui/Icon';
 import { crestUrl } from '../brand/Brand';
+import { useI18n } from '../../lib/i18n';
 
 export type CardSize = 'xs' | 'sm' | 'md' | 'lg';
 export type CardOutcome = 'win' | 'lose' | 'tie' | null;
@@ -29,6 +30,7 @@ export function PlayingCard({
     className,
     style,
 }: PlayingCardProps): JSX.Element {
+    const { l } = useI18n();
     const deck = deckOf(card.source);
     const isPlayingCard = card.source === 'deckofcards';
     const interactive = Boolean(onSelectAttribute);
@@ -49,9 +51,7 @@ export function PlayingCard({
         >
             <div className="pcard__head">
                 <span className="pcard__code">{card.code}</span>
-                <span className="pcard__name" title={card.name}>
-                    {card.name}
-                </span>
+                <span className="pcard__name">{card.name}</span>
                 {deck ? <Icon name={deck.coverIcon} className="pcard__deck-icon" /> : null}
             </div>
 
@@ -71,7 +71,7 @@ export function PlayingCard({
                     const content = (
                         <>
                             <Icon name={meta.icon} className="pcard__stat-icon" />
-                            <span className="pcard__stat-label">{meta.label}</span>
+                            <span className="pcard__stat-label">{l(meta.label)}</span>
                             <span className="pcard__stat-value tabular">
                                 {formatStat(value, meta.unit)}
                             </span>

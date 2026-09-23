@@ -5,7 +5,10 @@ import type {
     GuestJwtPayload,
     LoginRequest,
     RegisterRequest,
+    RememberJwtPayload,
+    ResumeRequest,
 } from '@kardux/contracts';
+import type { Player as PlayerRow } from '@prisma/client';
 import { randomInt } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 // Value imports required: Nest's DI resolves constructor params via `design:paramtypes`
@@ -24,6 +27,8 @@ const PASSWORD_HASH_ROUNDS = 10;
 const PRISMA_UNIQUE_CONSTRAINT_ERROR = 'P2002';
 const USERNAME_MAX_LENGTH = 24;
 const USERNAME_SUGGESTION_COUNT = 3;
+/** How long "stay signed in" lasts on a device. */
+const REMEMBER_TTL = '30d';
 
 /** "Jugador4821"-style - docs/SPEC.md's guest identity has no nickname the client picks
  * . */
@@ -54,23 +59,7 @@ export class AuthService {
             },
         });
 
-        const payload: GuestJwtPayload = {
-            sub: user.id,
-            tabId: request.tabId,
-            nickname: user.nickname,
-        };
-
-        const token = await this.jwt.signAsync(payload);
-
-        return {
-            token,
-            user: {
-                id: user.id,
-                nickname: user.nickname,
-                avatarSeed: user.avatarSeed,
-                avatarUrl: buildAvatarUrl(user.avatarSeed),
-            },
-        };
+        return this.issueSession(user, request.tabId, false);
     }
 
     /**
@@ -108,23 +97,7 @@ export class AuthService {
             }),
         );
 
-        const payload: GuestJwtPayload = {
-            sub: user.id,
-            tabId: request.tabId,
-            nickname: user.nickname,
-        };
-
-        const token = await this.jwt.signAsync(payload);
-
-        return {
-            token,
-            user: {
-                id: user.id,
-                nickname: user.nickname,
-                avatarSeed: user.avatarSeed,
-                avatarUrl: buildAvatarUrl(user.avatarSeed),
-            },
-        };
+        return this.issueSession(user, request.tabId, request.remember === true);
     }
 
     /** `GET /auth/check-username` - same availability check `registerAccount` does, exposed
@@ -156,16 +129,49 @@ export class AuthService {
             throw new KarduxError('ERR_UNAUTHORIZED', 'Invalid username or password.');
         }
 
-        const payload: GuestJwtPayload = {
-            sub: user.id,
-            tabId: request.tabId,
-            nickname: user.nickname,
-        };
+        return this.issueSession(user, request.tabId, request.remember === true);
+    }
 
+    /**
+     * `POST /auth/resume`: a device that chose "stay signed in" trades its remember token for
+     * a session in a new tab. The remember token is rotated on every use.
+     */
+    async resume(request: ResumeRequest): Promise<GuestAuthResponse> {
+        let claims: RememberJwtPayload;
+        try {
+            claims = await this.jwt.verifyAsync<RememberJwtPayload>(request.rememberToken);
+        } catch {
+            throw new KarduxError('ERR_UNAUTHORIZED', 'The saved session expired.');
+        }
+        if (claims.typ !== 'remember') {
+            throw new KarduxError('ERR_UNAUTHORIZED', 'Not a remember token.');
+        }
+
+        const user = await this.prisma.player.findUnique({ where: { id: claims.sub } });
+        // Only real accounts can be remembered; a deleted account ends the saved session.
+        if (!user?.passwordHash) {
+            throw new KarduxError('ERR_UNAUTHORIZED', 'The saved session is no longer valid.');
+        }
+
+        return this.issueSession(user, request.tabId, true);
+    }
+
+    private async issueSession(
+        user: PlayerRow,
+        tabId: string,
+        remember: boolean,
+    ): Promise<GuestAuthResponse> {
+        const payload: GuestJwtPayload = { sub: user.id, tabId, nickname: user.nickname };
         const token = await this.jwt.signAsync(payload);
+        const rememberClaims: RememberJwtPayload = { sub: user.id, typ: 'remember' };
+        const rememberToken =
+            remember && user.passwordHash
+                ? await this.jwt.signAsync(rememberClaims, { expiresIn: REMEMBER_TTL })
+                : undefined;
 
         return {
             token,
+            ...(rememberToken ? { rememberToken } : {}),
             user: {
                 id: user.id,
                 nickname: user.nickname,

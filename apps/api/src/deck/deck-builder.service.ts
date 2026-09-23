@@ -51,7 +51,7 @@ export class DeckBuilder {
     async build(config: DeckBuildConfig, options: BuildDeckOptions): Promise<Card[]> {
         const problem = validateDeckConfig(config);
         if (problem) {
-            throw new KarduxError('ERR_INVALID_CONFIG', problem.en);
+            throw new KarduxError('ERR_INVALID_CONFIG', problem.en, { localized: problem });
         }
 
         const infos = config.deckSources

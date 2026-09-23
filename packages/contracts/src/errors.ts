@@ -20,6 +20,10 @@ export const ERROR_CODES = [
     'ERR_SPECTATOR_CANNOT_ACT',
     'ERR_RATE_LIMITED',
     'ERR_GUEST_CANNOT_HOST',
+    'ERR_TABLE_FULL',
+    'ERR_NOT_ENOUGH_CHIPS',
+    'ERR_INVALID_BET',
+    'ERR_NOT_ALLOWED',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -97,5 +101,21 @@ export const ERROR_MESSAGES: Record<ErrorCode, { es: string; en: string }> = {
     ERR_GUEST_CANNOT_HOST: {
         es: 'Debes registrarte (usuario y contraseña) para crear una sala. Los invitados solo pueden unirse a partidas ya creadas.',
         en: 'You must register (username and password) to create a room. Guests can only join matches that already exist.',
+    },
+    ERR_TABLE_FULL: {
+        es: 'La mesa está llena.',
+        en: 'The table is full.',
+    },
+    ERR_NOT_ENOUGH_CHIPS: {
+        es: 'No tienes suficientes fichas.',
+        en: "You don't have enough chips.",
+    },
+    ERR_INVALID_BET: {
+        es: 'Esa apuesta está fuera de los límites de la mesa.',
+        en: 'That bet is outside the table limits.',
+    },
+    ERR_NOT_ALLOWED: {
+        es: 'Esa jugada no está permitida ahora.',
+        en: 'That move is not allowed right now.',
     },
 };

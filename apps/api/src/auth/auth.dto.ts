@@ -4,6 +4,7 @@ import {
     guestAuthRequestSchema,
     guestAuthResponseSchema,
     loginRequestSchema,
+    resumeRequestSchema,
     registerRequestSchema,
 } from '@kardux/contracts';
 import { createZodDto } from 'nestjs-zod';
@@ -19,6 +20,8 @@ export class GuestAuthResponseDto extends createZodDto(guestAuthResponseSchema) 
 export class RegisterRequestDto extends createZodDto(registerRequestSchema) {}
 
 export class LoginRequestDto extends createZodDto(loginRequestSchema) {}
+
+export class ResumeRequestDto extends createZodDto(resumeRequestSchema) {}
 
 export class CheckUsernameQueryDto extends createZodDto(checkUsernameQuerySchema) {}
 

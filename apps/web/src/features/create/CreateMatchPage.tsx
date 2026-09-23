@@ -15,6 +15,7 @@ import { errorMessage, isErrorPayload } from '../../lib/errors';
 import { formatDuration } from '../../lib/format';
 import { getUser, isGuest } from '../../lib/session';
 import { whenConnected } from '../../lib/socket';
+import { useI18n } from '../../lib/i18n';
 
 const DURATIONS = [10, 20, 30, 60, 0].map((minutes) => ({
     value: minutes * 60_000,
@@ -27,6 +28,7 @@ const TURN_TIMEOUTS = [15, 30, 60, 0].map((seconds) => ({
 }));
 
 export default function CreateMatchPage(): JSX.Element {
+    const { l } = useI18n();
     useDocumentTitle('');
     const navigate = useNavigate();
     const toast = useToast();
@@ -172,9 +174,9 @@ export default function CreateMatchPage(): JSX.Element {
                                         </div>
                                         <div className="deck-tile__head">
                                             {deckInfo ? <Icon name={deckInfo.coverIcon} /> : null}
-                                            <h3>{deck.label}</h3>
+                                            <h3>{l(deck.label)}</h3>
                                         </div>
-                                        <span className="deck-tile__desc">{deck.tagline}</span>
+                                        <span className="deck-tile__desc">{l(deck.tagline)}</span>
                                         <span className="badge badge--muted">
                                             {deck.ready
                                                 ? `${deck.cardCount} cartas`
@@ -191,7 +193,7 @@ export default function CreateMatchPage(): JSX.Element {
                         </div>
                         {info?.credits ? (
                             <p className="text-3" style={{ fontSize: '0.8rem' }}>
-                                {info.credits}
+                                {l(info.credits)}
                             </p>
                         ) : null}
                     </section>
@@ -295,7 +297,7 @@ export default function CreateMatchPage(): JSX.Element {
                             </span>
                         </div>
 
-                        {problem ? <p className="form-error">{problem}</p> : null}
+                        {problem ? <p className="form-error">{l(problem)}</p> : null}
 
                         <Button
                             variant="gold"

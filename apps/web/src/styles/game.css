@@ -706,15 +706,23 @@
     font-weight: 700;
 }
 
-/* Turn timer: breathing room above the hand; white while calm, gold, then red. */
+/* Turn timer: white while calm, gold, then red. The seconds sit beside the track, always
+   gold, so they stay readable even when the bar is empty. */
 .turn-timer {
-    position: relative;
-    width: min(460px, 86%);
-    height: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: min(500px, 90%);
     margin-bottom: clamp(2px, 1dvh, 10px);
+}
+
+.turn-timer__track {
+    position: relative;
+    flex: 1;
+    height: 12px;
     border-radius: var(--r-pill);
     background: rgba(255, 255, 255, 0.08);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
     overflow: hidden;
 }
 
@@ -744,17 +752,22 @@
 }
 
 .turn-timer__text {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 0.64rem;
+    min-width: 3ch;
+    text-align: right;
+    font-size: 0.9rem;
     font-weight: 900;
-    color: #1a1520;
+    color: var(--gold-300);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .turn-timer--urgent .turn-timer__text {
-    color: #fff;
+    animation: timer-pulse 1s ease-in-out infinite;
+}
+
+@keyframes timer-pulse {
+    50% {
+        color: var(--gold-50);
+    }
 }
 
 /* Phones: seat + hint stack under the hand card. */
