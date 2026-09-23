@@ -29,6 +29,14 @@ const envSchema = z.object({
 
     RATE_LIMIT_TTL_MS: z.coerce.number().int().positive(),
     RATE_LIMIT_MAX: z.coerce.number().int().positive(),
+
+    // --- Card data source (tcg-github-sync mirror) ---
+    // Defaults to the real repo so a fresh clone works with no `.env` changes; override to
+    // point at a fork or a local `data/` checkout served over HTTP.
+    GITHUB_SYNC_BASE_URL: z
+        .string()
+        .url()
+        .default('https://raw.githubusercontent.com/FlakoArenas26/tcg-github-sync/main/data'),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

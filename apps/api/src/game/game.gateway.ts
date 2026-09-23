@@ -1,0 +1,532 @@
+import type {
+    AckResponse,
+    ClientEvents,
+    GuestJwtPayload,
+    MatchJoinAck,
+    MatchJoinApprovedPayload,
+    MatchJoinPayload,
+    MatchRequestJoinPayload,
+    MatchRespondJoinPayload,
+    ServerEvents,
+} from '@kardux/contracts';
+import type { OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit } from '@nestjs/websockets';
+import type { Server } from 'socket.io';
+import { Logger } from '@nestjs/common';
+import {
+    ConnectedSocket,
+    MessageBody,
+    SubscribeMessage,
+    WebSocketGateway,
+    WebSocketServer,
+} from '@nestjs/websockets';
+import {
+    chatSendPayloadSchema,
+    matchConfigPatchSchema,
+    matchJoinPayloadSchema,
+    matchRejoinPayloadSchema,
+    matchRequestJoinPayloadSchema,
+    matchRespondJoinPayloadSchema,
+    pingLatencyPayloadSchema,
+    roundSelectAttributePayloadSchema,
+} from '@kardux/contracts';
+// Value import required: Nest's DI resolves constructor params via `design:paramtypes`
+// reflection metadata, which `import type` erases at compile time.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { JwtService } from '@nestjs/jwt';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { GameService } from './game.service.js';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { MatchRuntimeService } from './match-runtime.service.js';
+import { KarduxError } from '../common/kardux-error.js';
+import type { GameSocket } from './game-socket.type.js';
+import { toErrorPayload } from './to-error-payload.js';
+
+/** Everything `GameGateway` learns about a socket from its handshake (CLAUDE.md's "SESIONES
+ *  MULTI-PESTAÑA": `auth: { token, tabId }`, `playerKey = userId:tabId`), kept on
+ *  `socket.data` for the lifetime of the connection. `token` is kept verbatim so it can be
+ *  handed straight back as `MatchJoinAck.token` - the same bearer token already doubles as
+ *  the rejoin credential (`match:rejoin { token }`), no separate session token to mint. */
+interface SocketAuth {
+    userId: string;
+    tabId: string;
+    token: string;
+}
+
+interface RequestMeta {
+    nickname: string;
+    avatarSeed: string;
+}
+
+/**
+ * Socket.IO gateway on namespace `/game` (CLAUDE.md's "CONTRATO DE EVENTOS SOCKET.IO"). This
+ * first slice only wires the join flows (direct `match:join` plus the new request/approve
+ * `match:requestJoin`/`match:respondJoin`) - the rest of the event table (`match:create`,
+ * `match:start`, `round:*`, ...) lands with `MatchRuntimeService` in a later phase.
+ *
+ * CORS is intentionally permissive here (`origin: true`, i.e. reflect the caller) rather than
+ * reusing `CORS_ORIGINS`: Socket.IO's own CORS check runs independently of `app.enableCors()`
+ * in `main.ts` (different transport layer), and `@WebSocketGateway`'s options are evaluated at
+ * class-decoration time, before Nest's DI/`ConfigService` exist to read `CORS_ORIGINS` from.
+ * Tightening this to the real origin whitelist is a `main.ts`-level concern for a later phase,
+ * not something worth wiring a second, ad hoc env read for here.
+ */
+@WebSocketGateway({ namespace: '/game', cors: { origin: true, credentials: true } })
+export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
+    @WebSocketServer()
+    private readonly server!: Server<ClientEvents, ServerEvents>;
+
+    private readonly logger = new Logger(GameGateway.name);
+
+    /** Message timestamps per socket, for `chat:send`'s rate limit - a plain in-memory sliding
+     *  window is enough for this project's scale (CLAUDE.md just asks for "rate-limited,
+     *  sanitizado", not a specific algorithm). */
+    private readonly chatTimestamps = new Map<GameSocket, number[]>();
+
+    /** Every live socket for a given `User.id`, so a host/requester can be reached without
+     *  them having joined any particular match room yet (e.g. a host who created the match
+     *  over REST and is only sitting on the lobby screen still gets `match:joinRequested`).
+     *  A `Set` per user, not a single socket, since nothing stops a user from having more than
+     *  one live connection at once (e.g. a stale tab that hasn't disconnected yet). */
+    private readonly socketsByUser = new Map<string, Set<GameSocket>>();
+
+    /** `nickname`/`avatarSeed` chosen at `match:requestJoin` time, kept just long enough to
+     *  reuse them in the `match:playerJoined` broadcast if/when the host approves - `MatchPlayer`
+     *  itself has no nickname/avatar columns (out of scope for this slice), so this is the only
+     *  place that memory lives between the two events. Falls back to the requester's `User`
+     *  record (see `respondJoin`) if the process restarted in between and lost this map. */
+    private readonly pendingRequestMeta = new Map<string, RequestMeta>();
+
+    constructor(
+        private readonly gameService: GameService,
+        private readonly jwtService: JwtService,
+        private readonly matchRuntime: MatchRuntimeService,
+    ) {}
+
+    afterInit(server: Server<ClientEvents, ServerEvents>): void {
+        this.matchRuntime.setServer(server);
+    }
+
+    async handleConnection(client: GameSocket): Promise<void> {
+        const handshakeAuth = client.handshake.auth as { token?: unknown; tabId?: unknown };
+        const { token, tabId } = handshakeAuth;
+
+        if (typeof token !== 'string' || token.length === 0) {
+            this.rejectConnection(client, 'Missing token in the socket handshake.');
+            return;
+        }
+
+        if (typeof tabId !== 'string' || tabId.length === 0) {
+            this.rejectConnection(client, 'Missing tabId in the socket handshake.');
+            return;
+        }
+
+        try {
+            const payload = await this.jwtService.verifyAsync<GuestJwtPayload>(token);
+
+            if (payload.tabId !== tabId) {
+                this.rejectConnection(
+                    client,
+                    'tabId does not match the tab this token was issued for.',
+                );
+                return;
+            }
+
+            const auth: SocketAuth = { userId: payload.sub, tabId, token };
+            client.data.auth = auth;
+            this.registerSocket(auth.userId, client);
+        } catch {
+            this.rejectConnection(client, 'Invalid or expired token.');
+        }
+    }
+
+    handleDisconnect(client: GameSocket): void {
+        const auth = client.data.auth as SocketAuth | undefined;
+        this.chatTimestamps.delete(client);
+
+        if (auth) {
+            this.unregisterSocket(auth.userId, client);
+        }
+    }
+
+    /**
+     * Direct join - existing contract (CLAUDE.md): code + nickname + avatarSeed, immediate
+     * `APPROVED` seat, or the typed `ERR_MATCH_FULL` if the room is already at `maxPlayers`
+     * (counting only `APPROVED` players).
+     */
+    @SubscribeMessage('match:join')
+    async handleJoin(
+        @ConnectedSocket() client: GameSocket,
+        @MessageBody() body: unknown,
+    ): Promise<AckResponse<MatchJoinAck>> {
+        try {
+            const payload: MatchJoinPayload = matchJoinPayloadSchema.parse(body);
+            const auth = this.requireAuth(client);
+            const { match } = await this.gameService.joinDirect(auth.userId, payload.code);
+
+            await client.join(match.id);
+            await this.matchRuntime.playerJoin(
+                match.id,
+                client,
+                this.playerKey(auth),
+                payload.nickname,
+                payload.avatarSeed,
+            );
+
+            return {
+                code: match.code,
+                matchId: match.id,
+                token: auth.token,
+                playerId: this.playerKey(auth),
+            };
+        } catch (error) {
+            return toErrorPayload(error);
+        }
+    }
+
+    /**
+     * Request join - discovery flow (`GET /matches/public`, no code): creates a `PENDING`
+     * `MatchPlayer` row and notifies the host, instead of seating the requester immediately.
+     * No ack: the requester and the host each learn the outcome through their own
+     * server-pushed events.
+     */
+    @SubscribeMessage('match:requestJoin')
+    async handleRequestJoin(
+        @ConnectedSocket() client: GameSocket,
+        @MessageBody() body: unknown,
+    ): Promise<void> {
+        try {
+            const payload: MatchRequestJoinPayload = matchRequestJoinPayloadSchema.parse(body);
+            const auth = this.requireAuth(client);
+            const { match, requestId } = await this.gameService.requestJoin(
+                auth.userId,
+                payload.matchId,
+            );
+
+            this.pendingRequestMeta.set(requestId, {
+                nickname: payload.nickname,
+                avatarSeed: payload.avatarSeed,
+            });
+
+            client.emit('match:joinRequestPending', { requestId });
+            this.emitToUser(match.hostId, (socket) =>
+                socket.emit('match:joinRequested', {
+                    requestId,
+                    nickname: payload.nickname,
+                    avatarSeed: payload.avatarSeed,
+                }),
+            );
+        } catch (error) {
+            client.emit('error', toErrorPayload(error));
+        }
+    }
+
+    /**
+     * Host decision on a pending request. Host-only (validated against `Match.hostId`); no
+     * ack, the requester learns the outcome via `match:joinApproved`/`match:joinRejected`.
+     */
+    @SubscribeMessage('match:respondJoin')
+    async handleRespondJoin(
+        @ConnectedSocket() client: GameSocket,
+        @MessageBody() body: unknown,
+    ): Promise<void> {
+        try {
+            const payload: MatchRespondJoinPayload = matchRespondJoinPayloadSchema.parse(body);
+            const auth = this.requireAuth(client);
+            const result = await this.gameService.respondJoin(
+                auth.userId,
+                payload.requestId,
+                payload.accept,
+            );
+
+            if (result.outcome === 'rejected') {
+                this.pendingRequestMeta.delete(payload.requestId);
+                this.emitToUser(result.matchPlayer.userId, (socket) =>
+                    socket.emit('match:joinRejected', { requestId: payload.requestId }),
+                );
+                return;
+            }
+
+            const meta = this.pendingRequestMeta.get(payload.requestId);
+            const nickname = meta?.nickname ?? result.matchPlayer.user.nickname;
+            const avatarSeed = meta?.avatarSeed ?? result.matchPlayer.user.avatarSeed;
+            this.pendingRequestMeta.delete(payload.requestId);
+
+            const requesterSockets = this.socketsByUser.get(result.matchPlayer.userId);
+
+            if (!requesterSockets || requesterSockets.size === 0) {
+                this.logger.warn(
+                    `Approved join request ${payload.requestId} for a requester with no live socket.`,
+                );
+                return;
+            }
+
+            for (const socket of requesterSockets) {
+                const requesterAuth = this.requireAuth(socket);
+                await socket.join(result.match.id);
+
+                const approvedPayload: MatchJoinApprovedPayload = {
+                    requestId: payload.requestId,
+                    code: result.match.code,
+                    matchId: result.match.id,
+                    token: requesterAuth.token,
+                    playerId: this.playerKey(requesterAuth),
+                };
+                socket.emit('match:joinApproved', approvedPayload);
+
+                await this.matchRuntime.playerJoin(
+                    result.match.id,
+                    socket,
+                    this.playerKey(requesterAuth),
+                    nickname,
+                    avatarSeed,
+                );
+            }
+        } catch (error) {
+            client.emit('error', toErrorPayload(error));
+        }
+    }
+
+    /**
+     * Reconnection (CLAUDE.md's "reconexión con gracia de 45 s"): the socket handshake already
+     * re-authenticated this connection (same `token`/`tabId` check as any other message), so
+     * this just needs to find which active match `auth.userId` currently has an `APPROVED`
+     * seat in and push a fresh redacted snapshot - the engine never dropped them from
+     * `turnOrder` on disconnect in the first place (see `handleDisconnect`), so there's no
+     * state to "restore" beyond letting their socket see it again.
+     */
+    @SubscribeMessage('match:rejoin')
+    async handleRejoin(
+        @ConnectedSocket() client: GameSocket,
+        @MessageBody() body: unknown,
+    ): Promise<AckResponse<MatchJoinAck>> {
+        try {
+            matchRejoinPayloadSchema.parse(body);
+            const auth = this.requireAuth(client);
+            const match = await this.gameService.findActiveMatchForUser(auth.userId);
+
+            if (!match) {
+                throw new KarduxError('ERR_MATCH_NOT_FOUND');
+            }
+
+            const playerId = this.playerKey(auth);
+            const rejoined = await this.matchRuntime.rejoin(match.id, client, playerId);
+
+            if (!rejoined) {
+                throw new KarduxError('ERR_MATCH_NOT_FOUND');
+            }
+
+            await client.join(match.id);
+
+            return { code: match.code, matchId: match.id, token: auth.token, playerId };
+        } catch (error) {
+            return toErrorPayload(error);
+        }
+    }
+
+    @SubscribeMessage('match:config')
+    async handleConfig(
+        @ConnectedSocket() client: GameSocket,
+        @MessageBody() body: unknown,
+    ): Promise<void> {
+        try {
+            const patch = matchConfigPatchSchema.parse(body);
+            const auth = this.requireAuth(client);
+            const matchId = this.currentMatchRoom(client);
+            if (!matchId) throw new KarduxError('ERR_MATCH_NOT_FOUND');
+
+            await this.matchRuntime.configure(matchId, client, this.playerKey(auth), patch);
+        } catch (error) {
+            client.emit('error', toErrorPayload(error));
+        }
+    }
+
+    @SubscribeMessage('match:start')
+    async handleStart(@ConnectedSocket() client: GameSocket): Promise<void> {
+        try {
+            const auth = this.requireAuth(client);
+            const matchId = this.currentMatchRoom(client);
+            if (!matchId) throw new KarduxError('ERR_MATCH_NOT_FOUND');
+
+            await this.matchRuntime.start(matchId, client, this.playerKey(auth));
+        } catch (error) {
+            client.emit('error', toErrorPayload(error));
+        }
+    }
+
+    @SubscribeMessage('match:cancelCountdown')
+    async handleCancelCountdown(@ConnectedSocket() client: GameSocket): Promise<void> {
+        try {
+            const auth = this.requireAuth(client);
+            const matchId = this.currentMatchRoom(client);
+            if (!matchId) throw new KarduxError('ERR_MATCH_NOT_FOUND');
+
+            await this.matchRuntime.cancelCountdown(matchId, client, this.playerKey(auth));
+        } catch (error) {
+            client.emit('error', toErrorPayload(error));
+        }
+    }
+
+    @SubscribeMessage('match:leave')
+    async handleLeave(@ConnectedSocket() client: GameSocket): Promise<void> {
+        const auth = client.data.auth as SocketAuth | undefined;
+        const matchId = this.currentMatchRoom(client);
+
+        if (auth && matchId) {
+            await this.matchRuntime.playerLeave(matchId, this.playerKey(auth));
+        }
+
+        if (matchId) {
+            await client.leave(matchId);
+        }
+    }
+
+    @SubscribeMessage('round:selectAttribute')
+    async handleSelectAttribute(
+        @ConnectedSocket() client: GameSocket,
+        @MessageBody() body: unknown,
+    ): Promise<void> {
+        try {
+            const payload = roundSelectAttributePayloadSchema.parse(body);
+            const auth = this.requireAuth(client);
+            const matchId = this.currentMatchRoom(client);
+            if (!matchId) throw new KarduxError('ERR_MATCH_NOT_FOUND');
+
+            await this.matchRuntime.selectAttribute(
+                matchId,
+                client,
+                this.playerKey(auth),
+                payload.attribute,
+            );
+        } catch (error) {
+            client.emit('error', toErrorPayload(error));
+        }
+    }
+
+    @SubscribeMessage('round:playCard')
+    async handlePlayCard(@ConnectedSocket() client: GameSocket): Promise<void> {
+        try {
+            const auth = this.requireAuth(client);
+            const matchId = this.currentMatchRoom(client);
+            if (!matchId) throw new KarduxError('ERR_MATCH_NOT_FOUND');
+
+            await this.matchRuntime.playCard(matchId, client, this.playerKey(auth));
+        } catch (error) {
+            client.emit('error', toErrorPayload(error));
+        }
+    }
+
+    /** Rate-limited (max 5 messages / 3s per socket) and lightly sanitized (control characters
+     *  stripped - `chatSendPayloadSchema` already caps length at 500). Broadcast to the whole
+     *  match room, including the sender (simplest "message sent" confirmation - no separate
+     *  ack). */
+    @SubscribeMessage('chat:send')
+    handleChatSend(@ConnectedSocket() client: GameSocket, @MessageBody() body: unknown): void {
+        try {
+            const payload = chatSendPayloadSchema.parse(body);
+            const auth = this.requireAuth(client);
+            const matchId = this.currentMatchRoom(client);
+            if (!matchId) throw new KarduxError('ERR_MATCH_NOT_FOUND');
+
+            if (!this.checkChatRateLimit(client)) {
+                throw new KarduxError('ERR_RATE_LIMITED');
+            }
+
+            // eslint-disable-next-line no-control-regex
+            const text = payload.text.replace(/[\u0000-\u001f\u007f]/g, '').trim();
+            if (text.length === 0) return;
+
+            this.server.to(matchId).emit('chat:message', {
+                playerId: this.playerKey(auth),
+                text,
+                at: Date.now(),
+            });
+        } catch (error) {
+            client.emit('error', toErrorPayload(error));
+        }
+    }
+
+    @SubscribeMessage('ping:latency')
+    handlePingLatency(@ConnectedSocket() client: GameSocket, @MessageBody() body: unknown): void {
+        try {
+            const payload = pingLatencyPayloadSchema.parse(body);
+            client.emit('pong:latency', { t: payload.t, serverTime: Date.now() });
+        } catch (error) {
+            client.emit('error', toErrorPayload(error));
+        }
+    }
+
+    private checkChatRateLimit(client: GameSocket): boolean {
+        const now = Date.now();
+        const windowMs = 3_000;
+        const maxMessages = 5;
+        const timestamps = (this.chatTimestamps.get(client) ?? []).filter(
+            (t) => now - t < windowMs,
+        );
+
+        if (timestamps.length >= maxMessages) {
+            this.chatTimestamps.set(client, timestamps);
+            return false;
+        }
+
+        timestamps.push(now);
+        this.chatTimestamps.set(client, timestamps);
+        return true;
+    }
+
+    /** A socket only ever joins one match room in this MVP (`client.rooms` also always
+     *  contains the socket's own id as its default room, which is never a valid matchId). */
+    private currentMatchRoom(client: GameSocket): string | undefined {
+        return [...client.rooms].find((room) => room !== client.id);
+    }
+
+    private playerKey(auth: SocketAuth): string {
+        return `${auth.userId}:${auth.tabId}`;
+    }
+
+    private requireAuth(client: GameSocket): SocketAuth {
+        const auth = client.data.auth as SocketAuth | undefined;
+
+        if (!auth) {
+            throw new KarduxError('ERR_UNAUTHORIZED');
+        }
+
+        return auth;
+    }
+
+    private registerSocket(userId: string, client: GameSocket): void {
+        const sockets = this.socketsByUser.get(userId) ?? new Set<GameSocket>();
+        sockets.add(client);
+        this.socketsByUser.set(userId, sockets);
+    }
+
+    private unregisterSocket(userId: string, client: GameSocket): void {
+        const sockets = this.socketsByUser.get(userId);
+
+        if (!sockets) {
+            return;
+        }
+
+        sockets.delete(client);
+
+        if (sockets.size === 0) {
+            this.socketsByUser.delete(userId);
+        }
+    }
+
+    private emitToUser(userId: string, emit: (socket: GameSocket) => void): void {
+        const sockets = this.socketsByUser.get(userId);
+
+        if (!sockets) {
+            return;
+        }
+
+        for (const socket of sockets) {
+            emit(socket);
+        }
+    }
+
+    private rejectConnection(client: GameSocket, message: string): void {
+        client.emit('error', { code: 'ERR_UNAUTHORIZED', message });
+        client.disconnect(true);
+    }
+}

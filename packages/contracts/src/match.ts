@@ -34,3 +34,22 @@ export const matchSummarySchema = z.object({
 export type MatchSummary = z.infer<typeof matchSummarySchema>;
 
 export const matchSummaryListSchema = z.array(matchSummarySchema);
+
+/** The caller's relationship to a match returned by `GET /matches/mine`: `admin` for the
+ *  host, `player` for an approved `MatchPlayer` (CLAUDE.md's `status` split, see
+ *  `MatchPlayerStatus` in the Prisma schema - only `APPROVED` rows count as "mine"; a still
+ *  `PENDING` join request doesn't make the match show up here yet). */
+export const MATCH_PLAYER_ROLES = ['admin', 'player'] as const;
+export type MatchPlayerRole = (typeof MATCH_PLAYER_ROLES)[number];
+export const matchPlayerRoleSchema = z.enum(MATCH_PLAYER_ROLES);
+
+/** `GET /matches/mine`'s per-item shape: the same `MatchSummary` plus the caller's role in
+ *  that specific match. A host who is *also* an approved player in their own match still
+ *  only gets `"admin"` - host status takes precedence, since the host is who `match:respondJoin`
+ *  authorizes regardless of whether they seated themselves as a player too. */
+export const matchSummaryWithRoleSchema = matchSummarySchema.extend({
+    role: matchPlayerRoleSchema,
+});
+export type MatchSummaryWithRole = z.infer<typeof matchSummaryWithRoleSchema>;
+
+export const matchSummaryWithRoleListSchema = z.array(matchSummaryWithRoleSchema);

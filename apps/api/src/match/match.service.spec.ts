@@ -5,6 +5,8 @@ import { KarduxError } from '../common/kardux-error.js';
 import { MatchService } from './match.service.js';
 
 const HOST = { id: 'host-1', nickname: 'RafArenas', avatarSeed: 'RafArenas' };
+// Registered (has `username`) - a pure guest can join a match but not host one (2026-09-22).
+const REGISTERED_HOST = { ...HOST, username: 'raf_arenas', passwordHash: 'hashed' };
 
 function createService(overrides: Partial<Record<string, unknown>> = {}) {
     const prisma = {
@@ -12,6 +14,9 @@ function createService(overrides: Partial<Record<string, unknown>> = {}) {
             create: vi.fn(),
             findFirst: vi.fn(),
             findMany: vi.fn(),
+        },
+        user: {
+            findUnique: vi.fn().mockResolvedValue(REGISTERED_HOST),
         },
         ...overrides,
     } as unknown as PrismaService;
@@ -60,6 +65,19 @@ describe('MatchService.createMatch', () => {
             service.createMatch(HOST.id, { minPlayers: 10, maxPlayers: 2 }),
         ).rejects.toThrow(KarduxError);
     });
+
+    it('rejects hosting for a caller with no username (pure guest)', async () => {
+        const { service, prisma } = createService();
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...HOST, username: null } as never);
+
+        const error = await service
+            .createMatch(HOST.id, { visibility: 'public' })
+            .catch((e: unknown) => e);
+
+        expect(error).toBeInstanceOf(KarduxError);
+        expect((error as KarduxError).code).toBe('ERR_GUEST_CANNOT_HOST');
+        expect(prisma.match.create).not.toHaveBeenCalled();
+    });
 });
 
 describe('MatchService.getByCode', () => {
@@ -71,5 +89,52 @@ describe('MatchService.getByCode', () => {
 
         expect(error).toBeInstanceOf(KarduxError);
         expect((error as KarduxError).code).toBe('ERR_MATCH_NOT_FOUND');
+    });
+});
+
+describe('MatchService.listMine', () => {
+    it('tags hosted matches "admin" and approved-player matches "player", newest first', async () => {
+        const { service, prisma } = createService();
+        const hostedMatch = {
+            id: 'match-1',
+            code: 'AAAAAA',
+            status: 'LOBBY',
+            config: { visibility: 'public' },
+            hostId: HOST.id,
+            host: HOST,
+            createdAt: new Date('2026-09-21T12:00:00.000Z'),
+        };
+        const joinedMatch = {
+            id: 'match-2',
+            code: 'BBBBBB',
+            status: 'LOBBY',
+            config: { visibility: 'public' },
+            hostId: 'other-host',
+            host: { id: 'other-host', nickname: 'Misty', avatarSeed: 'Misty' },
+            createdAt: new Date('2026-09-21T13:00:00.000Z'),
+        };
+        vi.mocked(prisma.match.findMany)
+            .mockResolvedValueOnce([hostedMatch] as never)
+            .mockResolvedValueOnce([joinedMatch] as never);
+
+        const result = await service.listMine(HOST.id);
+
+        expect(prisma.match.findMany).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ where: { hostId: HOST.id } }),
+        );
+        expect(prisma.match.findMany).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({
+                where: {
+                    hostId: { not: HOST.id },
+                    players: { some: { userId: HOST.id, status: 'APPROVED' } },
+                },
+            }),
+        );
+        expect(result).toEqual([
+            expect.objectContaining({ matchId: 'match-2', role: 'player' }),
+            expect.objectContaining({ matchId: 'match-1', role: 'admin' }),
+        ]);
     });
 });

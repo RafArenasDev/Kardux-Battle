@@ -1,5 +1,6 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 // Value import required: `LeaderboardQueryDto` is only ever used in a parameter type
 // position below, but Nest/`nestjs-zod` still need it as a value so `emitDecoratorMetadata`
 // records it in `design:paramtypes` - the same reflection metadata the DI gotcha relies on.
@@ -17,6 +18,8 @@ export class LeaderboardController {
     constructor(private readonly leaderboardService: LeaderboardService) {}
 
     @Get()
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
     @ApiOperation({
         summary: 'Get the global leaderboard',
         description:
@@ -25,7 +28,9 @@ export class LeaderboardController {
             'implemented today: the schema has no per-card-source stats, no time-bucketed ' +
             'stats, and no friends graph yet, so the `scope`/`period`/friends filters from ' +
             "CLAUDE.md's design are intentionally left out until those columns/tables are " +
-            'designed and approved separately. Public endpoint - no authentication required.',
+            'designed and approved separately. Requires a bearer token (any guest works - ' +
+            'this data has no per-user visibility rule, it just should never be callable ' +
+            'anonymously).',
     })
     @ApiQuery({
         name: 'cursor',

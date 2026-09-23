@@ -17,13 +17,18 @@ datasource db {
 }
 
 /// A guest identity (CLAUDE.md: "Auth: JWT de invitado (nickname + tabId)"). Created on
-/// first `POST /auth/guest`, not tied to a password - there's nothing to sign up for.
+/// first `POST /auth/guest`, not tied to a password by default. `username`/`passwordHash`
+/// are optional (2026-09-22 decision): `POST /auth/register` can "claim" an existing guest
+/// row by setting both, keeping the same `id` so hostedMatches/matchPlayers/leaderboardStat
+/// survive the tab closing; `POST /auth/login` then mints a fresh JWT for that same `id`.
 model User {
-  id         String   @id @default(cuid())
-  nickname   String
-  avatarSeed String
-  createdAt  DateTime @default(now())
-  lastSeenAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  nickname     String
+  avatarSeed   String
+  username     String?  @unique
+  passwordHash String?
+  createdAt    DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
 
   hostedMatches   Match[]         @relation("MatchHost")
   matchPlayers    MatchPlayer[]
@@ -73,23 +78,39 @@ model Match {
   @@index([status])
 }
 
+/// Lifecycle of a `MatchPlayer` row across the two join flows `GameGateway` supports
+/// (CLAUDE.md "CONTRATO DE EVENTOS SOCKET.IO" + the 2026-09-21 join-request design): a
+/// direct `match:join` (by code/deep link) is auto-`APPROVED`, a discovery `match:requestJoin`
+/// (from `GET /matches/public`, no code) starts `PENDING` until the host calls
+/// `match:respondJoin`. Rows are never deleted on rejection - kept `REJECTED` for audit/history.
+enum MatchPlayerStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 /// A user's participation in one match - the durable counterpart of `@kardux/contracts`'s
 /// `Player`, minus everything that only matters while the match is live (cards, connection
 /// state).
 model MatchPlayer {
-  id            String    @id @default(cuid())
+  id            String            @id @default(cuid())
   matchId       String
-  match         Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  match         Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
   userId        String
-  user          User      @relation(fields: [userId], references: [id])
+  user          User              @relation(fields: [userId], references: [id])
   seat          Int
   joinOrder     Int
+  /// Defaults to `APPROVED` so the pre-existing direct-join behavior (and any caller that
+  /// doesn't know about the request-join flow yet) is unaffected. Capacity checks
+  /// (`maxPlayers`) only ever count `APPROVED` rows.
+  status        MatchPlayerStatus @default(APPROVED)
   finalCards    Int?
   placement     Int?
   eliminatedAt  DateTime?
 
   @@unique([matchId, userId])
   @@index([matchId])
+  @@index([matchId, status])
 }
 
 /// One resolved round. `leaderId`/`winnerId` reference `User.id` (the durable identity),
