@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { guestAuthRequestSchema, guestAuthResponseSchema } from './auth.js';
 
+// `guestAuthRequestSchema` only ever asked for `tabId` (2026-09-22 decision: nickname/avatar
+// are always server-generated for a guest, never client-supplied - see `auth.ts`'s own
+// docblock). These cases used to also assert on a client-supplied `nickname` field that this
+// schema has never actually had since that redesign landed.
 describe('guestAuthRequestSchema', () => {
     const valid = {
-        nickname: 'Ash',
-        avatarSeed: 'ash-1',
         tabId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
     };
 
@@ -18,17 +20,8 @@ describe('guestAuthRequestSchema', () => {
         expect(result.success).toBe(false);
     });
 
-    it('rejects an empty nickname', () => {
-        const result = guestAuthRequestSchema.safeParse({ ...valid, nickname: '' });
-
-        expect(result.success).toBe(false);
-    });
-
-    it('rejects a nickname over 24 characters', () => {
-        const result = guestAuthRequestSchema.safeParse({
-            ...valid,
-            nickname: 'a'.repeat(25),
-        });
+    it('rejects a missing tabId', () => {
+        const result = guestAuthRequestSchema.safeParse({});
 
         expect(result.success).toBe(false);
     });
