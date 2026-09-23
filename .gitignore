@@ -48,3 +48,6 @@ apps/mobile/android/
 
 # Local Redis data written by `pnpm dev`
 .redis/
+
+# vite-plugin-pwa dev service worker (generated)
+dev-dist/
