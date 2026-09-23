@@ -606,6 +606,79 @@ pnpm --filter @kardux/api dev          # terminal 1
   wired to `round:*` events yet). Integrating the two is the very next step once both PRs land.
 - Motores de póker/blackjack/51/baccarat y persistencia offline SQLite: siguen exactamente
   donde estaban (ver arriba) - no tocados en esta sesión.
+## Session 2026-09-22 (cont'd) — frontend total redesign (apple-design, real branding)
+
+Parallel fork, worktree-isolated, scope limited to `apps/web` (+ copying `favicon/`/`logo.png`
+into `apps/web/public`) - a second fork worked the backend game-loop/deck-building in its own
+worktree at the same time; this entry only covers the frontend side. **Not committed to
+`main` yet** - branch `frontend/apple-design-redesign` (see below), opened as its own PR.
+
+- **Real palette from `logo.png`**, replacing the flat placeholder navy+gold the project owner
+  said looked "tosco": deeper obsidian (`#05070F`), warmer gold/bronze (`#D9AC53`/`#F4CF7E`),
+  and jewel-tone accents lifted from the logo's fanned cards (ember, ice, teal, amethyst,
+  steel) used per deck-source/state. `CLAUDE.md`'s "Identidad visual" section rewritten to
+  match - see its own "revisión 2026-09-22" note.
+- **`framer-motion` added** (`apps/web/package.json`) - this project's own CLAUDE.md already
+  named it as the intended animation library, it just was never installed. Used for: page
+  transitions (`components/PageTransition.tsx`, wraps every route inside one
+  `AnimatePresence` at the `App.tsx` level), the flip/stat-select card component
+  (`components/PlayingCard.tsx`), the deck-source carousel, the radial table, and the victory
+  overlay.
+- **`components/PlayingCard.tsx`**: one card component (front/back flip, `layoutId`-capable so
+  a card can visually travel between contexts) shared by the hand, the pot, rival seats, and
+  the deck-source carousel - matches CLAUDE.md's animation table's "layoutId compartido" note
+  for the mano→pozo flight, once the engine actually emits round events.
+- **`components/DeckSourceCarousel.tsx`**: replaces `CreateMatchPage`'s old checkbox list with
+  real synced cards (`DeckSourceDescriptor.preview[0]`, live from `tcg-github-sync`) in a
+  native-scroll-snap carousel - deck sources are picked by tapping an actual card, not reading
+  a name next to a checkbox.
+- **`components/RadialTable.tsx`**: CLAUDE.md's "mesa radial" - rivals fanned along an
+  elliptical arc (trig-computed per seat, not a fixed grid), pot in the center with a
+  "POZO ×N" badge, local player anchored bottom-center with an enlarged, stat-clickable card.
+  Collapses to a scrollable column below 768px per CLAUDE.md's mobile spec.
+- **`components/MatchClock.tsx`**: live HUD countdown from `RedactedMatchState.endsAt` /
+  `config.matchDurationMs` - renders "∞ sin límite" when `matchDurationMs` is 0, the static
+  configured duration before the match starts, and a live ticking countdown (turns red/pulses
+  under 60s) once `startedAt` is set. This is what makes the match duration actually visible
+  and testable, not just configurable in a form.
+- **`components/VictoryOverlay.tsx`**: `match:finished` - lightweight CSS/framer-motion
+  confetti burst (no new dependency), shield emblem, cascading final standings.
+- **`MatchRoomPage.tsx` rewritten**: kept 100% of the existing join/pending-request/host-accept
+  socket logic unchanged, and _added_ real listeners for every round-lifecycle server event
+  (`round:started/attributeSelected/cardPlayed/revealed/resolved`, `match:countdown/started`,
+  `match:finished`, `pong:latency`) plus a 5s latency ping - all wired against the real
+  `@kardux/contracts` event types, so this lights up for real the moment the backend fork's
+  `MatchRuntimeService` starts emitting these (nothing here is mocked data).
+- **`CreateMatchPage.tsx`**: gained match-duration presets (30 min/1h/2h/sin límite) - the
+  original form never exposed `matchDurationMs` at all; also clamps `autoStartPlayers` to
+  `[minPlayers, maxPlayers]` client-side, the same invariant that broke
+  `game.gateway.spec.ts`'s tests server-side.
+- **Logo/favicon wired**: `apps/web/index.html` gained the exact tag set the project owner
+  provided (icons, apple-touch-icon, manifest, Google Fonts preconnect for Cinzel/Inter);
+  `favicon/site.webmanifest`'s `theme_color`/`background_color`/`description` updated off the
+  generic Vite defaults to match the real brand.
+- **Fixed a real, pre-existing lint gap while here**: `apps/web`'s code already had
+  `// eslint-disable-next-line react-hooks/exhaustive-deps` comments, but
+  `eslint-plugin-react-hooks` was never installed or configured anywhere in the repo - the
+  disable comment itself failed lint ("Definition for rule ... was not found"). Added the
+  plugin (root `package.json` devDependency) and a scoped rule block in the root
+  `eslint.config.js` (`files: ['apps/web/**/*.{ts,tsx}']`, so `apps/api`'s NestJS code is
+  unaffected) instead of just deleting the now-broken comments.
+- **Verified for real**: `pnpm --filter @kardux/contracts build`, then
+  `pnpm --filter @kardux/web typecheck|lint|build` all clean (0 errors), `pnpm --filter
+@kardux/web dev` started cleanly and served `/`, `/logo.png`, `/favicon.svg` with `200`.
+  Could not test the live radial-table animations end-to-end in this worktree - the backend
+  game loop (`MatchRuntimeService`) doesn't exist here yet (separate fork's job); that
+  integration check happens once both forks land on the same branch.
+- **Note for whoever integrates this with the backend fork's contracts changes**: this
+  worktree's `packages/contracts/src/{auth,card,deck-source,errors,match,socket-events}.ts`
+  were manually synced from the main checkout's _uncommitted_ working tree (untracked files
+  don't come along with a fresh git worktree) so `apps/web` would even compile against the
+  real, current contract shapes (`guestAuthRequestSchema` sending only `tabId`, `RegisterRequest`/
+  `LoginRequest`/`CheckUsernameResponse`, the `match:requestJoin`/`respondJoin` events,
+  `DeckSourceDescriptor.cardCount`/`preview`). If the backend fork's own contracts diff differs
+  from this snapshot, reconcile before merging both branches - don't assume either side's copy
+  is automatically the newer one.
 
 ## Workflow for this project, going forward
 
