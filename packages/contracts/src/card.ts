@@ -1,14 +1,19 @@
 import { z } from 'zod';
 
 /**
- * Every deck provider CLAUDE.md documents. Only `local`, `pokeapi`, `dragonball`, `naruto`,
- * `digimon`, `rickmorty`, and `swapi` are required by `TASK-02-providers.md`; the rest
- * (`superheroes`, `marvel`, `transformers`) are still valid identifiers so `MatchConfig`
- * and the UI can refer to them once/if they're built, without a breaking type change later.
+ * Every deck provider CLAUDE.md documents, plus `deckofcards` and `apitcg` - the two extra
+ * sources the `tcg-github-sync` mirror (github.com/FlakoArenas26/tcg-github-sync) actually
+ * syncs data for today (see `docs/PENDING-WORK.md`'s "tcg-github-sync data status" entry).
+ * `dragonball`, `naruto`, `digimon`, `rickmorty`, `swapi`, `superheroes`, `marvel`, and
+ * `transformers` are still valid identifiers reserved for `TASK-02-providers.md`'s original
+ * per-source-API plan, but nothing syncs data for them yet - `DeckService` reports them as
+ * `ready: false`.
  */
 export const DECK_SOURCE_IDS = [
     'local',
     'pokeapi',
+    'deckofcards',
+    'apitcg',
     'dragonball',
     'naruto',
     'digimon',

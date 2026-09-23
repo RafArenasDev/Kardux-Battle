@@ -47,6 +47,27 @@ export const matchRejoinPayloadSchema = z.object({
 });
 export type MatchRejoinPayload = z.infer<typeof matchRejoinPayloadSchema>;
 
+/**
+ * `match:requestJoin` - the discovery counterpart to `match:join`: a player who picked the
+ * match from `GET /matches/public` (no code in hand) instead of typing/receiving one. Creates
+ * a `PENDING` `MatchPlayer` row that the host must approve via `match:respondJoin` before the
+ * requester is actually seated - see the 2026-09-21 join-request design in CLAUDE.md.
+ */
+export const matchRequestJoinPayloadSchema = z.object({
+    matchId: z.string().min(1),
+    nickname: z.string().min(1).max(24),
+    avatarSeed: z.string().min(1),
+});
+export type MatchRequestJoinPayload = z.infer<typeof matchRequestJoinPayloadSchema>;
+
+/** `match:respondJoin` - host-only. `requestId` is the `PENDING` `MatchPlayer.id` created by
+ *  `match:requestJoin`. */
+export const matchRespondJoinPayloadSchema = z.object({
+    requestId: z.string().min(1),
+    accept: z.boolean(),
+});
+export type MatchRespondJoinPayload = z.infer<typeof matchRespondJoinPayloadSchema>;
+
 export const roundSelectAttributePayloadSchema = z.object({
     attribute: z.string().min(1),
 });
@@ -120,6 +141,36 @@ export const pongLatencyPayloadSchema = z.object({
 });
 export type PongLatencyPayload = z.infer<typeof pongLatencyPayloadSchema>;
 
+/** Sent to the host's socket(s) only, right after `match:requestJoin` creates the `PENDING`
+ *  row - never broadcast to the room, since a still-pending request isn't public yet. */
+export const matchJoinRequestedPayloadSchema = z.object({
+    requestId: z.string().min(1),
+    nickname: z.string().min(1).max(24),
+    avatarSeed: z.string().min(1),
+});
+export type MatchJoinRequestedPayload = z.infer<typeof matchJoinRequestedPayloadSchema>;
+
+/** Sent back to the requester's own socket right after `match:requestJoin`, so their UI can
+ *  show a "waiting for host approval" state instead of assuming they're already seated. */
+export const matchJoinRequestPendingPayloadSchema = z.object({
+    requestId: z.string().min(1),
+});
+export type MatchJoinRequestPendingPayload = z.infer<typeof matchJoinRequestPendingPayloadSchema>;
+
+/** Sent to the requester's socket when the host accepts via `match:respondJoin` - same shape
+ *  as `match:join`'s ack (`code`/`matchId`/`token`/`playerId`) plus `requestId`, so a client
+ *  that requested to join can transition into the match exactly like a direct joiner would. */
+export const matchJoinApprovedPayloadSchema = matchJoinAckSchema.extend({
+    requestId: z.string().min(1),
+});
+export type MatchJoinApprovedPayload = z.infer<typeof matchJoinApprovedPayloadSchema>;
+
+/** Sent to the requester's socket when the host rejects via `match:respondJoin`. */
+export const matchJoinRejectedPayloadSchema = z.object({
+    requestId: z.string().min(1),
+});
+export type MatchJoinRejectedPayload = z.infer<typeof matchJoinRejectedPayloadSchema>;
+
 /** Ack callbacks always resolve to either the expected payload or a typed error - never a
  *  thrown exception across the wire. */
 export type AckResponse<T> = T | z.infer<typeof errorPayloadSchema>;
@@ -137,6 +188,13 @@ export interface ClientEvents {
         payload: MatchRejoinPayload,
         ack: (response: AckResponse<MatchJoinAck>) => void,
     ) => void;
+    /** No ack - the requester and the host each learn the outcome through their own
+     *  server-pushed events (`match:joinRequestPending`/`error`, then eventually
+     *  `match:joinApproved`/`match:joinRejected`), not a single synchronous response. */
+    'match:requestJoin': (payload: MatchRequestJoinPayload) => void;
+    /** No ack, host-only (enforced server-side; a non-host caller gets the generic `error`
+     *  event with `ERR_NOT_HOST`). */
+    'match:respondJoin': (payload: MatchRespondJoinPayload) => void;
     'match:config': (payload: z.infer<typeof matchConfigPatchSchema>) => void;
     'match:start': () => void;
     'match:leave': () => void;
@@ -150,6 +208,10 @@ export interface ServerEvents {
     'match:state': (payload: z.infer<typeof redactedMatchStateSchema>) => void;
     'match:playerJoined': (payload: z.infer<typeof playerSchema>) => void;
     'match:playerLeft': (payload: MatchPlayerLeftPayload) => void;
+    'match:joinRequested': (payload: MatchJoinRequestedPayload) => void;
+    'match:joinRequestPending': (payload: MatchJoinRequestPendingPayload) => void;
+    'match:joinApproved': (payload: MatchJoinApprovedPayload) => void;
+    'match:joinRejected': (payload: MatchJoinRejectedPayload) => void;
     'match:countdown': (payload: MatchCountdownPayload) => void;
     'match:started': () => void;
     'round:started': (payload: z.infer<typeof publicRoundViewSchema>) => void;
