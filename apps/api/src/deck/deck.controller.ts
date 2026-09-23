@@ -18,13 +18,13 @@ export class DeckController {
     @ApiOperation({
         summary: 'List available deck sources',
         description:
-            'Every playable deck: original, copyright-free content bundled with the game ' +
-            '(mythic creatures, real animal facts, the classic French deck). Each entry carries ' +
-            'its attributes, a 4-card preview with generated vector art, and the pack / ' +
-            'cards-per-pack limits the create-match form must respect.',
+            'Every playable deck. Pokémon (PokéAPI) and the poker deck (Deck of Cards API) are ' +
+            'synced once into the database at boot (`CardPoolEntry`) and report `ready` once ' +
+            'available; the bundled original decks are always ready. Each entry carries its ' +
+            'attributes, a 4-card preview and the pack / cards-per-pack limits.',
     })
     @ApiOkResponse({ type: DeckSourceListDto })
-    listSources(): DeckSourceListDto {
+    async listSources(): Promise<DeckSourceListDto> {
         return this.deckService.listSources();
     }
 }

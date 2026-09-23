@@ -174,3 +174,21 @@ model MatchEvent {
 
   @@index([matchId, createdAt])
 }
+
+/// Local mirror of the cards synced from public APIs (ADR 0006 / CLAUDE.md "Espejo local
+/// persistente"): PokéAPI and Deck of Cards API are queried once when the API boots (and
+/// re-synced weekly), then every match is built from these rows - never from the network.
+model CardPoolEntry {
+  id         String   @id @default(cuid())
+  source     String
+  externalId String
+  /// Quartet family: the Pokémon's primary type, or the playing card's rank.
+  quartetKey String
+  name       String
+  imageUrl   String
+  stats      Json
+  syncedAt   DateTime @default(now())
+
+  @@unique([source, externalId])
+  @@index([source, quartetKey])
+}

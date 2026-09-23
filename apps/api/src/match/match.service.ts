@@ -8,7 +8,7 @@ import type { Match, Prisma, User } from '@prisma/client';
 import { randomInt, randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { matchConfigSchema } from '@kardux/contracts';
-import { DECKS, deckLimits, validateDeckConfig } from '@kardux/content';
+import { DECK_CATALOG, validateDeckConfig } from '@kardux/content';
 // Value import required: Nest's DI resolves constructor params via `design:paramtypes`
 // reflection metadata, which `import type` erases at compile time.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -49,8 +49,10 @@ export class MatchService {
 
     /** A fresh public quick-match lobby hosted by whoever asked for it (guests allowed). */
     async createQuickMatch(hostUserId: string): Promise<MatchSummary> {
-        const deck = DECKS[randomInt(DECKS.length)]!;
-        const limits = deckLimits(deck);
+        // Quick matches rotate through the two headline decks (Pokémon / poker).
+        const featured = DECK_CATALOG.filter((deck) => deck.kind === 'remote');
+        const deck = featured[randomInt(featured.length)]!;
+        const { limits } = deck;
 
         return this.insertMatch(hostUserId, {
             visibility: 'public',
@@ -116,7 +118,7 @@ export class MatchService {
         const match = await this.prisma.match.findFirst({
             where: {
                 status: { in: ['LOBBY', 'IN_PROGRESS'] },
-                players: { some: { userId, status: 'APPROVED' } },
+                players: { some: { userId, status: 'APPROVED', eliminatedAt: null } },
             },
             include: WITH_HOST_AND_COUNT,
             orderBy: { createdAt: 'desc' },

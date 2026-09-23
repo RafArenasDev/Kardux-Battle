@@ -1,29 +1,41 @@
 import type { DeckSourceId, MatchConfig } from '@kardux/contracts';
 import { renderCardArt } from '../art.js';
 import { hashString } from '../avatars.js';
+import type { IconName } from '../icons.generated.js';
 import { FAUNA_DECK } from './fauna.js';
 import { MYTHIC_DECK } from './mythic.js';
 import { NAIPES_DECK } from './naipes.js';
+import { POKEMON_DECK, POKER_DECK } from './remote.js';
 import type { DeckAttribute, DeckDefinition, DeckEntity, DeckFamily } from './types.js';
 
 export type { DeckAttribute, DeckDefinition, DeckEntity, DeckFamily, DeckMember } from './types.js';
+export type { RemoteDeckMeta } from './remote.js';
+export { POKEMON_DECK, POKER_DECK, POKEMON_TYPE_LABELS, REMOTE_DECKS } from './remote.js';
 
-/** Every playable deck, in the order the lobby shows them. */
-export const DECKS: readonly DeckDefinition[] = [MYTHIC_DECK, FAUNA_DECK, NAIPES_DECK];
-
-/** `local` is the historical offline/dev deck id - it now plays the mythic deck so older
- *  configs (and the engine's own tests) keep working without any third-party data. */
-export function getDeck(id: DeckSourceId): DeckDefinition | undefined {
-    if (id === 'local') return MYTHIC_DECK;
-    return DECKS.find((deck) => deck.id === id);
-}
+/** Bundled decks with their own families (and art). `naipes` is not listed in the catalog: it
+ *  is the offline fallback for the poker deck when deckofcardsapi hasn't synced yet. */
+export const BUNDLED_DECKS: readonly DeckDefinition[] = [MYTHIC_DECK, FAUNA_DECK, NAIPES_DECK];
 
 export interface DeckLimits {
-    /** Max `packs`: the smallest family size (every quartet needs one card per pack). */
+    /** Max `packs`: every quartet needs one card per pack. */
     maxPacks: number;
     /** Max `cardsPerPack`: the number of distinct families. */
     maxCardsPerPack: number;
     maxAttributes: number;
+}
+
+/** What the lobby needs to know about any playable deck, bundled or synced. */
+export interface DeckInfo {
+    id: DeckSourceId;
+    kind: 'remote' | 'bundled';
+    label: string;
+    tagline: string;
+    description: string;
+    coverIcon: IconName;
+    accent: string;
+    attributes: readonly DeckAttribute[];
+    credits?: string;
+    limits: DeckLimits;
 }
 
 export function deckLimits(deck: DeckDefinition): DeckLimits {
@@ -34,8 +46,61 @@ export function deckLimits(deck: DeckDefinition): DeckLimits {
     };
 }
 
+function bundledInfo(deck: DeckDefinition): DeckInfo {
+    return {
+        id: deck.id,
+        kind: 'bundled',
+        label: deck.label,
+        tagline: deck.tagline,
+        description: deck.description,
+        coverIcon: deck.coverIcon,
+        accent: deck.accent,
+        attributes: deck.attributes,
+        limits: deckLimits(deck),
+    };
+}
+
+/** Every deck a player can pick, in lobby order: the two API-backed decks first. */
+export const DECK_CATALOG: readonly DeckInfo[] = [
+    ...[POKEMON_DECK, POKER_DECK].map(
+        (meta): DeckInfo => ({
+            id: meta.id,
+            kind: 'remote',
+            label: meta.label,
+            tagline: meta.tagline,
+            description: meta.description,
+            coverIcon: meta.coverIcon,
+            accent: meta.accent,
+            attributes: meta.attributes,
+            credits: meta.credits,
+            limits: {
+                maxPacks: meta.maxPacks,
+                maxCardsPerPack: meta.maxCardsPerPack,
+                maxAttributes: meta.attributes.length,
+            },
+        }),
+    ),
+    bundledInfo(MYTHIC_DECK),
+    bundledInfo(FAUNA_DECK),
+];
+
+/** Metadata for any deck id, including the unlisted `naipes`/`local` fallbacks. */
+export function getDeckInfo(id: DeckSourceId): DeckInfo | undefined {
+    const listed = DECK_CATALOG.find((deck) => deck.id === id);
+    if (listed) return listed;
+    const bundled = getDeck(id);
+    return bundled ? bundledInfo(bundled) : undefined;
+}
+
+/** Bundled deck definition. `local` is the historical offline/dev id - it plays the mythic
+ *  deck so older configs (and the engine's tests) keep working. */
+export function getDeck(id: DeckSourceId): DeckDefinition | undefined {
+    if (id === 'local') return MYTHIC_DECK;
+    return BUNDLED_DECKS.find((deck) => deck.id === id);
+}
+
 /** Attributes shared by every selected deck, in the first deck's priority order. */
-export function sharedAttributes(decks: readonly DeckDefinition[]): DeckAttribute[] {
+export function sharedAttributes(decks: readonly { attributes: readonly DeckAttribute[] }[]): DeckAttribute[] {
     const [first, ...rest] = decks;
     if (!first) return [];
     return first.attributes.filter((attribute) =>
@@ -51,9 +116,9 @@ type DeckConfig = Pick<
 /** Human-readable (Spanish) reason a config can't be built, or `null` when it can. Shared by
  *  the API (rejects the request) and the web form (disables "Crear"). */
 export function validateDeckConfig(config: DeckConfig): string | null {
-    const decks: DeckDefinition[] = [];
+    const decks: DeckInfo[] = [];
     for (const id of config.deckSources) {
-        const deck = getDeck(id);
+        const deck = getDeckInfo(id);
         if (!deck) return `El mazo "${id}" no está disponible.`;
         decks.push(deck);
     }
@@ -63,12 +128,12 @@ export function validateDeckConfig(config: DeckConfig): string | null {
         return `Este mazo solo ofrece ${attributes.length} atributos comparables; baja la cantidad de atributos.`;
     }
 
-    const maxPacks = Math.min(...decks.map((deck) => deckLimits(deck).maxPacks));
+    const maxPacks = Math.min(...decks.map((deck) => deck.limits.maxPacks));
     if (config.packs > maxPacks) {
         return `Este mazo admite como máximo ${maxPacks} paquetes.`;
     }
 
-    const maxFamilies = decks.reduce((sum, deck) => sum + deckLimits(deck).maxCardsPerPack, 0);
+    const maxFamilies = decks.reduce((sum, deck) => sum + deck.limits.maxCardsPerPack, 0);
     if (config.cardsPerPack > maxFamilies) {
         return `Este mazo tiene ${maxFamilies} familias; baja las cartas por paquete.`;
     }
@@ -96,6 +161,7 @@ function familyEntities(deck: DeckDefinition, family: DeckFamily): DeckEntity[] 
                 );
         }
 
+        const ink = member.ink ?? family.ink;
         return {
             id: `${deck.id}:${family.key}:${index}`,
             familyKey: `${deck.id}:${family.key}`,
@@ -104,7 +170,7 @@ function familyEntities(deck: DeckDefinition, family: DeckFamily): DeckEntity[] 
                 icon: member.icon ?? family.icon,
                 palette: family.palette,
                 ...(member.rank ? { rank: member.rank } : {}),
-                ...(member.ink ?? family.ink ? { ink: member.ink ?? family.ink } : {}),
+                ...(ink ? { ink } : {}),
             }),
             stats,
         };
@@ -113,7 +179,7 @@ function familyEntities(deck: DeckDefinition, family: DeckFamily): DeckEntity[] 
 
 const entityCache = new Map<string, DeckEntity[][]>();
 
-/** Every family of a deck as resolved entities (art rendered once and memoized). */
+/** Every family of a bundled deck as resolved entities (art rendered once, memoized). */
 export function deckFamilies(deck: DeckDefinition): DeckEntity[][] {
     const cached = entityCache.get(deck.id);
     if (cached) return cached;

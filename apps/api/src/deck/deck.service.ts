@@ -1,38 +1,63 @@
 import type { DeckSourceDescriptor } from '@kardux/contracts';
-import { DECKS, deckFamilies, deckLimits } from '@kardux/content';
+import type { DeckEntity, DeckInfo } from '@kardux/content';
+import { DECK_CATALOG, NAIPES_DECK, deckFamilies, getDeck } from '@kardux/content';
 import { Injectable } from '@nestjs/common';
+// Value import required: Nest's DI resolves constructor params via `design:paramtypes`
+// reflection metadata, which `import type` erases at compile time.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { CardPoolService } from './card-pool.service.js';
 
-/** The lobby's deck catalog, straight from `@kardux/content` - every deck is original and
- *  bundled with the app, so every entry is always `ready`. */
+/** The lobby's deck catalog: API-backed decks report `ready` once their pool is synced;
+ *  bundled decks are always ready. */
 @Injectable()
 export class DeckService {
-    listSources(): DeckSourceDescriptor[] {
-        return DECKS.map((deck) => {
-            const families = deckFamilies(deck);
-            const limits = deckLimits(deck);
+    constructor(private readonly cardPool: CardPoolService) {}
 
-            return {
-                id: deck.id,
-                label: deck.label,
-                tagline: deck.tagline,
-                description: deck.description,
-                accent: deck.accent,
-                attributes: deck.attributes.map(({ key, label, unit, higherIsBetter }) => ({
-                    key,
-                    label,
-                    higherIsBetter,
-                    ...(unit ? { unit } : {}),
-                })),
-                requiresApiKey: false,
-                ready: true,
-                cardCount: families.reduce((sum, members) => sum + members.length, 0),
-                maxPacks: limits.maxPacks,
-                maxCardsPerPack: limits.maxCardsPerPack,
-                preview: families.slice(0, 4).map(([first]) => ({
-                    name: first!.name,
-                    imageUrl: first!.imageUrl,
-                })),
-            };
-        });
+    async listSources(): Promise<DeckSourceDescriptor[]> {
+        return Promise.all(DECK_CATALOG.map((info) => this.describe(info)));
+    }
+
+    private async describe(info: DeckInfo): Promise<DeckSourceDescriptor> {
+        const families = await this.familiesOf(info);
+        const cardCount = families.reduce((sum, members) => sum + members.length, 0);
+
+        return {
+            id: info.id,
+            label: info.label,
+            tagline: info.tagline,
+            description: info.credits ? `${info.description} ${info.credits}` : info.description,
+            accent: info.accent,
+            attributes: info.attributes.map(({ key, label, unit, higherIsBetter }) => ({
+                key,
+                label,
+                higherIsBetter,
+                ...(unit ? { unit } : {}),
+            })),
+            requiresApiKey: false,
+            ready: cardCount > 0,
+            cardCount,
+            maxPacks: info.limits.maxPacks,
+            maxCardsPerPack: info.limits.maxCardsPerPack,
+            preview: this.pickPreview(families),
+        };
+    }
+
+    private async familiesOf(info: DeckInfo): Promise<DeckEntity[][]> {
+        if (info.id === 'pokeapi') return this.cardPool.getFamilies('pokeapi');
+        if (info.id === 'deckofcards') {
+            const synced = await this.cardPool.getFamilies('deckofcards');
+            return synced.length > 0 ? synced : deckFamilies(NAIPES_DECK);
+        }
+        const deck = getDeck(info.id);
+        return deck ? deckFamilies(deck) : [];
+    }
+
+    /** One card from each of the first four families - a varied, stable sample. */
+    private pickPreview(families: DeckEntity[][]): DeckSourceDescriptor['preview'] {
+        return families
+            .slice(0, 4)
+            .map((members) => members[Math.floor(members.length / 2)] ?? members[0])
+            .filter((entity): entity is DeckEntity => entity !== undefined)
+            .map((entity) => ({ name: entity.name, imageUrl: entity.imageUrl }));
     }
 }

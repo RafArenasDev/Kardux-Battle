@@ -143,7 +143,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
 
         let deck: Card[];
         try {
-            deck = this.deckBuilder.build(state.config, { seed: state.seed });
+            deck = await this.deckBuilder.build(state.config, { seed: state.seed });
         } catch (error) {
             client.emit('error', toErrorPayload(error));
             return;
@@ -326,7 +326,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
         if (activeCount < state.config.autoStartPlayers) return;
 
         try {
-            const deck = this.deckBuilder.build(state.config, { seed: state.seed });
+            const deck = await this.deckBuilder.build(state.config, { seed: state.seed });
             await this.dispatchAction(matchId, { type: 'match.beginCountdown', deck });
         } catch (error) {
             this.logger.warn(
