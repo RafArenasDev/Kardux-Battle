@@ -12,14 +12,20 @@ desktop, and mobile.
 
 ## Status
 
-**Early development.** Phase 0 (monorepo scaffold), `@kardux/contracts`, and `@kardux/engine`
-(68 passing tests, ≥90% coverage) are done and merged. `apps/api` boots for real
-(`pnpm --filter @kardux/api dev`) with logging, Swagger, rate limiting, a health check, and a
-full Prisma schema/migration - but nothing game-related yet: no auth, no gateway, nothing
-actually reads or writes through Prisma at runtime. Also deployed for real (free tiers): API
-on [Render](https://kardux-battle.onrender.com) (sleeps when idle, first request after that
-takes ~50s+), database + cache on Aiven. See [`docs/PENDING-WORK.md`](docs/PENDING-WORK.md)
-for the live session-by-session log of what shipped and what's next.
+**Playable end to end.** `@kardux/contracts` and `@kardux/engine` are done (88+ passing
+tests). `apps/api` boots for real with guest and registered-account auth, match
+creation/join/approval, and a full **real-time game loop**: `MatchRuntimeService` wires
+`@kardux/engine`'s pure `reduce()` to the `/game` Socket.IO gateway — dealing, attribute
+selection, card reveal, round resolution, tie pots, elimination, `matchDurationMs`/
+`turnTimeoutMs` timers, and reconnection all work against a real Postgres database. Decks are
+built from real card data (1300+ Pokémon via PokéAPI, a standard 52+joker deck, and thousands
+of Pokémon TCG cards) synced live from the sibling
+[`tcg-github-sync`](https://github.com/FlakoArenas26/tcg-github-sync) repo. `apps/web` has a
+full redesigned UI (radial game table, animated deck-source carousel, real branding) — see
+[`docs/PENDING-WORK.md`](docs/PENDING-WORK.md) for the live session-by-session log, including
+anything still landing from an open PR. Also deployed for real (free tiers): API on
+[Render](https://kardux-battle.onrender.com) (sleeps when idle, first request after that takes
+~50s+), database + cache on Aiven.
 
 ## The game
 
@@ -198,15 +204,36 @@ for why). Either way, create the database once:
 psql -U postgres -h localhost -c "CREATE DATABASE kardux_dev;"
 ```
 
-### Run it
+### Run it (API + web, for manual testing)
+
+Two terminals, from the repo root:
 
 ```bash
+# Terminal 1 — API (REST + the /game Socket.IO gateway)
 pnpm install                              # once, from the repo root
-pnpm --filter @kardux/api dev             # starts the API on http://localhost:3000
+pnpm --filter @kardux/api dev             # http://localhost:3000
 ```
 
-That's the real command — the API boots, validates `.env` at startup (fails fast with a clear
-message if something's missing), and serves:
+```bash
+# Terminal 2 — web frontend
+pnpm --filter @kardux/web dev             # http://localhost:5173
+```
+
+The API validates `apps/api/.env` at startup (fails fast with a clear message if something's
+missing) and needs a reachable Postgres (`DATABASE_URL`, see "Database and cache" above).
+Redis (`REDIS_URL`) is **optional** for local single-instance testing — `MatchRuntimeService`
+only uses it as a best-effort cross-instance lock and never blocks if it's unreachable; you'll
+just see a warning in the logs.
+
+The web app reads `VITE_API_BASE_URL` from `apps/web/.env.local` (copy it from
+`apps/web/.env.example`; defaults to `http://localhost:3000` if you skip this, which is
+correct for local dev).
+
+Once both are up: open `http://localhost:5173`, register a real account (guests can join a
+match but not host one — see `CLAUDE.md`'s "SESIONES"/auth section), create a match, and open
+more tabs (plain new tabs, not incognito — each tab gets its own `tabId`/session, exactly the
+multi-tab-as-multi-player setup `CLAUDE.md` requires) to join as other players and watch a
+real match play out.
 
 - `GET /health` — liveness check.
 - `GET /api/docs` — Swagger UI, generated from the same Zod schemas used for validation
@@ -218,13 +245,11 @@ select the environment, run "Create a guest identity" first to auto-fill the aut
 you'd rather click through requests than use Swagger's "Try it out." See `API-TESTING.md` for
 the full walkthrough.
 
-Nothing here touches Postgres or Redis yet — `AuthModule`/`MatchModule`/`GameGateway` (the
-pieces that actually need them) are the next phase. Until then:
-
 ```bash
-pnpm --filter @kardux/contracts test      # 20 passing
+pnpm --filter @kardux/contracts test      # 20+ passing
 pnpm --filter @kardux/engine test         # 68 passing
-pnpm --filter @kardux/api test            # 1 passing (health check)
+pnpm --filter @kardux/api test            # unit + game-loop integration tests
+pnpm --filter @kardux/web build           # typecheck + production build
 pnpm -r list --depth -1                   # sanity-check the workspace sees every package
 ```
 
