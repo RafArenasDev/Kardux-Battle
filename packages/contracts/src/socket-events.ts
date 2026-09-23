@@ -187,7 +187,10 @@ export interface ClientEvents {
     /** Quick match (any player, guests included): joins the first open public lobby that
      *  still has a live player waiting, or opens a new one. No approval step - the match
      *  auto-starts as soon as `autoStartPlayers` are seated. */
-    'match:quick': (payload: Record<string, never>, ack: (response: AckResponse<MatchJoinAck>) => void) => void;
+    'match:quick': (
+        payload: Record<string, never>,
+        ack: (response: AckResponse<MatchJoinAck>) => void,
+    ) => void;
     'match:rejoin': (
         payload: MatchRejoinPayload,
         ack: (response: AckResponse<MatchJoinAck>) => void,

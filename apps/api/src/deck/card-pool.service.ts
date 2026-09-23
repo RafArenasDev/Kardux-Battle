@@ -145,7 +145,9 @@ export class CardPoolService implements OnApplicationBootstrap {
             const started = Date.now();
             try {
                 const entries =
-                    source === 'pokeapi' ? await this.fetchPokemon() : await this.fetchPlayingCards();
+                    source === 'pokeapi'
+                        ? await this.fetchPokemon()
+                        : await this.fetchPlayingCards();
 
                 await this.prisma.$transaction([
                     this.prisma.cardPoolEntry.deleteMany({ where: { source } }),
@@ -201,7 +203,14 @@ export class CardPoolService implements OnApplicationBootstrap {
             for (const stat of row.pokemon_v2_pokemonstats) {
                 stats[stat.pokemon_v2_stat.name] = stat.base_stat;
             }
-            const required = ['hp', 'attack', 'defense', 'speed', 'special-attack', 'special-defense'];
+            const required = [
+                'hp',
+                'attack',
+                'defense',
+                'speed',
+                'special-attack',
+                'special-defense',
+            ];
             if (!required.every((key) => Number.isFinite(stats[key]))) continue;
 
             const spanish =

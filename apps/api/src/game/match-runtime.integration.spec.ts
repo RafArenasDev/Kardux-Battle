@@ -131,20 +131,16 @@ describe('MatchRuntimeService (real game loop, via sockets)', () => {
         const roundStartedPromise = once<PublicRoundView>(hostSocket, 'round:started');
         const finishedPromise = once<MatchFinishedPayload>(hostSocket, 'match:finished');
 
-        await hostSocket
-            .timeout(2000)
-            .emitWithAck('match:join', {
-                code: match.code,
-                nickname: 'Host',
-                avatarSeed: 'host-1',
-            });
-        await playerSocket
-            .timeout(2000)
-            .emitWithAck('match:join', {
-                code: match.code,
-                nickname: 'Player',
-                avatarSeed: 'player-1',
-            });
+        await hostSocket.timeout(2000).emitWithAck('match:join', {
+            code: match.code,
+            nickname: 'Host',
+            avatarSeed: 'host-1',
+        });
+        await playerSocket.timeout(2000).emitWithAck('match:join', {
+            code: match.code,
+            nickname: 'Player',
+            avatarSeed: 'player-1',
+        });
 
         // autoStartPlayers=2, autoStartCountdownMs=0 - joining the 2nd player alone triggers
         // the countdown, then an immediate `system.tick` deals the deck and starts the match.
@@ -196,20 +192,16 @@ describe('MatchRuntimeService (real game loop, via sockets)', () => {
 
         const finishedPromise = once<MatchFinishedPayload>(hostSocket, 'match:finished');
 
-        await hostSocket
-            .timeout(2000)
-            .emitWithAck('match:join', {
-                code: match.code,
-                nickname: 'Host',
-                avatarSeed: 'host-1',
-            });
-        await playerSocket
-            .timeout(2000)
-            .emitWithAck('match:join', {
-                code: match.code,
-                nickname: 'Player',
-                avatarSeed: 'player-1',
-            });
+        await hostSocket.timeout(2000).emitWithAck('match:join', {
+            code: match.code,
+            nickname: 'Host',
+            avatarSeed: 'host-1',
+        });
+        await playerSocket.timeout(2000).emitWithAck('match:join', {
+            code: match.code,
+            nickname: 'Player',
+            avatarSeed: 'player-1',
+        });
 
         // No round action sent at all - `matchDurationMs` (300ms) elapses on its own via the
         // scheduled `system.tick`, and both players are tied at 1 card each (1 pack x 2 cards).

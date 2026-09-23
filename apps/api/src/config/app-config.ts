@@ -29,7 +29,6 @@ const envSchema = z.object({
 
     RATE_LIMIT_TTL_MS: z.coerce.number().int().positive(),
     RATE_LIMIT_MAX: z.coerce.number().int().positive(),
-
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

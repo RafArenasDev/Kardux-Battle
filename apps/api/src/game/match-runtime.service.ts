@@ -165,17 +165,12 @@ export class MatchRuntimeService implements OnModuleDestroy {
         playerId: string,
         attribute: string,
     ): Promise<void> {
-        const result = await this.dispatchAndReport(matchId, client, {
+        // The leader's card is laid down automatically right after (see `autoPlayLeader`).
+        await this.dispatchAndReport(matchId, client, {
             type: 'round.selectAttribute',
             playerId,
             attribute,
         });
-
-        // Choosing the attribute *is* the leader's play (CLAUDE.md rule 6: the leader picks
-        // and lays their card down) - one gesture, not two.
-        if (result && !this.firstError(result.events)) {
-            await this.dispatchAndReport(matchId, client, { type: 'round.playCard', playerId });
-        }
     }
 
     async playCard(matchId: string, client: GameSocket, playerId: string): Promise<void> {
@@ -279,8 +274,28 @@ export class MatchRuntimeService implements OnModuleDestroy {
             }
 
             this.scheduleTimer(matchId, result.state);
+            this.autoPlayLeader(matchId, result.state);
 
             return result;
+        });
+    }
+
+    /** Choosing the attribute *is* the leader's play (CLAUDE.md rule 6: the leader picks and
+     *  lays their card down) - whether they picked it themselves or the turn timer picked it
+     *  for them. Queued after the current lock is released, never nested inside it. */
+    private autoPlayLeader(matchId: string, state: MatchState): void {
+        const round = state.round;
+        if (state.phase !== 'AWAITING_CARDS' || !round || round.playedCards[round.leaderId]) return;
+
+        setImmediate(() => {
+            void this.dispatchAction(matchId, {
+                type: 'round.playCard',
+                playerId: round.leaderId,
+            }).catch((error: unknown) =>
+                this.logger.error(
+                    `Leader auto-play failed for match ${matchId}: ${(error as Error).message}`,
+                ),
+            );
         });
     }
 
@@ -674,8 +689,10 @@ export class MatchRuntimeService implements OnModuleDestroy {
             client.on('error', (error: Error) => {
                 if (warned) return;
                 warned = true;
-                this.logger.warn(
-                    `Redis unavailable (${error.message || 'connection refused'}) - running memory-only until it comes back.`,
+                // Informational, not a fault: without Redis matches still work, they just
+                // don't survive an API restart. `pnpm dev` starts Redis automatically.
+                this.logger.log(
+                    `Redis not reachable (${error.message || 'connection refused'}) - match snapshots paused until it is.`,
                 );
             });
             client.on('ready', () => {

@@ -115,13 +115,11 @@ describe('GameGateway (/game)', () => {
         const match = await createMatch(host.id, 7);
         const hostSocket = await connect(host.id, 'Host');
 
-        await hostSocket
-            .timeout(2000)
-            .emitWithAck('match:join', {
-                code: match.code,
-                nickname: 'Host',
-                avatarSeed: 'host-1',
-            });
+        await hostSocket.timeout(2000).emitWithAck('match:join', {
+            code: match.code,
+            nickname: 'Host',
+            avatarSeed: 'host-1',
+        });
 
         const player = await createUser('Ash');
         const playerSocket = await connect(player.id, 'Ash');
@@ -136,7 +134,11 @@ describe('GameGateway (/game)', () => {
 
         const broadcast = await broadcastPromise;
         // Identity comes from the User row, never from the client payload.
-        expect(broadcast).toMatchObject({ nickname: 'Ash', avatarSeed: player.avatarSeed, seat: 1 });
+        expect(broadcast).toMatchObject({
+            nickname: 'Ash',
+            avatarSeed: player.avatarSeed,
+            seat: 1,
+        });
 
         const row = await prisma.matchPlayer.findUnique({
             where: { matchId_userId: { matchId: match.id, userId: player.id } },
@@ -150,23 +152,19 @@ describe('GameGateway (/game)', () => {
         const host = await createUser('Host');
         const match = await createMatch(host.id, 2);
         const hostSocket = await connect(host.id, 'Host');
-        await hostSocket
-            .timeout(2000)
-            .emitWithAck('match:join', {
-                code: match.code,
-                nickname: 'Host',
-                avatarSeed: 'host-1',
-            });
+        await hostSocket.timeout(2000).emitWithAck('match:join', {
+            code: match.code,
+            nickname: 'Host',
+            avatarSeed: 'host-1',
+        });
 
         const filler = await createUser('Brock');
         const fillerSocket = await connect(filler.id, 'Brock');
-        await fillerSocket
-            .timeout(2000)
-            .emitWithAck('match:join', {
-                code: match.code,
-                nickname: 'Brock',
-                avatarSeed: 'brock-1',
-            });
+        await fillerSocket.timeout(2000).emitWithAck('match:join', {
+            code: match.code,
+            nickname: 'Brock',
+            avatarSeed: 'brock-1',
+        });
 
         const player = await createUser('Ash');
         const playerSocket = await connect(player.id, 'Ash');
@@ -189,13 +187,11 @@ describe('GameGateway (/game)', () => {
         const host = await createUser('Host');
         const match = await createMatch(host.id, 7);
         const hostSocket = await connect(host.id, 'Host');
-        await hostSocket
-            .timeout(2000)
-            .emitWithAck('match:join', {
-                code: match.code,
-                nickname: 'Host',
-                avatarSeed: 'host-1',
-            });
+        await hostSocket.timeout(2000).emitWithAck('match:join', {
+            code: match.code,
+            nickname: 'Host',
+            avatarSeed: 'host-1',
+        });
 
         const requester = await createUser('Requester');
         const requesterSocket = await connect(requester.id, 'Requester');
@@ -247,13 +243,11 @@ describe('GameGateway (/game)', () => {
         const host = await createUser('Host');
         const match = await createMatch(host.id, 7);
         const hostSocket = await connect(host.id, 'Host');
-        await hostSocket
-            .timeout(2000)
-            .emitWithAck('match:join', {
-                code: match.code,
-                nickname: 'Host',
-                avatarSeed: 'host-1',
-            });
+        await hostSocket.timeout(2000).emitWithAck('match:join', {
+            code: match.code,
+            nickname: 'Host',
+            avatarSeed: 'host-1',
+        });
 
         const requester = await createUser('Requester');
         const requesterSocket = await connect(requester.id, 'Requester');
@@ -287,23 +281,19 @@ describe('GameGateway (/game)', () => {
         const host = await createUser('Host');
         const match = await createMatch(host.id, 2);
         const hostSocket = await connect(host.id, 'Host');
-        await hostSocket
-            .timeout(2000)
-            .emitWithAck('match:join', {
-                code: match.code,
-                nickname: 'Host',
-                avatarSeed: 'host-1',
-            });
+        await hostSocket.timeout(2000).emitWithAck('match:join', {
+            code: match.code,
+            nickname: 'Host',
+            avatarSeed: 'host-1',
+        });
 
         const filler = await createUser('Brock');
         const fillerSocket = await connect(filler.id, 'Brock');
-        await fillerSocket
-            .timeout(2000)
-            .emitWithAck('match:join', {
-                code: match.code,
-                nickname: 'Brock',
-                avatarSeed: 'brock-1',
-            });
+        await fillerSocket.timeout(2000).emitWithAck('match:join', {
+            code: match.code,
+            nickname: 'Brock',
+            avatarSeed: 'brock-1',
+        });
 
         const requester = await createUser('Requester');
         const requesterSocket = await connect(requester.id, 'Requester');

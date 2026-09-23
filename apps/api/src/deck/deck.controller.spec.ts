@@ -8,7 +8,12 @@ describe('DeckService', () => {
     it('lists Pokémon and poker first, then the bundled decks', async () => {
         const sources = await new DeckService(emptyPool).listSources();
 
-        expect(sources.map((source) => source.id)).toEqual(['pokeapi', 'deckofcards', 'mythic', 'fauna']);
+        expect(sources.map((source) => source.id)).toEqual([
+            'pokeapi',
+            'deckofcards',
+            'mythic',
+            'fauna',
+        ]);
         // Pokémon is not ready until its pool syncs; poker falls back to the bundled deck.
         expect(sources[0]?.ready).toBe(false);
         for (const source of sources.slice(1)) {
