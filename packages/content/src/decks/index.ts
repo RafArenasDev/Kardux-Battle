@@ -62,24 +62,22 @@ function bundledInfo(deck: DeckDefinition): DeckInfo {
 
 /** Every deck a player can pick, in lobby order: the two API-backed decks first. */
 export const DECK_CATALOG: readonly DeckInfo[] = [
-    ...[POKEMON_DECK, POKER_DECK].map(
-        (meta): DeckInfo => ({
-            id: meta.id,
-            kind: 'remote',
-            label: meta.label,
-            tagline: meta.tagline,
-            description: meta.description,
-            coverIcon: meta.coverIcon,
-            accent: meta.accent,
-            attributes: meta.attributes,
-            credits: meta.credits,
-            limits: {
-                maxPacks: meta.maxPacks,
-                maxCardsPerPack: meta.maxCardsPerPack,
-                maxAttributes: meta.attributes.length,
-            },
-        }),
-    ),
+    ...[POKEMON_DECK, POKER_DECK].map((meta): DeckInfo => ({
+        id: meta.id,
+        kind: 'remote',
+        label: meta.label,
+        tagline: meta.tagline,
+        description: meta.description,
+        coverIcon: meta.coverIcon,
+        accent: meta.accent,
+        attributes: meta.attributes,
+        credits: meta.credits,
+        limits: {
+            maxPacks: meta.maxPacks,
+            maxCardsPerPack: meta.maxCardsPerPack,
+            maxAttributes: meta.attributes.length,
+        },
+    })),
     bundledInfo(MYTHIC_DECK),
     bundledInfo(FAUNA_DECK),
 ];
@@ -100,7 +98,9 @@ export function getDeck(id: DeckSourceId): DeckDefinition | undefined {
 }
 
 /** Attributes shared by every selected deck, in the first deck's priority order. */
-export function sharedAttributes(decks: readonly { attributes: readonly DeckAttribute[] }[]): DeckAttribute[] {
+export function sharedAttributes(
+    decks: readonly { attributes: readonly DeckAttribute[] }[],
+): DeckAttribute[] {
     const [first, ...rest] = decks;
     if (!first) return [];
     return first.attributes.filter((attribute) =>

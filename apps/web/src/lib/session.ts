@@ -56,3 +56,23 @@ export function clearSession(): void {
 export function isAuthenticated(): boolean {
     return getToken() !== null;
 }
+
+const REDIRECT_KEY = 'kardux.redirect';
+
+/** Where to go after signing in - set by a share link opened before authenticating. Only
+ *  same-app paths are accepted, so this can never become an open redirect. */
+export function setPostAuthRedirect(path: string): void {
+    if (path.startsWith('/') && !path.startsWith('//')) {
+        sessionStorage.setItem(REDIRECT_KEY, path);
+    }
+}
+
+export function takePostAuthRedirect(): string | null {
+    const path = sessionStorage.getItem(REDIRECT_KEY);
+    sessionStorage.removeItem(REDIRECT_KEY);
+    return path && path.startsWith('/') && !path.startsWith('//') ? path : null;
+}
+
+export function updateStoredUser(user: SessionUser): void {
+    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+}

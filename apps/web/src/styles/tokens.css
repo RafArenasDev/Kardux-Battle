@@ -1,0 +1,76 @@
+/* Kardux design tokens - obsidian + gold, everything rounded. */
+:root {
+    /* Surfaces: near-black with a warm undertone, never pure #000. */
+    --bg: #07060a;
+    --bg-raised: #0f0d14;
+    --surface: #15121c;
+    --surface-2: #1c1826;
+    --surface-glass: rgba(22, 18, 30, 0.72);
+    --hairline: rgba(233, 196, 106, 0.16);
+    --hairline-strong: rgba(233, 196, 106, 0.34);
+
+    /* Gold, from the crest. */
+    --gold-50: #fff6dc;
+    --gold-200: #f7dc93;
+    --gold-300: #f0c96b;
+    --gold-400: #e2b04f;
+    --gold-500: #c9953a;
+    --gold-700: #8a6424;
+    --gold-900: #4a3411;
+
+    /* Text. */
+    --text: #f5efe1;
+    --text-2: #bdb4a2;
+    --text-3: #7f7766;
+    --text-on-gold: #2a1c06;
+
+    /* Game state. */
+    --win: #3fd6a4;
+    --lose: #ff5d6c;
+    --info: #6fd2ff;
+    --warn: #ffb547;
+
+    /* Type. */
+    --font-display: 'Lilita One', 'Nunito Variable', system-ui, sans-serif;
+    --font-body: 'Nunito Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+    /* Radii: nothing square. */
+    --r-xs: 10px;
+    --r-sm: 14px;
+    --r-md: 20px;
+    --r-lg: 28px;
+    --r-xl: 36px;
+    --r-pill: 999px;
+
+    /* Depth. */
+    --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.45);
+    --shadow-2: 0 12px 32px rgba(0, 0, 0, 0.55);
+    --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.65);
+    --glow-gold: 0 0 0 1px rgba(240, 201, 107, 0.4), 0 0 28px rgba(226, 176, 79, 0.35);
+
+    /* Motion. */
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --dur-fast: 120ms;
+    --dur: 220ms;
+
+    /* Layout. */
+    --gutter: clamp(16px, 4vw, 32px);
+    --header-h: 68px;
+    --content-max: 1180px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-contrast: more) {
+    :root {
+        --hairline: rgba(240, 201, 107, 0.5);
+        --text-2: #e3dccb;
+        --surface-glass: rgba(22, 18, 30, 0.98);
+    }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    :root {
+        --surface-glass: #16121e;
+    }
+}

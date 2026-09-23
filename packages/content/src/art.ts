@@ -73,7 +73,12 @@ export function renderAvatar(icon: IconName, palette: Palette): string {
         `</defs>` +
         `<circle cx="64" cy="64" r="62" fill="url(#r)"/>` +
         `<circle cx="64" cy="64" r="56" fill="url(#g)"/>` +
-        iconPath(icon, `translate(${offset} ${offset + 3}) scale(${scale})`, '#000', 'fill-opacity=".3"') +
+        iconPath(
+            icon,
+            `translate(${offset} ${offset + 3}) scale(${scale})`,
+            '#000',
+            'fill-opacity=".3"',
+        ) +
         iconPath(icon, `translate(${offset} ${offset}) scale(${scale})`, '#fbf1d6') +
         `</svg>`;
 

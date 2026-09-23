@@ -1,0 +1,298 @@
+/* Card width drives everything (type scales with it), height is always 7:5. */
+.pcard,
+.pcard-back {
+    --w: 180px;
+    position: relative;
+    width: var(--w);
+    height: calc(var(--w) * 1.4);
+    border-radius: calc(var(--w) * 0.09);
+    flex: none;
+    user-select: none;
+}
+
+.pcard--xs {
+    --w: 58px;
+}
+
+.pcard--sm {
+    --w: 104px;
+}
+
+.pcard--md {
+    --w: clamp(96px, 17vh, 168px);
+}
+
+.pcard--lg {
+    --w: clamp(140px, 22vh, 250px);
+}
+
+@media (max-width: 767px) {
+    .pcard--lg {
+        --w: min(58vw, 34dvh, 230px);
+    }
+    .pcard--md {
+        --w: min(38vw, 150px);
+    }
+}
+
+/* ---------- Face ---------- */
+.pcard {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--w) * 0.035);
+    padding: calc(var(--w) * 0.045);
+    background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.08), transparent 40%),
+        linear-gradient(180deg, #221c2c, #120f18);
+    border: calc(var(--w) * 0.018) solid transparent;
+    background-clip: padding-box;
+    box-shadow:
+        0 0 0 calc(var(--w) * 0.012) var(--gold-500),
+        0 0 0 calc(var(--w) * 0.024) #3a2a0f,
+        var(--shadow-2);
+    font-size: calc(var(--w) * 0.068);
+    line-height: 1.2;
+    color: var(--text);
+    overflow: hidden;
+}
+
+.pcard__head {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    min-width: 0;
+}
+
+.pcard__code {
+    flex: none;
+    padding: 0.18em 0.5em;
+    border-radius: var(--r-pill);
+    background: linear-gradient(180deg, #ffe3a0, #c9953a);
+    color: var(--text-on-gold);
+    font-family: var(--font-display);
+    font-size: 0.9em;
+    line-height: 1.1;
+}
+
+.pcard__name {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-display);
+    font-size: 1.05em;
+    color: var(--gold-50);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pcard__deck-icon {
+    flex: none;
+    color: var(--accent);
+    font-size: 1.1em;
+}
+
+.pcard__art {
+    position: relative;
+    flex: none;
+    height: 40%;
+    border-radius: calc(var(--w) * 0.06);
+    overflow: hidden;
+    background:
+        radial-gradient(
+            circle at 50% 45%,
+            color-mix(in srgb, var(--accent) 45%, transparent),
+            transparent 70%
+        ),
+        radial-gradient(circle at 50% 120%, rgba(0, 0, 0, 0.6), transparent 60%), #1b1624;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.pcard__art img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.55));
+}
+
+/* Real playing-card images are portrait faces - show them bigger, on felt. */
+.pcard--poker .pcard__art {
+    height: 52%;
+    background: radial-gradient(circle at 50% 40%, #1f6b4a, #0b2f22);
+    padding: 4%;
+}
+
+.pcard__stats {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    gap: 0.18em;
+    min-height: 0;
+}
+
+.pcard__stat {
+    transition:
+        opacity var(--dur) var(--ease-out),
+        transform var(--dur) var(--ease-out);
+}
+
+.pcard__stat-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.45em;
+    padding: 0.28em 0.55em;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: rgba(255, 255, 255, 0.05);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+}
+
+button.pcard__stat-btn {
+    cursor: pointer;
+    background: rgba(240, 201, 107, 0.1);
+    box-shadow: inset 0 0 0 1px rgba(240, 201, 107, 0.28);
+    transition:
+        background var(--dur) var(--ease-out),
+        box-shadow var(--dur) var(--ease-out);
+}
+
+button.pcard__stat-btn:hover {
+    background: rgba(240, 201, 107, 0.24);
+    box-shadow: inset 0 0 0 1.5px var(--gold-300);
+}
+
+.pcard__stat-icon {
+    flex: none;
+    color: var(--gold-300);
+    font-size: 1.05em;
+}
+
+.pcard__stat-label {
+    flex: 1;
+    min-width: 0;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-2);
+}
+
+.pcard__stat-value {
+    font-weight: 900;
+    color: var(--gold-50);
+}
+
+.pcard__stat.is-selected .pcard__stat-btn {
+    background: linear-gradient(180deg, #ffe3a0, #d9a54a);
+    box-shadow: 0 0 14px rgba(240, 201, 107, 0.55);
+    animation: stat-pulse 1.4s ease-in-out infinite;
+}
+
+.pcard__stat.is-selected .pcard__stat-label,
+.pcard__stat.is-selected .pcard__stat-value,
+.pcard__stat.is-selected .pcard__stat-icon {
+    color: var(--text-on-gold);
+}
+
+.pcard__stat.is-dimmed {
+    opacity: 0.4;
+}
+
+@keyframes stat-pulse {
+    0%,
+    100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.03);
+    }
+}
+
+/* Tiny cards (opponent reveals on phones): hide the stat labels. */
+.pcard--xs .pcard__stats,
+.pcard--xs .pcard__deck-icon {
+    display: none;
+}
+
+.pcard--xs .pcard__art {
+    height: 62%;
+}
+
+.pcard--sm .pcard__stat-label {
+    display: none;
+}
+
+.pcard--sm .pcard__stat-btn {
+    justify-content: space-between;
+}
+
+/* ---------- Round outcome ---------- */
+.pcard--win {
+    box-shadow:
+        0 0 0 calc(var(--w) * 0.016) var(--gold-200),
+        0 0 0 calc(var(--w) * 0.03) #5e4413,
+        0 0 36px rgba(240, 201, 107, 0.7),
+        var(--shadow-3);
+}
+
+.pcard--lose {
+    filter: saturate(0.25) brightness(0.7);
+}
+
+.pcard--tie {
+    box-shadow:
+        0 0 0 calc(var(--w) * 0.016) var(--info),
+        0 0 28px rgba(111, 210, 255, 0.5),
+        var(--shadow-2);
+}
+
+/* ---------- Back ---------- */
+.pcard-back {
+    display: grid;
+    place-items: center;
+    background:
+        repeating-linear-gradient(45deg, rgba(240, 201, 107, 0.07) 0 2px, transparent 2px 10px),
+        repeating-linear-gradient(-45deg, rgba(240, 201, 107, 0.07) 0 2px, transparent 2px 10px),
+        radial-gradient(circle at 50% 45%, #2a1f3a, #0c0a12 75%);
+    box-shadow:
+        0 0 0 calc(var(--w) * 0.014) var(--gold-500),
+        0 0 0 calc(var(--w) * 0.026) #2d200b,
+        var(--shadow-2);
+}
+
+.pcard-back__frame {
+    position: absolute;
+    inset: 7%;
+    display: grid;
+    place-items: center;
+    border-radius: calc(var(--w) * 0.06);
+    border: calc(var(--w) * 0.012) solid rgba(240, 201, 107, 0.5);
+}
+
+.pcard-back__frame img {
+    width: 66%;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
+}
+
+.pcard-back__count {
+    position: absolute;
+    right: -8px;
+    bottom: -8px;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 8px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--r-pill);
+    background: linear-gradient(180deg, #ffe3a0, #c9953a);
+    color: var(--text-on-gold);
+    font-family: var(--font-display);
+    font-size: 1rem;
+    box-shadow: var(--shadow-1);
+}

@@ -1,34 +1,50 @@
 import type { ClientEvents, ServerEvents } from '@kardux/contracts';
 import { type Socket, io } from 'socket.io-client';
+import { API_BASE_URL } from './config';
 import { getTabId, getToken } from './session';
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000';
 
 export type GameSocket = Socket<ServerEvents, ClientEvents>;
 
 let socket: GameSocket | undefined;
 
-/** One shared `/game` socket per tab, matching CLAUDE.md's `playerKey = userId:tabId` -
- *  reconnecting with the same `token`/`tabId` is what a page refresh should do, not a fresh
- *  identity. Connects lazily on first use, not at app boot, so a visitor who never leaves the
- *  auth screen never opens a socket. */
+/** One shared `/game` socket per tab (`playerKey = userId:tabId`). A reload reconnects with
+ *  the same token/tabId, which is what lets the server hand back the same seat. */
 export function getGameSocket(): GameSocket {
     if (socket) return socket;
 
-    socket = io(`${BASE_URL}/game`, {
+    socket = io(`${API_BASE_URL}/game`, {
         autoConnect: false,
-        auth: { token: getToken(), tabId: getTabId() },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionDelay: 500,
+        reconnectionDelayMax: 4_000,
+        auth: (cb) => cb({ token: getToken(), tabId: getTabId() }),
     });
     return socket;
 }
 
 export function connectGameSocket(): GameSocket {
     const gameSocket = getGameSocket();
-    // Token may have changed (fresh login) since the socket instance was created - refresh
-    // the handshake auth before every connect attempt.
-    gameSocket.auth = { token: getToken(), tabId: getTabId() };
     if (!gameSocket.connected) gameSocket.connect();
     return gameSocket;
+}
+
+/** Resolves once connected (or immediately if already), rejects after `timeoutMs`. */
+export function whenConnected(timeoutMs = 8_000): Promise<GameSocket> {
+    const gameSocket = connectGameSocket();
+    if (gameSocket.connected) return Promise.resolve(gameSocket);
+
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            gameSocket.off('connect', onConnect);
+            reject(new Error('No se pudo conectar con el servidor de juego.'));
+        }, timeoutMs);
+        function onConnect(): void {
+            clearTimeout(timer);
+            resolve(gameSocket);
+        }
+        gameSocket.once('connect', onConnect);
+    });
 }
 
 export function disconnectGameSocket(): void {

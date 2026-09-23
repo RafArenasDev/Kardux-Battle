@@ -4,6 +4,7 @@ import type {
     DeckSourceDescriptor,
     ErrorPayload,
     GuestAuthResponse,
+    LeaderboardResponse,
     LoginRequest,
     MatchSummary,
     MatchSummaryWithRole,
@@ -11,7 +12,7 @@ import type {
 } from '@kardux/contracts';
 import { getToken } from './session';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000';
+import { API_BASE_URL as BASE_URL } from './config';
 
 export class ApiError extends Error {
     constructor(
@@ -46,14 +47,24 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
         if (token) headers.Authorization = `Bearer ${token}`;
     }
 
-    const response = await fetch(url, {
-        method,
-        headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    let response: Response;
+    try {
+        response = await fetch(url, {
+            method,
+            headers,
+            body: body === undefined ? undefined : JSON.stringify(body),
+        });
+    } catch {
+        throw new ApiError(
+            { code: 'ERR_VALIDATION', message: 'No hay conexión con el servidor.' },
+            0,
+        );
+    }
 
     const isJson = response.headers.get('content-type')?.includes('application/json');
-    const data = isJson ? await response.json() : undefined;
+    const text = isJson ? await response.text() : '';
+    // `null` bodies (e.g. GET /matches/active with no match) come back as an empty 200.
+    const data: unknown = text ? JSON.parse(text) : isJson ? null : undefined;
 
     if (!response.ok) {
         throw new ApiError(
@@ -95,8 +106,12 @@ export function createMatch(payload: CreateMatchRequest): Promise<MatchSummary> 
     return request('/matches', { method: 'POST', body: payload });
 }
 
-export function listPublicMatches(): Promise<MatchSummary[]> {
-    return request('/matches/public');
+export function getActiveMatch(): Promise<MatchSummary | null> {
+    return request('/matches/active');
+}
+
+export function getLeaderboard(): Promise<LeaderboardResponse> {
+    return request('/leaderboard', { query: { limit: '8' } });
 }
 
 export function listMyMatches(): Promise<MatchSummaryWithRole[]> {

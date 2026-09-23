@@ -20,10 +20,28 @@ export const FAUNA_DECK: DeckDefinition = {
     coverIcon: 'lion',
     accent: '#2dd4a7',
     attributes: [
-        { key: 'velocidad', label: 'Velocidad', unit: 'km/h', icon: 'speedometer', higherIsBetter: true },
+        {
+            key: 'velocidad',
+            label: 'Velocidad',
+            unit: 'km/h',
+            icon: 'speedometer',
+            higherIsBetter: true,
+        },
         { key: 'peso', label: 'Peso', unit: 'kg', icon: 'weight', higherIsBetter: true },
-        { key: 'longevidad', label: 'Longevidad', unit: 'años', icon: 'hourglass', higherIsBetter: true },
-        { key: 'longitud', label: 'Tamaño', unit: 'cm', icon: 'measure-tape', higherIsBetter: true },
+        {
+            key: 'longevidad',
+            label: 'Longevidad',
+            unit: 'años',
+            icon: 'hourglass',
+            higherIsBetter: true,
+        },
+        {
+            key: 'longitud',
+            label: 'Tamaño',
+            unit: 'cm',
+            icon: 'measure-tape',
+            higherIsBetter: true,
+        },
         { key: 'peligro', label: 'Peligro', unit: '/10', icon: 'fangs', higherIsBetter: true },
     ],
     families: [

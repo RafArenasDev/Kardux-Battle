@@ -4,12 +4,13 @@ import type { DeckDefinition, DeckFamily } from './types.js';
 /** The classic 52-card French deck (public domain). Each rank is a quartet family, each suit a
  *  pack, so a default 4x8 match plays with four suits of eight ranks. `poder` is unique per
  *  card (value x 4 + suit), so that attribute can never tie. */
-const SUITS: readonly { key: string; label: string; icon: IconName; rank: number; ink: string }[] = [
-    { key: 'treboles', label: 'tréboles', icon: 'clubs', rank: 1, ink: '#15131c' },
-    { key: 'diamantes', label: 'diamantes', icon: 'diamonds', rank: 2, ink: '#b3122e' },
-    { key: 'corazones', label: 'corazones', icon: 'hearts', rank: 3, ink: '#b3122e' },
-    { key: 'picas', label: 'picas', icon: 'spades', rank: 4, ink: '#15131c' },
-];
+const SUITS: readonly { key: string; label: string; icon: IconName; rank: number; ink: string }[] =
+    [
+        { key: 'treboles', label: 'tréboles', icon: 'clubs', rank: 1, ink: '#15131c' },
+        { key: 'diamantes', label: 'diamantes', icon: 'diamonds', rank: 2, ink: '#b3122e' },
+        { key: 'corazones', label: 'corazones', icon: 'hearts', rank: 3, ink: '#b3122e' },
+        { key: 'picas', label: 'picas', icon: 'spades', rank: 4, ink: '#15131c' },
+    ];
 
 const RANKS: readonly { rank: string; name: string; value: number }[] = [
     { rank: 'A', name: 'As', value: 14 },
