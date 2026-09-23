@@ -45,3 +45,6 @@ apps/mobile/android/
 
 # Local Claude Code tooling (agent worktrees, settings)
 .claude/
+
+# Local Redis data written by `pnpm dev`
+.redis/

@@ -1,8 +1,9 @@
 # Kardux Battle
 
-A real-time, multiplayer Top Trumps–style card battle game — build your deck from public
-APIs (Pokémon, Dragon Ball, Naruto, and more), compare attributes, and battle across web,
-desktop, and mobile.
+A real-time, multiplayer Top Trumps–style card battle game — pick the strongest attribute of
+your card, win the table. Play with **Pokémon** (official base stats via PokéAPI) or the classic
+**poker deck** (Deck of Cards API), plus two original decks, in the browser today (installable
+PWA) and later on desktop and mobile.
 
 > This file is the single entry point for the project — setup, architecture, diagrams, and
 > current status all live here, updated as each phase lands, instead of being deferred to a
@@ -12,20 +13,26 @@ desktop, and mobile.
 
 ## Status
 
-**Playable end to end.** `@kardux/contracts` and `@kardux/engine` are done (88+ passing
-tests). `apps/api` boots for real with guest and registered-account auth, match
-creation/join/approval, and a full **real-time game loop**: `MatchRuntimeService` wires
-`@kardux/engine`'s pure `reduce()` to the `/game` Socket.IO gateway — dealing, attribute
-selection, card reveal, round resolution, tie pots, elimination, `matchDurationMs`/
-`turnTimeoutMs` timers, and reconnection all work against a real Postgres database. Decks are
-built from real card data (1300+ Pokémon via PokéAPI, a standard 52+joker deck, and thousands
-of Pokémon TCG cards) synced live from the sibling
-[`tcg-github-sync`](https://github.com/FlakoArenas26/tcg-github-sync) repo. `apps/web` has a
-full redesigned UI (radial game table, animated deck-source carousel, real branding) — see
-[`docs/PENDING-WORK.md`](docs/PENDING-WORK.md) for the live session-by-session log, including
-anything still landing from an open PR. Also deployed for real (free tiers): API on
-[Render](https://kardux-battle.onrender.com) (sleeps when idle, first request after that takes
-~50s+), database + cache on Aiven.
+**Playable end to end (v0.9, 2026-09-23).**
+
+- **Decks**: Pokémon (1025 Pokémon, Spanish names, official base stats, one quartet per
+  elemental type) and the 52-card poker deck are fetched **once** when the API boots (one
+  PokéAPI GraphQL request, one Deck of Cards draw), stored in Postgres (`CardPoolEntry`) and
+  re-synced at most weekly — gameplay never waits on a third-party API. Two original,
+  copyright-free decks (Criaturas Míticas, Fauna Salvaje) ship bundled.
+- **Rooms**: private rooms (registered players) are only listed in the host's panel and are
+  shared by 6-char hex code or link (WhatsApp, Telegram, email, native share). Quick matches
+  (anyone, guests included) pair two players instantly and auto-start — no approvals.
+- **Real-time game**: shuffle + deal animation, your top card face-up and everyone else's
+  face-down, the leader taps an attribute (their card is laid down automatically), the others
+  drag their card up to throw it (or tap), 3D flip reveal, winner glow, tie pot, turn timers,
+  live standings, chat, victory screen.
+- **Persistence**: live match state is snapshotted to Redis after every move — reloading the
+  page, a dropped connection or an API restart drops you back into the exact same seat.
+- **Web**: responsive (phone / tablet / desktop hooks), installable PWA with offline shell,
+  dark obsidian + gold design, rounded game UI, self-hosted fonts.
+
+See [`docs/PENDING-WORK.md`](docs/PENDING-WORK.md) for the session-by-session log.
 
 ## The game
 
@@ -204,53 +211,52 @@ for why). Either way, create the database once:
 psql -U postgres -h localhost -c "CREATE DATABASE kardux_dev;"
 ```
 
-### Run it (API + web, for manual testing)
+### Run it — one command
 
-Two terminals, from the repo root:
+Local path on the author's machine: `C:\Users\usuario\Documents\RAFA\DEV\kardux-battle`.
 
-```bash
-# Terminal 1 — API (REST + the /game Socket.IO gateway)
-pnpm install                              # once, from the repo root
-pnpm --filter @kardux/api dev             # http://localhost:3000
+```powershell
+cd C:\Users\usuario\Documents\RAFA\DEV\kardux-battle
+pnpm install        # first time / after pulling
+pnpm dev            # Redis + migrations + shared packages + API + web, all together
 ```
 
-```bash
-# Terminal 2 — web frontend
-pnpm --filter @kardux/web dev             # http://localhost:5173
+`pnpm dev` (`scripts/dev.mjs`) does, in order:
+
+1. Starts **Redis** on `:6379` if nothing is listening there (data in `./.redis`, git-ignored).
+2. Checks **PostgreSQL** on `:5432`, runs `prisma migrate deploy` + `prisma generate`.
+3. Builds `@kardux/contracts`, `@kardux/content`, `@kardux/engine`.
+4. Runs every watcher: API on **http://localhost:3000** (Swagger at `/api/docs`) and web on
+   **http://localhost:5173**. `Ctrl+C` stops everything it started.
+
+Prefer separate terminals? Each piece on its own, from the repo root:
+
+```powershell
+pnpm redis                              # Redis on :6379 (or run your own)
+pnpm build:packages                     # once, before the API/web
+pnpm dev:api                            # apps/api -> http://localhost:3000
+pnpm dev:web                            # apps/web -> http://localhost:5173
 ```
 
-The API validates `apps/api/.env` at startup (fails fast with a clear message if something's
-missing) and needs a reachable Postgres (`DATABASE_URL`, see "Database and cache" above).
-Redis (`REDIS_URL`) is **optional** for local single-instance testing — `MatchRuntimeService`
-only uses it as a best-effort cross-instance lock and never blocks if it's unreachable; you'll
-just see a warning in the logs.
+Requirements: `apps/api/.env` filled in from `apps/api/.env.example` (Postgres credentials,
+`JWT_SECRET`), PostgreSQL running, and `redis-server` on the PATH (`winget install Redis.Redis`
+on Windows). Redis is what keeps matches alive across reloads and restarts; without it the API
+still runs, memory-only.
 
-The web app reads `VITE_API_BASE_URL` from `apps/web/.env.local` (copy it from
-`apps/web/.env.example`; defaults to `http://localhost:3000` if you skip this, which is
-correct for local dev).
-
-Once both are up: open `http://localhost:5173`, register a real account (guests can join a
-match but not host one — see `CLAUDE.md`'s "SESIONES"/auth section), create a match, and open
-more tabs (plain new tabs, not incognito — each tab gets its own `tabId`/session, exactly the
-multi-tab-as-multi-player setup `CLAUDE.md` requires) to join as other players and watch a
-real match play out.
+**Try a match**: open `http://localhost:5173` in two tabs (each tab is its own player). Either
+play as guest in both and press **Buscar rival**, or register, create a private room and join it
+from the other tab with the code.
 
 - `GET /health` — liveness check.
-- `GET /api/docs` — Swagger UI, generated from the same Zod schemas used for validation
-  (ADR 0005), so it's never out of sync with what the API actually accepts.
-- `GET /api/docs-json` — the raw OpenAPI document, importable by any HTTP client.
-
-`apps/api/postman/` has a matching Postman collection + local environment (import both files,
-select the environment, run "Create a guest identity" first to auto-fill the auth token) if
-you'd rather click through requests than use Swagger's "Try it out." See `API-TESTING.md` for
-the full walkthrough.
+- `GET /api/docs` — Swagger UI generated from the same Zod schemas used for validation.
+- `node apps/api/scripts/smoke-duel.mjs` / `smoke-private.mjs` — scripted two-player matches
+  against the running API (quick match; registered accounts + private room).
 
 ```bash
-pnpm --filter @kardux/contracts test      # 20+ passing
-pnpm --filter @kardux/engine test         # 68 passing
+pnpm --filter @kardux/contracts test
+pnpm --filter @kardux/engine test
 pnpm --filter @kardux/api test            # unit + game-loop integration tests
-pnpm --filter @kardux/web build           # typecheck + production build
-pnpm -r list --depth -1                   # sanity-check the workspace sees every package
+pnpm --filter @kardux/web build           # typecheck + production PWA build
 ```
 
 ## Testing
@@ -280,6 +286,7 @@ pnpm -r list --depth -1                   # sanity-check the workspace sees ever
 
 ## License
 
-MIT — see [`LICENSE`](./LICENSE). Fan project, not affiliated with any of the games/shows
-whose public APIs feed its decks; attribution for each one lands in `CREDITS.md` once
-`packages/providers` exists.
+MIT — see [`LICENSE`](./LICENSE). Non-commercial fan project. Pokémon data and images via
+[PokéAPI](https://pokeapi.co) — Pokémon © Nintendo, Game Freak and The Pokémon Company. Card
+images via [Deck of Cards API](https://deckofcardsapi.com). Icons by Lorc, Delapouite and
+contributors at [game-icons.net](https://game-icons.net) (CC BY 3.0).
