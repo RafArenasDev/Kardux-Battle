@@ -89,7 +89,7 @@ curl -X POST http://localhost:3000/matches \
 ```
 
 Every field is optional — send `{}` to get all defaults (2-12 players, 4 packs × 8 cards,
-etc. — see `MatchConfig` in `CLAUDE.md` for the full list). Some other bodies to try:
+etc. — see `MatchConfig` in `docs/SPEC.md` for the full list). Some other bodies to try:
 
 ```bash
 # Fully custom config

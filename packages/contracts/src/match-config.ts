@@ -6,7 +6,7 @@ export const TURN_TIMEOUT_POLICIES = ['random_attr', 'highest_attr', 'skip'] as 
 export type TurnTimeoutPolicy = (typeof TURN_TIMEOUT_POLICIES)[number];
 
 /**
- * Everything a host can set from the lobby, per CLAUDE.md's "CONFIGURACIÓN DE PARTIDA"
+ * Everything a host can set from the lobby, per docs/SPEC.md's "CONFIGURACIÓN DE PARTIDA"
  * section. Field-level bounds are enforced here; cross-field rules that need more than one
  * field at a time (autoStartPlayers vs. min/maxPlayers, deck size vs. player count, ...) are
  * enforced by `.superRefine` below so every rejection carries a specific, addressable path.
@@ -21,7 +21,7 @@ export const matchConfigShape = {
     onTurnTimeout: z.enum(TURN_TIMEOUT_POLICIES).default('random_attr'),
     packs: z.number().int().min(1).default(4),
     cardsPerPack: z.number().int().min(1).max(26).default(8),
-    attributeCount: z.number().int().min(3).max(6).default(4),
+    attributeCount: z.number().int().min(1).max(6).default(4),
     deckSources: z.array(deckSourceIdSchema).min(1).default(['mythic']),
     mixSources: z.boolean().default(false),
     allowSpectators: z.boolean().default(true),

@@ -1,7 +1,7 @@
 # Fase 7 — README, diagramas, Docker y CI
 
 1. `README.md` (inglés) y `README.es.md` con todo lo listado en la sección README de
-   `CLAUDE.md`, incluidos los diagramas **Mermaid**: C4 nivel 2, secuencia de una ronda,
+   `docs/SPEC.md`, incluidos los diagramas **Mermaid**: C4 nivel 2, secuencia de una ronda,
    máquina de estados, ER de la base de datos y componentes del frontend.
 2. `docs/adr/` con un ADR corto por decisión relevante: NestJS vs Laravel, motor puro,
    Postgres + Redis, Tauri vs Electron, sesión por pestaña.

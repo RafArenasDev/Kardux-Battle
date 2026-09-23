@@ -1,5 +1,5 @@
 import type { LeaderboardEntry, LeaderboardQuery, LeaderboardResponse } from '@kardux/contracts';
-import type { LeaderboardStat, User } from '@prisma/client';
+import type { LeaderboardStat, Player as PlayerRow } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 // Value import required: Nest's DI resolves constructor params via `design:paramtypes`
 // reflection metadata, which `import type` erases at compile time.
@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { buildAvatarUrl } from '../common/avatar.js';
 import { KarduxError } from '../common/kardux-error.js';
 
-type LeaderboardRow = LeaderboardStat & { user: User };
+type LeaderboardRow = LeaderboardStat & { user: PlayerRow };
 
 /** Decoded shape of the opaque keyset cursor - see `encodeCursor`/`decodeCursor`. */
 interface LeaderboardCursor {
@@ -26,7 +26,7 @@ export class LeaderboardService {
      * between rows with the same Elo, which offset pagination can't do consistently once rows
      * are inserted/updated between pages.
      *
-     * Only the `global` scope from CLAUDE.md exists here: `scope` (per card source) and
+     * Only the `global` scope from docs/SPEC.md exists here: `scope` (per card source) and
      * `period`/`friends` would need columns/tables (per-source stats, time buckets, a friends
      * graph) that `LeaderboardStat` doesn't have yet, per the "no new models without approval"
      * rule - out of scope for this endpoint until that's designed separately.

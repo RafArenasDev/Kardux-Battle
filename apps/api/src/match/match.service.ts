@@ -4,7 +4,7 @@ import type {
     MatchSummary,
     MatchSummaryWithRole,
 } from '@kardux/contracts';
-import type { Match, Prisma, User } from '@prisma/client';
+import type { Match, Prisma, Player as PlayerRow } from '@prisma/client';
 import { randomInt, randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { matchConfigSchema } from '@kardux/contracts';
@@ -26,10 +26,10 @@ const WITH_HOST_AND_COUNT = {
     _count: { select: { players: { where: { status: 'APPROVED' } } } },
 } satisfies Prisma.MatchInclude;
 
-type MatchWithHost = Match & { host: User; _count: { players: number } };
+type MatchWithHost = Match & { host: PlayerRow; _count: { players: number } };
 
 /**
- * Two kinds of rooms (2026-09-23 decision):
+ * Two kinds of rooms:
  * - **Private** (`POST /matches`, registered players only): never listed anywhere except the
  *   host's own panel; others get in with the hex code or the share link.
  * - **Quick** (`match:quick`, anyone including guests): public 1v1 lobbies that auto-start the
@@ -40,7 +40,7 @@ export class MatchService {
     constructor(private readonly prisma: PrismaService) {}
 
     async createMatch(hostUserId: string, request: CreateMatchRequest): Promise<MatchSummary> {
-        const host = await this.prisma.user.findUnique({ where: { id: hostUserId } });
+        const host = await this.prisma.player.findUnique({ where: { id: hostUserId } });
         if (!host?.username) {
             throw new KarduxError('ERR_GUEST_CANNOT_HOST');
         }
@@ -156,14 +156,14 @@ export class MatchService {
         if (result.data.deckSources.some((id) => disabled.has(id))) {
             throw new KarduxError(
                 'ERR_INVALID_CONFIG',
-                'Ese mazo no está disponible en este servidor.',
+                'That deck is not available on this server.',
             );
         }
 
         // Fail at creation, not when the host presses "Iniciar": the deck must be buildable.
         const deckProblem = validateDeckConfig(result.data);
         if (deckProblem) {
-            throw new KarduxError('ERR_INVALID_CONFIG', deckProblem);
+            throw new KarduxError('ERR_INVALID_CONFIG', deckProblem.en);
         }
 
         return result.data;

@@ -1,56 +1,63 @@
 import type { Palette } from './art.js';
 import { renderAvatar } from './art.js';
 import type { IconName } from './icons.generated.js';
+import type { LocalizedText } from './decks/types.js';
+import { text } from './decks/types.js';
 
 export interface AvatarIcon {
     id: IconName;
-    label: string;
+    label: LocalizedText;
 }
 
 export interface AvatarColor {
     id: string;
-    label: string;
+    label: LocalizedText;
     palette: Palette;
 }
 
 /** Characters a registered player picks from - a mix of helmets, masks and faces so everyone
  *  can choose how they want to be represented instead of getting one assigned. */
 export const AVATAR_ICONS: readonly AvatarIcon[] = [
-    { id: 'visored-helm', label: 'Caballero' },
-    { id: 'spartan-helmet', label: 'Espartano' },
-    { id: 'samurai-helmet', label: 'Samurái' },
-    { id: 'viking-helmet', label: 'Vikingo' },
-    { id: 'centurion-helmet', label: 'Centurión' },
-    { id: 'black-knight-helm', label: 'Paladín oscuro' },
-    { id: 'ninja-head', label: 'Ninja' },
-    { id: 'hooded-figure', label: 'Encapuchado' },
-    { id: 'pirate-captain', label: 'Capitán pirata' },
-    { id: 'wizard-face', label: 'Mago' },
-    { id: 'witch-face', label: 'Hechicera' },
-    { id: 'woman-elf-face', label: 'Elfa' },
-    { id: 'dwarf-face', label: 'Enano' },
-    { id: 'barbarian', label: 'Bárbaro' },
-    { id: 'monk-face', label: 'Monje' },
-    { id: 'viking-head', label: 'Guerrero nórdico' },
-    { id: 'astronaut-helmet', label: 'Astronauta' },
-    { id: 'robot-golem', label: 'Autómata' },
-    { id: 'jester-hat', label: 'Bufón' },
-    { id: 'dragon-head', label: 'Dragón' },
-    { id: 'wolf-head', label: 'Lobo' },
-    { id: 'eagle-head', label: 'Águila' },
-    { id: 'fox-head', label: 'Zorro' },
-    { id: 'owl', label: 'Búho' },
+    { id: 'visored-helm', label: text('Caballero', 'Knight') },
+    { id: 'spartan-helmet', label: text('Espartano', 'Spartan') },
+    { id: 'samurai-helmet', label: text('Samurái', 'Samurai') },
+    { id: 'viking-helmet', label: text('Vikingo', 'Viking') },
+    { id: 'centurion-helmet', label: text('Centurión', 'Centurion') },
+    { id: 'black-knight-helm', label: text('Paladín oscuro', 'Dark Paladin') },
+    { id: 'ninja-head', label: text('Ninja', 'Ninja') },
+    { id: 'hooded-figure', label: text('Encapuchado', 'Hooded Rogue') },
+    { id: 'pirate-captain', label: text('Capitán pirata', 'Pirate Captain') },
+    { id: 'wizard-face', label: text('Mago', 'Wizard') },
+    { id: 'witch-face', label: text('Hechicera', 'Sorceress') },
+    { id: 'woman-elf-face', label: text('Elfa', 'Elf') },
+    { id: 'dwarf-face', label: text('Enano', 'Dwarf') },
+    { id: 'barbarian', label: text('Bárbaro', 'Barbarian') },
+    { id: 'monk-face', label: text('Monje', 'Monk') },
+    { id: 'viking-head', label: text('Guerrero nórdico', 'Norse Warrior') },
+    { id: 'astronaut-helmet', label: text('Astronauta', 'Astronaut') },
+    { id: 'robot-golem', label: text('Autómata', 'Automaton') },
+    { id: 'jester-hat', label: text('Bufón', 'Jester') },
+    { id: 'dragon-head', label: text('Dragón', 'Dragon') },
+    { id: 'wolf-head', label: text('Lobo', 'Wolf') },
+    { id: 'eagle-head', label: text('Águila', 'Eagle') },
+    { id: 'fox-head', label: text('Zorro', 'Fox') },
+    { id: 'owl', label: text('Búho', 'Owl') },
 ];
 
 export const AVATAR_COLORS: readonly AvatarColor[] = [
-    { id: 'ember', label: 'Brasa', palette: { from: '#ff8a4c', to: '#8f1d1d' } },
-    { id: 'gold', label: 'Oro', palette: { from: '#e8b94f', to: '#6b4a12' } },
-    { id: 'jade', label: 'Jade', palette: { from: '#3fd6a4', to: '#0b4d3f' } },
-    { id: 'ice', label: 'Hielo', palette: { from: '#6fd2ff', to: '#123a6b' } },
-    { id: 'amethyst', label: 'Amatista', palette: { from: '#c28bff', to: '#3d1670' } },
-    { id: 'rose', label: 'Rubí', palette: { from: '#ff6f91', to: '#6b0f2e' } },
-    { id: 'steel', label: 'Acero', palette: { from: '#a9b4cc', to: '#2c3346' } },
-    { id: 'night', label: 'Noche', palette: { from: '#4b5a8f', to: '#11142a' } },
+    { id: 'ember', label: text('Brasa', 'Ember'), palette: { from: '#ff8a4c', to: '#8f1d1d' } },
+    { id: 'gold', label: text('Oro', 'Gold'), palette: { from: '#e8b94f', to: '#6b4a12' } },
+    { id: 'jade', label: text('Jade', 'Jade'), palette: { from: '#3fd6a4', to: '#0b4d3f' } },
+    { id: 'ice', label: text('Hielo', 'Ice'), palette: { from: '#6fd2ff', to: '#123a6b' } },
+    {
+        id: 'amethyst',
+        label: text('Amatista', 'Amethyst'),
+        palette: { from: '#c28bff', to: '#3d1670' },
+    },
+    { id: 'rose', label: text('Rubí', 'Ruby'), palette: { from: '#ff6f91', to: '#6b0f2e' } },
+    { id: 'steel', label: text('Acero', 'Steel'), palette: { from: '#a9b4cc', to: '#2c3346' } },
+    { id: 'night', label: text('Noche', 'Night'), palette: { from: '#4b5a8f', to: '#11142a' } },
+    { id: 'onyx', label: text('Ónix', 'Onyx'), palette: { from: '#4a4550', to: '#000000' } },
 ];
 
 export interface ResolvedAvatar {

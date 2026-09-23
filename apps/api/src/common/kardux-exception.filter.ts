@@ -11,7 +11,7 @@ interface MinimalHttpResponse {
     json(body: unknown): void;
 }
 
-/** One HTTP status per typed error code - CLAUDE.md's socket layer sends these same codes
+/** One HTTP status per typed error code - docs/SPEC.md's socket layer sends these same codes
  *  as `error` events; the REST layer maps them to the closest HTTP semantics instead. */
 const ERROR_HTTP_STATUS: Record<ErrorCode, HttpStatus> = {
     ERR_VALIDATION: HttpStatus.BAD_REQUEST,

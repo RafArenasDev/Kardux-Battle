@@ -2,19 +2,54 @@ import type { DeckSourceId, MatchConfig } from '@kardux/contracts';
 import { renderCardArt } from '../art.js';
 import { hashString } from '../avatars.js';
 import type { IconName } from '../icons.generated.js';
-import { MOTORES_DECK } from './motores.js';
+import { AUTOS_DECK } from './autos.js';
+import { AVIONES_DECK } from './aviones.js';
+import { MOTOS_DECK } from './motos.js';
 import { MYTHIC_DECK } from './mythic.js';
 import { NAIPES_DECK } from './naipes.js';
-import { POKEMON_DECK, POKER_DECK } from './remote.js';
-import type { DeckAttribute, DeckDefinition, DeckEntity, DeckFamily } from './types.js';
+import type { RemoteDeckMeta } from './remote.js';
+import { CLASSIC_DECK, COUNTRIES_DECK, POKEMON_DECK } from './remote.js';
+import type {
+    DeckAttribute,
+    DeckDefinition,
+    DeckEntity,
+    DeckFamily,
+    Locale,
+    LocalizedText,
+} from './types.js';
+import { text } from './types.js';
 
-export type { DeckAttribute, DeckDefinition, DeckEntity, DeckFamily, DeckMember } from './types.js';
+export type {
+    DeckAttribute,
+    DeckDefinition,
+    DeckEntity,
+    DeckFamily,
+    DeckMember,
+    Locale,
+    LocalizedText,
+} from './types.js';
+export { text } from './types.js';
 export type { RemoteDeckMeta } from './remote.js';
-export { POKEMON_DECK, POKER_DECK, POKEMON_TYPE_LABELS, REMOTE_DECKS } from './remote.js';
+export {
+    CLASSIC_CARD_BACK_URL,
+    CLASSIC_DECK_COUNT,
+    CLASSIC_DECK,
+    COUNTRIES_DECK,
+    POKEMON_DECK,
+    POKEMON_TYPE_LABELS,
+    REMOTE_DECKS,
+} from './remote.js';
+export { CLASSIC_RANKS, CLASSIC_SUITS, classicValueLabel } from './naipes.js';
 
-/** Bundled decks with their own families (and art). `naipes` is not listed in the catalog: it
- *  is the offline fallback for the poker deck when deckofcardsapi hasn't synced yet. */
-export const BUNDLED_DECKS: readonly DeckDefinition[] = [MOTORES_DECK, MYTHIC_DECK, NAIPES_DECK];
+/** Decks bundled with the app (their own families and generated art). `naipes` is not listed
+ *  in the catalog: it is the offline art for the classic deck. */
+export const BUNDLED_DECKS: readonly DeckDefinition[] = [
+    MYTHIC_DECK,
+    AUTOS_DECK,
+    MOTOS_DECK,
+    AVIONES_DECK,
+    NAIPES_DECK,
+];
 
 export interface DeckLimits {
     /** Max `packs`: every quartet needs one card per pack. */
@@ -28,14 +63,16 @@ export interface DeckLimits {
 export interface DeckInfo {
     id: DeckSourceId;
     kind: 'remote' | 'bundled';
-    label: string;
-    tagline: string;
-    description: string;
+    label: LocalizedText;
+    tagline: LocalizedText;
+    description: LocalizedText;
     coverIcon: IconName;
     accent: string;
     attributes: readonly DeckAttribute[];
-    credits?: string;
+    credits?: LocalizedText;
     limits: DeckLimits;
+    /** Single-attribute decks (the classic deck) compare automatically - nobody picks. */
+    autoCompare: boolean;
 }
 
 export function deckLimits(deck: DeckDefinition): DeckLimits {
@@ -57,15 +94,12 @@ function bundledInfo(deck: DeckDefinition): DeckInfo {
         accent: deck.accent,
         attributes: deck.attributes,
         limits: deckLimits(deck),
+        autoCompare: deck.attributes.length === 1,
     };
 }
 
-/** Every deck a player can pick for a *card battle* (attribute comparison). The poker deck is
- *  deliberately NOT here: playing cards follow casino rules (poker, 21, rummy, baccarat), which
- *  is a separate game mode with its own engine - see docs/casino-mode.md. `POKER_DECK` stays
- *  exported for that mode, and `getDeckInfo('deckofcards')` still resolves for old matches. */
-export const DECK_CATALOG: readonly DeckInfo[] = [
-    ...[POKEMON_DECK].map((meta): DeckInfo => ({
+function remoteInfo(meta: RemoteDeckMeta): DeckInfo {
+    return {
         id: meta.id,
         kind: 'remote',
         label: meta.label,
@@ -80,39 +114,31 @@ export const DECK_CATALOG: readonly DeckInfo[] = [
             maxCardsPerPack: meta.maxCardsPerPack,
             maxAttributes: meta.attributes.length,
         },
-    })),
-    bundledInfo(MOTORES_DECK),
+        autoCompare: meta.attributes.length === 1,
+    };
+}
+
+/** Every battle deck, in lobby order. */
+export const DECK_CATALOG: readonly DeckInfo[] = [
+    remoteInfo(POKEMON_DECK),
+    remoteInfo(COUNTRIES_DECK),
     bundledInfo(MYTHIC_DECK),
+    bundledInfo(AUTOS_DECK),
+    bundledInfo(MOTOS_DECK),
+    bundledInfo(AVIONES_DECK),
+    remoteInfo(CLASSIC_DECK),
 ];
 
-/** Metadata for any deck id, including the unlisted `naipes`/`local` fallbacks. */
+/** Metadata for any deck id, including the unlisted `naipes`/`local` ones. */
 export function getDeckInfo(id: DeckSourceId): DeckInfo | undefined {
     const listed = DECK_CATALOG.find((deck) => deck.id === id);
     if (listed) return listed;
-    if (id === 'deckofcards') {
-        return {
-            id: POKER_DECK.id,
-            kind: 'remote',
-            label: POKER_DECK.label,
-            tagline: POKER_DECK.tagline,
-            description: POKER_DECK.description,
-            coverIcon: POKER_DECK.coverIcon,
-            accent: POKER_DECK.accent,
-            attributes: POKER_DECK.attributes,
-            credits: POKER_DECK.credits,
-            limits: {
-                maxPacks: POKER_DECK.maxPacks,
-                maxCardsPerPack: POKER_DECK.maxCardsPerPack,
-                maxAttributes: POKER_DECK.attributes.length,
-            },
-        };
-    }
     const bundled = getDeck(id);
     return bundled ? bundledInfo(bundled) : undefined;
 }
 
-/** Bundled deck definition. `local` is the historical offline/dev id - it plays the mythic
- *  deck so older configs (and the engine's tests) keep working. */
+/** Bundled deck definition. `local` is the historical offline/dev id and plays the mythic
+ *  deck, so older configs and the engine tests keep working. */
 export function getDeck(id: DeckSourceId): DeckDefinition | undefined {
     if (id === 'local') return MYTHIC_DECK;
     return BUNDLED_DECKS.find((deck) => deck.id === id);
@@ -129,41 +155,72 @@ export function sharedAttributes(
     );
 }
 
+/** How many attributes a match really plays with: exactly one for a single-attribute deck. */
+export function effectiveAttributeCount(
+    deckSources: readonly DeckSourceId[],
+    requested: number,
+): number {
+    const infos = deckSources
+        .map((id) => getDeckInfo(id))
+        .filter((info): info is DeckInfo => info !== undefined);
+    const available = sharedAttributes(infos).length;
+    return available === 1 ? 1 : Math.min(requested, available);
+}
+
 type DeckConfig = Pick<
     MatchConfig,
     'deckSources' | 'packs' | 'cardsPerPack' | 'attributeCount' | 'maxPlayers'
 >;
 
-/** Human-readable (Spanish) reason a config can't be built, or `null` when it can. Shared by
- *  the API (rejects the request) and the web form (disables "Crear"). */
-export function validateDeckConfig(config: DeckConfig): string | null {
+/** Why a config can't be built (in both languages), or `null` when it can. Shared by the API
+ *  (rejects the request) and the web form (disables "Create"). */
+export function validateDeckConfig(config: DeckConfig): LocalizedText | null {
     const decks: DeckInfo[] = [];
     for (const id of config.deckSources) {
         const deck = getDeckInfo(id);
-        if (!deck) return `El mazo "${id}" no está disponible.`;
+        if (!deck) {
+            return text(`El mazo "${id}" no está disponible.`, `Deck "${id}" is not available.`);
+        }
         decks.push(deck);
     }
 
     const attributes = sharedAttributes(decks);
-    if (attributes.length < config.attributeCount) {
-        return `Este mazo solo ofrece ${attributes.length} atributos comparables; baja la cantidad de atributos.`;
+    if (attributes.length > 1 && attributes.length < config.attributeCount) {
+        return text(
+            `Este mazo solo ofrece ${attributes.length} atributos; baja la cantidad de atributos.`,
+            `This deck only has ${attributes.length} attributes; lower the attribute count.`,
+        );
     }
 
     const maxPacks = Math.min(...decks.map((deck) => deck.limits.maxPacks));
     if (config.packs > maxPacks) {
-        return `Este mazo admite como máximo ${maxPacks} paquetes.`;
+        return text(
+            `Este mazo admite como máximo ${maxPacks} paquetes.`,
+            `This deck allows at most ${maxPacks} packs.`,
+        );
     }
 
     const maxFamilies = decks.reduce((sum, deck) => sum + deck.limits.maxCardsPerPack, 0);
     if (config.cardsPerPack > maxFamilies) {
-        return `Este mazo tiene ${maxFamilies} familias; baja las cartas por paquete.`;
+        return text(
+            `Este mazo tiene ${maxFamilies} familias; baja las cartas por paquete.`,
+            `This deck has ${maxFamilies} families; lower the cards per pack.`,
+        );
+    }
+
+    const total = config.packs * config.cardsPerPack;
+    if (total < config.maxPlayers) {
+        return text(
+            `El mazo (${total} cartas) es muy pequeño para ${config.maxPlayers} jugadores.`,
+            `The deck (${total} cards) is too small for ${config.maxPlayers} players.`,
+        );
     }
 
     return null;
 }
 
-/** Deterministic 5-99 variation around a family profile - invented creatures get distinct
- *  but stable stats without anyone hand-typing hundreds of numbers. */
+/** Deterministic 5-99 variation around a family profile - invented creatures get distinct but
+ *  stable stats. */
 function derivedStat(base: number, seed: string): number {
     const spread = (hashString(seed) % 25) - 12;
     return Math.max(5, Math.min(99, base + spread));
@@ -173,9 +230,9 @@ function familyEntities(deck: DeckDefinition, family: DeckFamily): DeckEntity[] 
     return family.members.map((member, index) => {
         const stats: Record<string, number> = {};
         for (const attribute of deck.attributes) {
-            const real = member.stats?.[attribute.key];
+            const explicit = member.stats?.[attribute.key];
             stats[attribute.key] =
-                real ??
+                explicit ??
                 derivedStat(
                     family.profile?.[attribute.key] ?? 50,
                     `${deck.id}:${family.key}:${index}:${attribute.key}`,
@@ -186,7 +243,8 @@ function familyEntities(deck: DeckDefinition, family: DeckFamily): DeckEntity[] 
         return {
             id: `${deck.id}:${family.key}:${index}`,
             familyKey: `${deck.id}:${family.key}`,
-            name: member.name,
+            name: member.name.es,
+            nameEn: member.name.en,
             imageUrl: renderCardArt({
                 icon: member.icon ?? family.icon,
                 palette: family.palette,
@@ -209,4 +267,9 @@ export function deckFamilies(deck: DeckDefinition): DeckEntity[][] {
     return families;
 }
 
-export { MOTORES_DECK, MYTHIC_DECK, NAIPES_DECK };
+/** Picks the text for a locale. */
+export function localize(value: LocalizedText, locale: Locale): string {
+    return value[locale];
+}
+
+export { AUTOS_DECK, AVIONES_DECK, MOTOS_DECK, MYTHIC_DECK, NAIPES_DECK };

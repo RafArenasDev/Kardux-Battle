@@ -1,6 +1,6 @@
 # Fase 1 y 2 — Dominio + API
 
-> Requiere haber leído `CLAUDE.md`.
+> Requiere haber leído `docs/SPEC.md`.
 
 Usando el contexto del proyecto Kardux Battle, ejecuta SOLO la Fase 1 y 2 (dominio + API).
 No escribas nada de frontend todavía.

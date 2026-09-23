@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { guestAuthRequestSchema, guestAuthResponseSchema } from './auth.js';
 
-// `guestAuthRequestSchema` only ever asked for `tabId` (2026-09-22 decision: nickname/avatar
-// are always server-generated for a guest, never client-supplied - see `auth.ts`'s own
-// docblock). These cases used to also assert on a client-supplied `nickname` field that this
-// schema has never actually had since that redesign landed.
+// A guest request carries only `tabId`: nickname and avatar are always generated server-side.
 describe('guestAuthRequestSchema', () => {
     const valid = {
         tabId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',

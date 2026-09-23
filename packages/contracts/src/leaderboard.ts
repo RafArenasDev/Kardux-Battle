@@ -37,7 +37,7 @@ export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;
 
 /**
  * `GET /leaderboard` response. `nextCursor: null` means this was the last page. Only the
- * `global` scope exists today - CLAUDE.md's `scope`/`period`/friends filters need columns
+ * `global` scope exists today - docs/SPEC.md's `scope`/`period`/friends filters need columns
  * (per-source stats, time-bucketed stats) and a friends graph that don't exist in the schema
  * yet, so they're deliberately not modeled here until that's designed and approved.
  */

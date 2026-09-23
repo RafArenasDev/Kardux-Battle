@@ -58,7 +58,7 @@ export class RetentionService implements OnApplicationBootstrap {
                     ],
                 },
             });
-            const guests = await this.prisma.user.deleteMany({
+            const guests = await this.prisma.player.deleteMany({
                 where: {
                     username: null,
                     createdAt: { lt: guestsBefore },

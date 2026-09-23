@@ -39,7 +39,7 @@ export class AuthController {
         description:
             'Issues a fully anonymous guest JWT - no account, no password, no email, and no ' +
             'nickname/avatar to pick: both are generated server-side. Call this once per ' +
-            "browser tab, right when the tab loads (CLAUDE.md's multi-tab session rules): " +
+            "browser tab, right when the tab loads (docs/SPEC.md's multi-tab session rules): " +
             'the resulting `token` and the `tabId` you sent must both be kept in ' +
             '`sessionStorage` (never `localStorage` - a duplicated tab must get its own ' +
             'identity, not inherit this one). Reuse the same token for every `POST` request ' +
@@ -70,7 +70,7 @@ export class AuthController {
         description:
             'Public, no bearer token involved - a registered account is a completely ' +
             'separate identity from any guest session, never "upgraded" from one. Always ' +
-            'creates a brand-new `User` with its own `username`/password; `nickname` and the ' +
+            'creates a brand-new `Player` with its own `username`/password; `nickname` and the ' +
             'avatar both default to `username` (nothing else to send). Returns the same ' +
             '`{token, user}` shape as `POST /auth/guest` / `POST /auth/login`, ready to store ' +
             'in `sessionStorage` immediately. Fails with `ERR_VALIDATION` (400) if the ' +

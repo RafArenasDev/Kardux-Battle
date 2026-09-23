@@ -93,7 +93,7 @@
                             "host": ["{{base_url}}"],
                             "path": ["matches"]
                         },
-                        "description": "Requires auth (run \"Create a guest identity\" first so `{{token}}` is populated). Every field is optional — send `{}` to get all defaults (2-12 players, 4 packs x 8 cards, etc. — see `MatchConfig` in `CLAUDE.md` for the full list).\n\nResponse 201:\n```json\n{\n  \"matchId\": \"clx...\",\n  \"code\": \"A3F9C1\",\n  \"status\": \"LOBBY\",\n  \"config\": { \"...\": \"full MatchConfig with defaults filled in\" },\n  \"hostId\": \"clx...\",\n  \"hostNickname\": \"RafArenas\",\n  \"hostAvatarUrl\": \"https://api.dicebear.com/9.x/adventurer/svg?seed=RafArenas\",\n  \"createdAt\": \"2026-09-21T...\"\n}\n```\n\nCopy the `code` from the response — you'll need it for \"5. Match by code\" below."
+                        "description": "Requires auth (run \"Create a guest identity\" first so `{{token}}` is populated). Every field is optional — send `{}` to get all defaults (2-12 players, 4 packs x 8 cards, etc. — see `MatchConfig` in `docs/SPEC.md` for the full list).\n\nResponse 201:\n```json\n{\n  \"matchId\": \"clx...\",\n  \"code\": \"A3F9C1\",\n  \"status\": \"LOBBY\",\n  \"config\": { \"...\": \"full MatchConfig with defaults filled in\" },\n  \"hostId\": \"clx...\",\n  \"hostNickname\": \"RafArenas\",\n  \"hostAvatarUrl\": \"https://api.dicebear.com/9.x/adventurer/svg?seed=RafArenas\",\n  \"createdAt\": \"2026-09-21T...\"\n}\n```\n\nCopy the `code` from the response — you'll need it for \"5. Match by code\" below."
                     }
                 },
                 {

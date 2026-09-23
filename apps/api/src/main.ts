@@ -26,7 +26,7 @@ async function bootstrap(): Promise<void> {
     // exports (ADR 0002) - no class-validator decorators anywhere in this codebase.
     app.useGlobalPipes(new ZodValidationPipe());
     // Turns any thrown `KarduxError` into an HTTP response with the matching status and the
-    // bilingual `ErrorPayload` body (CLAUDE.md: "error (código + mensaje i18n)").
+    // bilingual `ErrorPayload` body (docs/SPEC.md: "error (código + mensaje i18n)").
     app.useGlobalFilters(new KarduxExceptionFilter());
 
     // cleanupOpenApiDoc fixes up the schemas nestjs-zod's createZodDto classes produce -

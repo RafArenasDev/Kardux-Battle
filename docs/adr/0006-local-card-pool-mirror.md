@@ -6,11 +6,11 @@ Accepted
 
 ## Context
 
-`CLAUDE.md`'s original design has `DeckProvider.build()` call the source API live every time a
+the spec's original design has `DeckProvider.build()` call the source API live every time a
 match is created, with a two-level cache (Redis 24h TTL + a per-match `DeckSnapshot` so an
 already-created match survives an outage). That protects a match already in progress, but it
 does nothing for _new_ matches if a source API goes down for good, or a nickname/URL changes
-upstream (several of the sources in `CLAUDE.md`'s table are small community-run APIs -
+upstream (several of the sources in the spec's table are small community-run APIs -
 `dattebayo-api.onrender.com` free-tier hosting, `dragonball-api.com`, `digi-api.com` - with no
 uptime guarantee at all).
 
@@ -47,7 +47,7 @@ model CardPoolEntry {
   drawn with the match's seeded RNG so deck construction stays deterministic/reproducible)
   instead of calling the live API on the match-creation path. The live API is only ever called
   by the sync job, or once, automatically, the first time a source's pool is empty (bootstrap).
-- The existing Redis cache and per-match `DeckSnapshot` (CLAUDE.md, unchanged) still apply on
+- The existing Redis cache and per-match `DeckSnapshot` (docs/SPEC.md, unchanged) still apply on
   top of this - this ADR replaces "call the live API per match" with "call our own mirror per
   match," it doesn't remove the other two cache layers.
 
@@ -115,7 +115,7 @@ fresh from five minutes ago or three weeks ago).
       doesn't solve "what if this dataset needs correcting or the source changes its schema before
       we vendor it."
 - **Mirror only on first use, per deck, instead of the whole dataset upfront**: rejected -
-  quartets need to be _coherent_ (CLAUDE.md's grouping column, e.g. "por tipo elemental" for
+  quartets need to be _coherent_ (docs/SPEC.md's grouping column, e.g. "por tipo elemental" for
   Pokémon); building quartets correctly needs the full picture of a category, not just
   whichever entities happened to be requested first.
 

@@ -23,7 +23,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
             useFactory: (config: ConfigService<AppConfig, true>) => {
                 const isProduction = config.get('NODE_ENV', { infer: true }) === 'production';
 
-                // CLAUDE.md: "Logs estructurados (Pino) con matchId en cada línea" - matchId gets
+                // docs/SPEC.md: "Logs estructurados (Pino) con matchId en cada línea" - matchId gets
                 // added to the request-scoped logger by the gateway once matches exist; for now
                 // every line at least carries the request id nestjs-pino already attaches.
                 return {

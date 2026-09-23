@@ -31,7 +31,9 @@ export class DeckService {
             id: info.id,
             label: info.label,
             tagline: info.tagline,
-            description: info.credits ? `${info.description} ${info.credits}` : info.description,
+            description: info.description,
+            credits: info.credits ?? null,
+            autoCompare: info.autoCompare,
             accent: info.accent,
             attributes: info.attributes.map(({ key, label, unit, higherIsBetter }) => ({
                 key,
@@ -49,7 +51,9 @@ export class DeckService {
     }
 
     private async familiesOf(info: DeckInfo): Promise<DeckEntity[][]> {
-        if (info.id === 'pokeapi') return this.cardPool.getFamilies('pokeapi');
+        if (info.id === 'pokeapi' || info.id === 'paises') {
+            return this.cardPool.getFamilies(info.id);
+        }
         if (info.id === 'deckofcards') {
             const synced = await this.cardPool.getFamilies('deckofcards');
             return synced.length > 0 ? synced : deckFamilies(NAIPES_DECK);

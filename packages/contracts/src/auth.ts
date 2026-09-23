@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
 /**
- * `POST /auth/guest` (CLAUDE.md: "JWT de invitado (nickname + tabId)"). No password, no
+ * `POST /auth/guest` (docs/SPEC.md: "JWT de invitado (nickname + tabId)"). No password, no
  * returning user - every call mints a brand new, fully anonymous guest identity: `nickname`
- * and `avatarSeed` are generated server-side (2026-09-22 decision - a guest doesn't pick
+ * and `avatarSeed` are generated server-side (a guest doesn't pick
  * either), the client only sends `tabId`, generated client-side
- * (`crypto.randomUUID()`, CLAUDE.md's "SESIONES MULTI-PESTAÑA") and embedded in the token
+ * (`crypto.randomUUID()`, docs/SPEC.md's "SESIONES MULTI-PESTAÑA") and embedded in the token
  * itself, not just sent alongside it later: the gateway's socket handshake
  * (`auth: { token, tabId }`) can then cross-check the handshake's `tabId` against the one the
  * token was actually issued for, rejecting a token replayed from a different tab.
@@ -60,7 +60,7 @@ export const guestAuthResponseSchema = z.object({
         .string()
         .min(1)
         .describe(
-            'EN: Bearer JWT (12h by default) - store it in sessionStorage, never localStorage (see CLAUDE.md multi-tab rules), and send it as `Authorization: Bearer <token>` / in the Socket.IO handshake. ES: JWT de portador (12h por defecto) - guárdalo en sessionStorage, nunca en localStorage (ver las reglas multi-pestaña de CLAUDE.md), y envíalo como `Authorization: Bearer <token>` o en el handshake de Socket.IO.',
+            'EN: Bearer JWT (12h by default) - store it in sessionStorage, never localStorage (see docs/SPEC.md multi-tab rules), and send it as `Authorization: Bearer <token>` / in the Socket.IO handshake. ES: JWT de portador (12h por defecto) - guárdalo en sessionStorage, nunca en localStorage (ver las reglas multi-pestaña de docs/SPEC.md), y envíalo como `Authorization: Bearer <token>` o en el handshake de Socket.IO.',
         ),
     user: guestAuthUserSchema,
 });

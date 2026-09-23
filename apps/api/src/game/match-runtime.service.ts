@@ -41,7 +41,7 @@ const FINISHED_STATE_TTL_SECONDS = 15 * 60;
 
 /**
  * Owns every match's live `@kardux/engine` `MatchState` in memory and is the only thing that
- * ever calls `reduce()` (CLAUDE.md's "MatchRuntimeService", ADR 0002/0006). `GameGateway`
+ * ever calls `reduce()` (docs/SPEC.md's "MatchRuntimeService", ADR 0002/0006). `GameGateway`
  * translates a validated socket payload into one call here; this service does the rest:
  * locking, dispatching through the pure engine, broadcasting the resulting events, persisting
  * the durable side effects (`Round`/`DeckSnapshot`/`MatchEvent`/final `Match`/`MatchPlayer`
@@ -92,7 +92,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
     // ---- Public entry points - one per `ClientEvents` action `GameGateway` forwards here ----
 
     /** Also checked after every join: triggers the `autoStartPlayers` countdown once the
-     *  active player count reaches it (CLAUDE.md rule 3). Silently ignores the engine's
+     *  active player count reaches it (docs/SPEC.md rule 3). Silently ignores the engine's
      *  "already joined" rejection (`ERR_VALIDATION`) - that's the expected outcome of a
      *  reconnect/retried join, not a real error the joining client needs to see. */
     async playerJoin(
@@ -292,7 +292,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
     }
 
     /**
-     * Siigo Match Battle / CLAUDE.md rule 6: once the leader picks the attribute, the leader and
+     * Siigo Match Battle / docs/SPEC.md rule 6: once the leader picks the attribute, the leader and
      * then every other player "coloca su propia carta de juego (la de encima)" in play order.
      * Nobody chooses which card to play, so nobody is asked to - the runtime lays each top card
      * down itself, one player at a time, paced so the table can animate every throw. Queued
@@ -410,7 +410,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
                     room.emit('match:countdown', { endsAt: event.endsAt });
                     break;
                 case 'match.countdownCancelled':
-                    // No dedicated wire event for this in CLAUDE.md's table - the state push
+                    // No dedicated wire event for this in docs/SPEC.md's table - the state push
                     // right after this (phase back to LOBBY) is what tells clients it happened.
                     break;
                 case 'match.started':
@@ -579,9 +579,9 @@ export class MatchRuntimeService implements OnModuleDestroy {
         this.clearTimer(matchId);
     }
 
-    /** `Player.id`/`EngineAction.playerId` is the `userId:tabId` playerKey (CLAUDE.md's
+    /** `Player.id`/`EngineAction.playerId` is the `userId:tabId` playerKey (docs/SPEC.md's
      *  "SESIONES MULTI-PESTAÑA"); `Round.leaderId`/`winnerId`/`MatchPlayer.userId` reference
-     *  the durable `User.id` alone - strip the tab suffix before writing either. */
+     *  the durable `Player.id` alone - strip the tab suffix before writing either. */
     private userIdOf(playerKey: string): string {
         return playerKey.split(':')[0]!;
     }
@@ -620,7 +620,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
     }
 
     // ---- Locking: an in-process async mutex per match (the real correctness guarantee for
-    // this single-instance deployment) plus a best-effort Redis lock on top (CLAUDE.md /
+    // this single-instance deployment) plus a best-effort Redis lock on top (docs/SPEC.md /
     // ADR 0002's "Redis-backed per-room lock"). The Redis lock is insurance for a future
     // multi-instance deployment, not what makes this safe today - `MatchState` itself only
     // lives in this process's memory, so a second instance couldn't correctly act on it even

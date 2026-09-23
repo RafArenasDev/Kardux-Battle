@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Every typed error the gateway/engine can produce, per CLAUDE.md's "error (código +
+ * Every typed error the gateway/engine can produce, per docs/SPEC.md's "error (código +
  * mensaje i18n)". Keep this list append-only in practice - removing or renaming a code is a
  * breaking change for any client that switches on it.
  */

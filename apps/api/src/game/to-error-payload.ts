@@ -7,7 +7,7 @@ import { KarduxError } from '../common/kardux-error.js';
 const logger = new Logger('GameErrorMapping');
 
 /** Shared by `GameGateway` and `MatchRuntimeService`: turns anything thrown while handling a
- *  socket action into the typed `ErrorPayload` CLAUDE.md's socket contract promises
+ *  socket action into the typed `ErrorPayload` docs/SPEC.md's socket contract promises
  *  (`error (código + mensaje i18n)`) - never lets a raw exception reach a client. */
 export function toErrorPayload(error: unknown): ErrorPayload {
     if (error instanceof KarduxError) {

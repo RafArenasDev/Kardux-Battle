@@ -1,7 +1,7 @@
-# CLAUDE.md — Kardux Battle
+# Kardux Battle — Especificación
 
-> Especificación viva del proyecto. Claude Code debe leer este archivo completo antes de
-> escribir código y mantenerlo actualizado cuando una decisión cambie.
+> Especificación viva del proyecto: reglas, arquitectura, contratos y decisiones. Se mantiene
+> actualizada cuando una decisión cambia.
 > Tareas por fase en `docs/tasks/`. Decisiones arquitectónicas en `docs/adr/`.
 
 ## Convenciones de trabajo

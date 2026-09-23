@@ -58,7 +58,7 @@ shares the exact same set of numeric attributes (3 to 6 of them).
    1 hour like the original brief.
 
 Full canonical rules, including every configuration field and the socket event contract, live
-in [`CLAUDE.md`](CLAUDE.md).
+in [`docs/SPEC.md`](docs/SPEC.md).
 
 ## Architecture
 
@@ -117,7 +117,7 @@ kardux-battle/
 │  ├─ adr/          architecture decision records
 │  ├─ tasks/        the phase-by-phase build plan this project follows
 │  └─ PENDING-WORK.md   running session log
-└─ CLAUDE.md        canonical game rules and full technical spec
+└─ docs/SPEC.md        canonical game rules and full technical spec
 ```
 
 ### Match state machine
@@ -137,7 +137,7 @@ stateDiagram-v2
     FINISHED --> [*]
 ```
 
-`DEALING`, `REVEAL`, `RESOLVE`, and `TIE_POT` from `CLAUDE.md`'s state machine are real steps
+`DEALING`, `REVEAL`, `RESOLVE`, and `TIE_POT` from the spec's state machine are real steps
 the engine walks through and reports via its event stream (so the client can animate each one:
 the deal, the flip, the comparison, the pot banner) but aren't states the server sits in
 between player actions — there's no decision to make during them, so they resolve within the
@@ -156,11 +156,11 @@ that actually persist and wait for the next action.
 | API docs                | `@nestjs/swagger` + `nestjs-zod` (generated from the same Zod schemas used for validation — never duplicated)                     | [ADR 0005](docs/adr/0005-api-docs-and-http-client.md)       |
 | Manual API testing      | Local Postman collection (`apps/api/postman/`, importable JSON files, no cloud sync)                                              | [ADR 0005](docs/adr/0005-api-docs-and-http-client.md)       |
 | Deck data reliability   | Local `CardPoolEntry` mirror per source, synced on a schedule; decks are built from our own database, not a live third-party call | [ADR 0006](docs/adr/0006-local-card-pool-mirror.md)         |
-| Web                     | React 19 + Vite + Tailwind + Zustand + Framer Motion                                                                              | `CLAUDE.md`                                                 |
-| Desktop                 | Tauri 2                                                                                                                           | `CLAUDE.md`                                                 |
-| Mobile                  | Expo / React Native                                                                                                               | `CLAUDE.md`                                                 |
-| Validation              | Zod everywhere, both ends of every socket/REST payload                                                                            | `CLAUDE.md`                                                 |
-| Testing                 | Vitest, Supertest, `socket.io-client`, Playwright                                                                                 | `CLAUDE.md`                                                 |
+| Web                     | React 19 + Vite + Tailwind + Zustand + Framer Motion                                                                              | `docs/SPEC.md`                                                 |
+| Desktop                 | Tauri 2                                                                                                                           | `docs/SPEC.md`                                                 |
+| Mobile                  | Expo / React Native                                                                                                               | `docs/SPEC.md`                                                 |
+| Validation              | Zod everywhere, both ends of every socket/REST payload                                                                            | `docs/SPEC.md`                                                 |
+| Testing                 | Vitest, Supertest, `socket.io-client`, Playwright                                                                                 | `docs/SPEC.md`                                                 |
 
 ## Getting started
 
@@ -277,7 +277,7 @@ pnpm --filter @kardux/web build           # typecheck + production PWA build
 
 ## Documentation map
 
-- [`CLAUDE.md`](CLAUDE.md) — the canonical, complete game/technical spec.
+- [`docs/SPEC.md`](docs/SPEC.md) — the canonical, complete game/technical spec.
 - [`docs/adr/`](docs/adr/) — why each non-obvious technical decision was made, and what the
   alternatives were.
 - [`docs/tasks/`](docs/tasks/) — the phase-by-phase plan this project is built in order.

@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-`CLAUDE.md` specifies PostgreSQL (via Prisma) as the system of record and Redis for three
+`docs/SPEC.md` specifies PostgreSQL (via Prisma) as the system of record and Redis for three
 distinct jobs: deck cache (24h TTL, so a match survives an external API outage), a per-room
 lock so concurrent socket actions on the same match are serialized, and the Socket.IO Redis
 adapter for horizontal scaling. Local development on this machine has PostgreSQL 18 installed
@@ -17,7 +17,7 @@ license-free (no Memurai/Laragon-style registration).
 
 - **PostgreSQL**: connect to the local native instance in dev
   (`DATABASE_PROVIDER=postgresql`), matching production. `DATABASE_PROVIDER=sqlite` (already
-  allowed by `CLAUDE.md`) is _not_ used, since a real local Postgres is available — no reason
+  allowed by `docs/SPEC.md`) is _not_ used, since a real local Postgres is available — no reason
   to test against a different engine than production.
 - **Redis**: installed locally via the open-source, MSYS2-packaged
   `redis-windows-fork` (upstream Redis 8.10.1, dual/triple-licensed including AGPLv3 as of

@@ -104,10 +104,10 @@ function applyPlayerJoin(
 /**
  * In `LOBBY`, leaving removes the player outright (and hands the host role to the
  * next-earliest joiner, if the host left). Once a match is underway, a voluntary leave is
- * treated the same as running out of cards (CLAUDE.md only defines elimination for the
+ * treated the same as running out of cards (docs/SPEC.md only defines elimination for the
  * "ran out of cards" case; it's silent on a deliberate mid-match leave) - they become a
  * spectator and drop out of the turn order. Their pile at that moment is removed from
- * circulation rather than redistributed: CLAUDE.md has no rule for "who inherits a
+ * circulation rather than redistributed: docs/SPEC.md has no rule for "who inherits a
  * voluntary leaver's cards," and inventing a redistribution rule would be a bigger, unasked-
  * for design decision than simply not awarding cards nobody currently played for.
  */
@@ -243,7 +243,7 @@ function activePlayerIds(state: MatchState): string[] {
 }
 
 /** Shared by manual start and the moment a countdown elapses: shuffles + deals `deck`,
- *  resolves the first-turn player (CLAUDE.md rule 5), and moves straight to
+ *  resolves the first-turn player (docs/SPEC.md rule 5), and moves straight to
  *  `AWAITING_ATTRIBUTE` - `DEALING` is reported via the deal itself producing the new piles,
  *  not a phase the state stops in (see README.md). */
 function beginMatch(state: MatchState, deck: readonly Card[], now: number): MatchState {

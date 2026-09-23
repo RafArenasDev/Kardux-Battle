@@ -1,7 +1,7 @@
 import type { GuestAuthResponse } from '@kardux/contracts';
 
 /**
- * `sessionStorage` only - never `localStorage` (CLAUDE.md's "SESIONES MULTI-PESTAÑA"): a
+ * `sessionStorage` only - never `localStorage` (docs/SPEC.md's "SESIONES MULTI-PESTAÑA"): a
  * duplicated tab must end up with its own identity, not silently inherit this one. Every
  * value here is scoped to this one tab's lifetime by the browser itself.
  */

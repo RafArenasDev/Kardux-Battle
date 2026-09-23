@@ -25,8 +25,8 @@ const PRISMA_UNIQUE_CONSTRAINT_ERROR = 'P2002';
 const USERNAME_MAX_LENGTH = 24;
 const USERNAME_SUGGESTION_COUNT = 3;
 
-/** "Jugador4821"-style - CLAUDE.md's guest identity has no nickname the client picks
- *  (2026-09-22 decision: guest is fully anonymous/server-generated). */
+/** "Jugador4821"-style - docs/SPEC.md's guest identity has no nickname the client picks
+ * . */
 function generateGuestNickname(): string {
     return `Jugador${randomInt(1000, 10_000)}`;
 }
@@ -39,7 +39,7 @@ export class AuthService {
     ) {}
 
     /**
-     * Always creates a brand-new, fully anonymous guest `User` row - `nickname`/`avatarSeed`
+     * Always creates a brand-new, fully anonymous guest `Player` row - `nickname`/`avatarSeed`
      * are generated server-side, the client only supplies `tabId`. There is no "log back in"
      * for a guest identity: a reconnecting tab restores its session with the JWT it already
      * has (`match:rejoin`), not by calling this again. Guests can join matches but not host
@@ -47,7 +47,7 @@ export class AuthService {
      * a registered account - `POST /auth/register` is a completely separate identity.
      */
     async createGuest(request: GuestAuthRequest): Promise<GuestAuthResponse> {
-        const user = await this.prisma.user.create({
+        const user = await this.prisma.player.create({
             data: {
                 nickname: generateGuestNickname(),
                 avatarSeed: randomAvatarSeed(() => randomInt(1_000_000) / 1_000_000),
@@ -74,14 +74,14 @@ export class AuthService {
     }
 
     /**
-     * `POST /auth/register` - always public, always creates a brand-new `User` from scratch
-     * (2026-09-22, final decision: guest and registered accounts never merge - there is no
+     * `POST /auth/register` - always public, always creates a brand-new `Player` from scratch
+     * (guest and registered accounts never merge - there is no
      * "claim my guest identity" path). `nickname`/`avatarSeed` default to `username` since the
      * client doesn't send them separately. Fails with `ERR_VALIDATION` (+ `data.suggestions`,
      * 2-3 available alternatives) if the username is already taken.
      */
     async registerAccount(request: RegisterRequest): Promise<GuestAuthResponse> {
-        const existing = await this.prisma.user.findUnique({
+        const existing = await this.prisma.player.findUnique({
             where: { username: request.username },
         });
         if (existing) {
@@ -96,7 +96,7 @@ export class AuthService {
 
         const passwordHash = await bcrypt.hash(request.password, PASSWORD_HASH_ROUNDS);
         const user = await this.withUniqueUsernameCheck(request.username, () =>
-            this.prisma.user.create({
+            this.prisma.player.create({
                 data: {
                     nickname: request.username,
                     avatarSeed:
@@ -130,7 +130,7 @@ export class AuthService {
     /** `GET /auth/check-username` - same availability check `registerAccount` does, exposed
      *  standalone so a signup form can validate live while the user types. */
     async checkUsername(username: string): Promise<CheckUsernameResponse> {
-        const existing = await this.prisma.user.findUnique({ where: { username } });
+        const existing = await this.prisma.player.findUnique({ where: { username } });
         if (!existing) {
             return { available: true, suggestions: [] };
         }
@@ -139,12 +139,12 @@ export class AuthService {
     }
 
     /**
-     * Entry point for a returning account - mints a fresh JWT for the SAME `User.id` the
+     * Entry point for a returning account - mints a fresh JWT for the SAME `Player.id` the
      * account was registered under, so every match that account hosted/joined before is
      * visible again via `GET /matches/mine` once the client stores the new token.
      */
     async login(request: LoginRequest): Promise<GuestAuthResponse> {
-        const user = await this.prisma.user.findUnique({
+        const user = await this.prisma.player.findUnique({
             where: { username: request.username },
         });
 
@@ -185,7 +185,7 @@ export class AuthService {
             () => `${base}${randomInt(1000, 10_000)}`,
         );
 
-        const taken = await this.prisma.user.findMany({
+        const taken = await this.prisma.player.findMany({
             where: { username: { in: candidates } },
             select: { username: true },
         });

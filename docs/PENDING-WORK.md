@@ -56,7 +56,7 @@ logged-out or different-account session.
 **Merged to `main`**:
 
 - **Phase 1a done**: `@kardux/contracts` real content — `Card`, `MatchConfig` (with the
-  cross-field validation CLAUDE.md calls for), `Player`, `MatchState`/`RedactedMatchState`/
+  cross-field validation docs/SPEC.md calls for), `Player`, `MatchState`/`RedactedMatchState`/
   `PublicRoundView`/`RoundResult`, typed error codes with es/en messages, and the full `/game`
   socket contract (`ClientEvents`/`ServerEvents`). 20 Vitest cases, all passing.
 - **README.md rewritten as the single entry point** per explicit instruction — setup,
@@ -67,7 +67,7 @@ logged-out or different-account session.
 - **Architecture decision (ADR 0006)**: deck data will be mirrored into a local
   `CardPoolEntry` table per source (Postgres), refreshed by a scheduled sync job, instead of
   every match-creation calling the live external API. This makes deck building depend on our
-  own database, not on a small community API's uptime — see `CLAUDE.md`'s updated "FUENTES DE
+  own database, not on a small community API's uptime — see the spec's updated "FUENTES DE
   CARTAS" section and ADR 0006 for the full design. **Not built yet** — this is a Phase 3
   (`packages/providers`) design decision, recorded now so it isn't lost before that phase
   starts.
@@ -97,7 +97,7 @@ logged-out or different-account session.
 ## Session 2026-09-21 (cont'd) — Phase 2a: `apps/api` actually boots
 
 Split off Phase 2 on purpose, to land a complete, working slice before the session's usage
-window reset rather than leaving Phase 2 half-built mid-way (CLAUDE.md: "código completo o
+window reset rather than leaving Phase 2 half-built mid-way (docs/SPEC.md: "código completo o
 nada"). **Merged to `main`**:
 
 - `apps/api` is a real, runnable NestJS app: `pnpm --filter @kardux/api dev` boots it on
@@ -135,9 +135,9 @@ the health check (no constructor args), but `AuthModule`/`MatchModule`'s service
 
 Another deliberately small, complete slice under the same time pressure. **Merged to `main`**:
 
-- `apps/api/prisma/schema.prisma`: all 7 models from CLAUDE.md's "BASE DE DATOS" section
+- `apps/api/prisma/schema.prisma`: all 7 models from docs/SPEC.md's "BASE DE DATOS" section
   (`User`, `Match`, `MatchPlayer`, `Round`, `DeckSnapshot`, `LeaderboardStat`, `MatchEvent`).
-  `Match.code` is deliberately not schema-unique - CLAUDE.md only requires uniqueness among
+  `Match.code` is deliberately not schema-unique - docs/SPEC.md only requires uniqueness among
   _active_ matches, which Prisma's declarative schema can't express as a partial index; that
   rule is `MatchModule`'s job (Phase 2b), not the DB's.
 - **Real breaking change hit and worked around**: `prisma`/`@prisma/client` were on `7.10.0`
@@ -207,12 +207,12 @@ green:
   the room-reservation layer only - live engine state (piles, turn order, RNG) still doesn't
   exist until `MatchRuntimeService`/`GameGateway` boot a match for real play (still pending,
   see below).
-- `DeckModule`: `GET /decks/sources` - static catalog of the 10 providers CLAUDE.md
+- `DeckModule`: `GET /decks/sources` - static catalog of the 10 providers docs/SPEC.md
   documents. Only `local` is `ready: true` today; the rest are metadata until
   `packages/providers` (Phase 3) exists.
 - `LeaderboardModule`: `GET /leaderboard` - global Elo ranking, real keyset pagination
   (`elo desc, id desc`, opaque base64url cursor). Per-source/period/friends filters from
-  CLAUDE.md are NOT implemented - they'd need new columns/tables that aren't approved yet.
+  docs/SPEC.md are NOT implemented - they'd need new columns/tables that aren't approved yet.
 - Global `KarduxError` + exception filter mapping `@kardux/contracts`'s typed error codes to
   HTTP responses.
 - **Fixed a real regression**: an earlier `eslint --fix` run rewrote DI-critical imports
@@ -223,7 +223,7 @@ green:
   linter can't distinguish a real DI dependency from a type-only parameter annotation, so
   this will keep coming up in every new injectable - the comment explains why so nobody
   "fixes" it again).
-- **Decision (see CLAUDE.md)**: Swagger docs switched from the originally-planned bilingual
+- **Decision (see docs/SPEC.md)**: Swagger docs switched from the originally-planned bilingual
   ES/EN text to English-only - it read as cramped in Swagger UI with both languages
   concatenated in one description block.
 
@@ -369,12 +369,12 @@ deck-source.ts`): `DECK_SOURCE_IDS` gained `deckofcards` and `apitcg` (additive,
 Dos ideas que el dueño del proyecto planteó en la misma sesión, deliberadamente **no**
 diseñadas ni implementadas todavía - son bifurcaciones de arquitectura reales, no ajustes
 puntuales, y este proyecto trabaja por fases con "ok" explícito antes de empezar una (ver
-`CLAUDE.md`, "Convenciones de trabajo").
+`docs/SPEC.md`, "Convenciones de trabajo").
 
 1. **Persistencia offline (SQLite + PWA)**: cuando no haya conectividad (WiFi/datos/cable),
    el juego debería poder seguir funcionando con un respaldo local en SQLite en vez de
    depender de Postgres/`tcg-github-sync` en vivo. Encaja con la sección "MULTIPLATAFORMA" de
-   `CLAUDE.md` (PWA instalable, offline shell) pero abre preguntas de diseño reales: ¿el
+   `docs/SPEC.md` (PWA instalable, offline shell) pero abre preguntas de diseño reales: ¿el
    SQLite vive en el cliente (p. ej. `sql.js`/wasm) o es el backing real detrás del
    `DeckSourceId` `local` que hoy no tiene ningún dato?, ¿cómo se sincroniza con Postgres
    cuando vuelve la conexión?, ¿reemplaza o complementa el `CardPoolEntry` de ADR 0006?
@@ -540,11 +540,11 @@ merged yet** (branch `feat/real-game-loop`).
   `apitcg`'s HP-only data against the default `attributeCount` 4, or `deckofcards`' 3 derived
   stats against anything above 3) fails fast with an actionable `ERR_INVALID_CONFIG` instead of
   fabricating a stat that doesn't mean anything.
-- **`GameGateway`**: wired the rest of CLAUDE.md's socket contract table -
+- **`GameGateway`**: wired the rest of docs/SPEC.md's socket contract table -
   `match:config`/`match:start`/`match:leave`/`match:rejoin`/`round:selectAttribute`/
   `round:playCard`/`chat:send` (rate-limited + sanitized)/`ping:latency`, plus one **additive**
   event not in the original table, `match:cancelCountdown` (the engine already implements
-  cancelling an autostart countdown per CLAUDE.md rule 3 - "cancelable solo por el anfitrión" -
+  cancelling an autostart countdown per docs/SPEC.md rule 3 - "cancelable solo por el anfitrión" -
   nothing exposed it over the wire before). The existing `match:join`/`requestJoin`/
   `respondJoin` handlers now also dispatch a real `player.join` engine action (they previously
   only touched Postgres and hand-built the `match:playerJoined` broadcast themselves) and
@@ -576,7 +576,7 @@ pnpm --filter @kardux/api dev          # terminal 1
 # 1. POST /auth/register twice (two different usernames) -> two {token, user}
 # 2. POST /matches with the first token, deckSources: ["local"] (works with zero connectivity),
 #    minPlayers/maxPlayers/autoStartPlayers small (e.g. 2) to start quickly
-# 3. Open two browser tabs / socket.io-client connections, auth: { token, tabId } per CLAUDE.md,
+# 3. Open two browser tabs / socket.io-client connections, auth: { token, tabId } per docs/SPEC.md,
 #    both emit match:join { code, nickname, avatarSeed } - the match autostarts once
 #    autoStartPlayers is reached
 # 4. Listen for round:started, whoever is turnOrder[currentTurnIndex] emits
@@ -596,7 +596,7 @@ pnpm --filter @kardux/api dev          # terminal 1
   `(matchId, userId)` - a pre-existing tension in the `playerKey` design from before this
   session, not something this change introduces or resolves. Worth a real design decision
   before it bites someone testing with the same registered account in two tabs.
-- **Multi-tab manual testing** (CLAUDE.md's "7 pestañas del mismo navegador = 7 jugadores"):
+- **Multi-tab manual testing** (docs/SPEC.md's "7 pestañas del mismo navegador = 7 jugadores"):
   not exercised as actual browser tabs in this session - the integration tests and the live
   smoke test both simulate multiple players via separate `socket.io-client` connections
   (equivalent from the server's point of view, since identity is per-socket via the handshake,
@@ -616,9 +616,9 @@ worktree at the same time; this entry only covers the frontend side. **Not commi
 - **Real palette from `logo.png`**, replacing the flat placeholder navy+gold the project owner
   said looked "tosco": deeper obsidian (`#05070F`), warmer gold/bronze (`#D9AC53`/`#F4CF7E`),
   and jewel-tone accents lifted from the logo's fanned cards (ember, ice, teal, amethyst,
-  steel) used per deck-source/state. `CLAUDE.md`'s "Identidad visual" section rewritten to
+  steel) used per deck-source/state. the spec's "Identidad visual" section rewritten to
   match - see its own "revisión 2026-09-22" note.
-- **`framer-motion` added** (`apps/web/package.json`) - this project's own CLAUDE.md already
+- **`framer-motion` added** (`apps/web/package.json`) - this project's own docs/SPEC.md already
   named it as the intended animation library, it just was never installed. Used for: page
   transitions (`components/PageTransition.tsx`, wraps every route inside one
   `AnimatePresence` at the `App.tsx` level), the flip/stat-select card component
@@ -626,16 +626,16 @@ worktree at the same time; this entry only covers the frontend side. **Not commi
   overlay.
 - **`components/PlayingCard.tsx`**: one card component (front/back flip, `layoutId`-capable so
   a card can visually travel between contexts) shared by the hand, the pot, rival seats, and
-  the deck-source carousel - matches CLAUDE.md's animation table's "layoutId compartido" note
+  the deck-source carousel - matches docs/SPEC.md's animation table's "layoutId compartido" note
   for the mano→pozo flight, once the engine actually emits round events.
 - **`components/DeckSourceCarousel.tsx`**: replaces `CreateMatchPage`'s old checkbox list with
   real synced cards (`DeckSourceDescriptor.preview[0]`, live from `tcg-github-sync`) in a
   native-scroll-snap carousel - deck sources are picked by tapping an actual card, not reading
   a name next to a checkbox.
-- **`components/RadialTable.tsx`**: CLAUDE.md's "mesa radial" - rivals fanned along an
+- **`components/RadialTable.tsx`**: docs/SPEC.md's "mesa radial" - rivals fanned along an
   elliptical arc (trig-computed per seat, not a fixed grid), pot in the center with a
   "POZO ×N" badge, local player anchored bottom-center with an enlarged, stat-clickable card.
-  Collapses to a scrollable column below 768px per CLAUDE.md's mobile spec.
+  Collapses to a scrollable column below 768px per docs/SPEC.md's mobile spec.
 - **`components/MatchClock.tsx`**: live HUD countdown from `RedactedMatchState.endsAt` /
   `config.matchDurationMs` - renders "∞ sin límite" when `matchDurationMs` is 0, the static
   configured duration before the match starts, and a live ticking countdown (turns red/pulses

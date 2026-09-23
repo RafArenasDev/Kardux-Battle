@@ -8,7 +8,7 @@ export interface HealthResponse {
 }
 
 /**
- * `GET /health` from CLAUDE.md's REST endpoint list. Intentionally has no constructor
+ * `GET /health` from docs/SPEC.md's REST endpoint list. Intentionally has no constructor
  * dependencies for now (nothing to check yet - no Prisma/Redis clients exist until the next
  * phase); once they do, this becomes a real liveness/readiness check instead of "the process
  * is running."

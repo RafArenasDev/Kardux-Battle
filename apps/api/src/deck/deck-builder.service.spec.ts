@@ -31,29 +31,23 @@ describe('DeckBuilder', async () => {
     it('is deterministic for a given seed', async () => {
         const config = {
             ...base,
-            deckSources: ['motores'] as const,
+            deckSources: ['motos'] as const,
             packs: 4,
             cardsPerPack: 6,
             attributeCount: 3,
         };
-        const first = await builder.build(
-            { ...config, deckSources: ['motores'] },
-            { seed: 'same' },
-        );
-        const second = await builder.build(
-            { ...config, deckSources: ['motores'] },
-            { seed: 'same' },
-        );
+        const first = await builder.build({ ...config, deckSources: ['motos'] }, { seed: 'same' });
+        const second = await builder.build({ ...config, deckSources: ['motos'] }, { seed: 'same' });
         expect(first).toEqual(second);
     });
 
     it('rejects an attribute count the deck cannot offer', async () => {
         await expect(
             builder.build(
-                { ...base, deckSources: ['naipes'], packs: 4, cardsPerPack: 8, attributeCount: 4 },
+                { ...base, deckSources: ['motos'], packs: 4, cardsPerPack: 8, attributeCount: 6 },
                 { seed: 'x' },
             ),
-        ).rejects.toThrow(/atributos/);
+        ).rejects.toThrow(/attributes/);
     });
 
     it('falls back to the bundled French deck when the poker pool is not synced', async () => {
@@ -68,9 +62,9 @@ describe('DeckBuilder', async () => {
     it('rejects more packs than a family has members', async () => {
         await expect(
             builder.build(
-                { ...base, deckSources: ['motores'], packs: 5, cardsPerPack: 4, attributeCount: 3 },
+                { ...base, deckSources: ['motos'], packs: 5, cardsPerPack: 4, attributeCount: 3 },
                 { seed: 'x' },
             ),
-        ).rejects.toThrow(/paquetes/);
+        ).rejects.toThrow(/packs/);
     });
 });

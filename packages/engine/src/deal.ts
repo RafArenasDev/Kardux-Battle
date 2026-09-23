@@ -7,7 +7,7 @@ export interface DealResult {
 }
 
 /**
- * CLAUDE.md rule 4: shuffle the whole deck, discard whatever doesn't divide evenly
+ * docs/SPEC.md rule 4: shuffle the whole deck, discard whatever doesn't divide evenly
  * (`floor(total / players) * players`), then deal the rest round-robin. Shuffling before
  * truncating is what makes the discard "aleatorio" - which specific cards fall past the
  * cutoff depends entirely on the shuffle, never on their original position in the deck.

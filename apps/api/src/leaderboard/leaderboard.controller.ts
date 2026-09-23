@@ -27,7 +27,7 @@ export class LeaderboardController {
             'keyset-paginated over `(elo desc, id desc)`. Only the `global` scope is ' +
             'implemented today: the schema has no per-card-source stats, no time-bucketed ' +
             'stats, and no friends graph yet, so the `scope`/`period`/friends filters from ' +
-            "CLAUDE.md's design are intentionally left out until those columns/tables are " +
+            "docs/SPEC.md's design are intentionally left out until those columns/tables are " +
             'designed and approved separately. Requires a bearer token (any guest works - ' +
             'this data has no per-user visibility rule, it just should never be callable ' +
             'anonymously).',

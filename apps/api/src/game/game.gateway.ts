@@ -43,7 +43,7 @@ import { KarduxError } from '../common/kardux-error.js';
 import type { GameSocket } from './game-socket.type.js';
 import { toErrorPayload } from './to-error-payload.js';
 
-/** Everything `GameGateway` learns about a socket from its handshake (CLAUDE.md's "SESIONES
+/** Everything `GameGateway` learns about a socket from its handshake (docs/SPEC.md's "SESIONES
  *  MULTI-PESTAÑA": `auth: { token, tabId }`, `playerKey = userId:tabId`), kept on
  *  `socket.data` for the lifetime of the connection. `token` is kept verbatim so it can be
  *  handed straight back as `MatchJoinAck.token` - the same bearer token already doubles as
@@ -60,7 +60,7 @@ interface RequestMeta {
 }
 
 /**
- * Socket.IO gateway on namespace `/game` (CLAUDE.md's "CONTRATO DE EVENTOS SOCKET.IO"). This
+ * Socket.IO gateway on namespace `/game` (docs/SPEC.md's "CONTRATO DE EVENTOS SOCKET.IO"). This
  * first slice only wires the join flows (direct `match:join` plus the new request/approve
  * `match:requestJoin`/`match:respondJoin`) - the rest of the event table (`match:create`,
  * `match:start`, `round:*`, ...) lands with `MatchRuntimeService` in a later phase.
@@ -81,11 +81,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     private readonly logger = new Logger(GameGateway.name);
 
     /** Message timestamps per socket, for `chat:send`'s rate limit - a plain in-memory sliding
-     *  window is enough for this project's scale (CLAUDE.md just asks for "rate-limited,
+     *  window is enough for this project's scale (docs/SPEC.md just asks for "rate-limited,
      *  sanitizado", not a specific algorithm). */
     private readonly chatTimestamps = new Map<GameSocket, number[]>();
 
-    /** Every live socket for a given `User.id`, so a host/requester can be reached without
+    /** Every live socket for a given `Player.id`, so a host/requester can be reached without
      *  them having joined any particular match room yet (e.g. a host who created the match
      *  over REST and is only sitting on the lobby screen still gets `match:joinRequested`).
      *  A `Set` per user, not a single socket, since nothing stops a user from having more than
@@ -95,7 +95,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     /** `nickname`/`avatarSeed` chosen at `match:requestJoin` time, kept just long enough to
      *  reuse them in the `match:playerJoined` broadcast if/when the host approves - `MatchPlayer`
      *  itself has no nickname/avatar columns (out of scope for this slice), so this is the only
-     *  place that memory lives between the two events. Falls back to the requester's `User`
+     *  place that memory lives between the two events. Falls back to the requester's `Player`
      *  record (see `respondJoin`) if the process restarted in between and lost this map. */
     private readonly pendingRequestMeta = new Map<string, RequestMeta>();
 
@@ -153,7 +153,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
 
     /**
-     * Direct join - existing contract (CLAUDE.md): code + nickname + avatarSeed, immediate
+     * Direct join - existing contract (docs/SPEC.md): code + nickname + avatarSeed, immediate
      * `APPROVED` seat, or the typed `ERR_MATCH_FULL` if the room is already at `maxPlayers`
      * (counting only `APPROVED` players).
      */
@@ -216,14 +216,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
 
     /** Seats (or re-seats) the caller and pushes them a fresh snapshot. Nickname/avatar always
-     *  come from the caller's `User` row - a client can't impersonate another name. */
+     *  come from the caller's `Player` row - a client can't impersonate another name. */
     private async joinByCode(
         client: GameSocket,
         auth: SocketAuth,
         code: string,
     ): Promise<MatchJoinAck> {
         const { match, created } = await this.gameService.joinDirect(auth.userId, code);
-        const user = await this.gameService.getUser(auth.userId);
+        const user = await this.gameService.getPlayer(auth.userId);
         const playerId = this.playerKey(auth);
 
         const refused = await this.matchRuntime.playerJoin(
@@ -365,7 +365,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
 
     /**
-     * Reconnection (CLAUDE.md's "reconexión con gracia de 45 s"): the socket handshake already
+     * Reconnection (docs/SPEC.md's "reconexión con gracia de 45 s"): the socket handshake already
      * re-authenticated this connection (same `token`/`tabId` check as any other message), so
      * this just needs to find which active match `auth.userId` currently has an `APPROVED`
      * seat in and push a fresh redacted snapshot - the engine never dropped them from

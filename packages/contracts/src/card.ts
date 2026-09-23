@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Every deck provider CLAUDE.md documents, plus `deckofcards` and `apitcg` - the two extra
+ * Every deck provider docs/SPEC.md documents, plus `deckofcards` and `apitcg` - the two extra
  * sources the `tcg-github-sync` mirror (github.com/FlakoArenas26/tcg-github-sync) actually
  * syncs data for today (see `docs/PENDING-WORK.md`'s "tcg-github-sync data status" entry).
  * `dragonball`, `naruto`, `digimon`, `rickmorty`, `swapi`, `superheroes`, `marvel`, and
@@ -11,7 +11,10 @@ import { z } from 'zod';
  */
 export const DECK_SOURCE_IDS = [
     'mythic',
-    'motores',
+    'paises',
+    'autos',
+    'motos',
+    'aviones',
     'fauna',
     'naipes',
     'local',
@@ -34,7 +37,7 @@ export const deckSourceIdSchema = z.enum(DECK_SOURCE_IDS);
 
 /**
  * Describes one comparable attribute of a deck (e.g. "hp", "attack"). `higherIsBetter` is
- * always true for every provider in `CLAUDE.md` today, but it's still a real field (not a
+ * always true for every provider in `docs/SPEC.md` today, but it's still a real field (not a
  * hardcoded assumption in the engine) so a future provider with a "lower is better" stat
  * (e.g. lap time) doesn't need an engine change.
  */
@@ -48,7 +51,7 @@ export const attributeDefSchema = z.object({
 export type AttributeDef = z.infer<typeof attributeDefSchema>;
 
 /**
- * A single card. `code` is the canonical "1A" style identifier from CLAUDE.md; `quartet` is
+ * A single card. `code` is the canonical "1A" style identifier from docs/SPEC.md; `quartet` is
  * just the letter part, kept separate because the engine and the DeckBuilder both need to
  * group cards by quartet without re-parsing `code` every time.
  */
@@ -56,6 +59,8 @@ export const cardSchema = z.object({
     code: z.string().regex(/^\d+[A-Z]$/, 'Card code must look like "1A", "12C", etc.'),
     quartet: z.string().regex(/^[A-Z]$/, 'Quartet must be a single uppercase letter.'),
     name: z.string().min(1),
+    /** English name, when the source provides one (`name` is the Spanish name). */
+    nameEn: z.string().min(1).optional(),
     imageUrl: z.string().url(),
     source: deckSourceIdSchema,
     /**

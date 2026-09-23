@@ -7,7 +7,7 @@ import { AuthService } from './auth.service.js';
 function createService() {
     const user = { id: 'user-1', nickname: 'RafArenas', avatarSeed: 'RafArenas' };
     const prisma = {
-        user: { create: vi.fn().mockResolvedValue(user) },
+        player: { create: vi.fn().mockResolvedValue(user) },
     } as unknown as PrismaService;
     const jwt = {
         signAsync: vi.fn().mockResolvedValue('signed.jwt.token'),
@@ -17,14 +17,14 @@ function createService() {
 }
 
 describe('AuthService.createGuest', () => {
-    it('creates an anonymous guest User row (server-generated nickname/avatar) and signs a JWT bound to that user + tabId', async () => {
+    it('creates an anonymous guest Player row (server-generated nickname/avatar) and signs a JWT bound to that user + tabId', async () => {
         const { service, prisma, jwt, user } = createService();
 
         const result = await service.createGuest({
             tabId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
         });
 
-        expect(prisma.user.create).toHaveBeenCalledWith({
+        expect(prisma.player.create).toHaveBeenCalledWith({
             data: {
                 nickname: expect.stringMatching(/^Jugador\d{4}$/) as unknown as string,
                 // A random `icon:color` pair from the avatar catalog.

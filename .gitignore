@@ -51,3 +51,6 @@ apps/mobile/android/
 
 # vite-plugin-pwa dev service worker (generated)
 dev-dist/
+
+# Local assistant notes (not part of the project)
+CLAUDE.md

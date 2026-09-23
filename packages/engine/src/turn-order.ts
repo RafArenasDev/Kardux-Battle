@@ -1,7 +1,7 @@
 import type { Card } from '@kardux/contracts';
 
 /**
- * CLAUDE.md rule 5: whoever holds `1A` goes first; if it wasn't dealt to anyone (it fell in
+ * docs/SPEC.md rule 5: whoever holds `1A` goes first; if it wasn't dealt to anyone (it fell in
  * the discarded remainder), search `1A, 1B … 1M, 2A, 2B, …` in that exact order for the first
  * code that *was* dealt, and that card's owner starts. "In play" here means "was dealt to
  * some player at all," not "is currently on top of their pile" - the starting player still
@@ -27,7 +27,7 @@ export function findFirstTurnPlayerId(
     return null;
 }
 
-/** Turn order after the first turn follows join order (CLAUDE.md rule 5) - stable regardless
+/** Turn order after the first turn follows join order (docs/SPEC.md rule 5) - stable regardless
  *  of who happens to go first. */
 export function buildTurnOrder(players: readonly { id: string; joinOrder: number }[]): string[] {
     return [...players].sort((a, b) => a.joinOrder - b.joinOrder).map((player) => player.id);

@@ -35,11 +35,12 @@ const ICONS = [
     'spiked-dragon-head', 'sea-dragon', 'dragon-spiral', 'dragon-breath', 'double-dragon',
     'griffin-shield', 'hydra-shot', 'rock-golem', 'metal-golem-head', 'jawless-cyclop',
     'egyptian-sphinx', 'direwolf', 'wolf-howl', 'spiral-tentacle',
-    // Máquinas
-    'race-car', 'full-motorcycle-helmet', 'scooter', 'jet-fighter', 'commercial-airplane',
-    'airplane', 'helicopter', 'truck', 'mine-truck', 'tow-truck', 'ambulance',
-    'steam-locomotive', 'subway-train', 'speed-boat', 'cargo-ship', 'sailboat', 'battleship',
-    'fuel-tank', 'bus', 'infinity',
+    // Autos, motos, aviones, países
+    'race-car', 'f1-car', 'jeep', 'police-car', 'surfer-van', 'caravan', 'car-key', 'car-wheel',
+    'full-motorcycle-helmet', 'scooter', 'jet-fighter', 'heavy-fighter', 'light-fighter',
+    'bomber', 'stealth-bomber', 'commercial-airplane', 'airplane', 'biplane', 'helicopter',
+    'glider', 'hang-glider', 'zeppelin', 'parachute', 'delivery-drone', 'rocket-flight',
+    'plane-pilot', 'fuel-tank', 'bus', 'infinity', 'wireframe-globe',
     // Baraja clásica
     'spades',
     'hearts',

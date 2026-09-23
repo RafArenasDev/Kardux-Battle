@@ -1,6 +1,6 @@
 # Fase 3 — Proveedores de cartas (`packages/providers`)
 
-> Requiere `CLAUDE.md` y las fases 1–2 terminadas.
+> Requiere `docs/SPEC.md` y las fases 1–2 terminadas.
 
 > **Nota (2026-09-22)**: el plan original de abajo (un provider por API externa, con
 > `p-limit`/`p-retry` pegándole en vivo a `pokeapi.co`, `dragonball-api.com`,
@@ -16,7 +16,7 @@ github-sync.client.ts` ya lo consume en vivo para `GET /decks/sources` (ver
 > para ellos si/cuando se retomen. El `DeckBuilder`/`CardPoolEntry`/normalización a `Card[]`
 > real (puntos 2-6 de abajo) tampoco está construido todavía para ninguna fuente.
 
-Implementa el paquete `@kardux/providers` con la interfaz `DeckProvider` definida en `CLAUDE.md`.
+Implementa el paquete `@kardux/providers` con la interfaz `DeckProvider` definida en `docs/SPEC.md`.
 
 1. Providers obligatorios: `local` (dataset embebido, offline, usado en tests), `pokeapi`,
    `dragonball`, `naruto`, `digimon`, `rickmorty`, `swapi`.
@@ -25,7 +25,7 @@ Implementa el paquete `@kardux/providers` con la interfaz `DeckProvider` definid
     - reintentar con backoff exponencial (`p-retry`, 3 intentos);
     - descartar entidades sin imagen o sin atributos completos;
     - normalizar todos los atributos a `number`, nunca `NaN`;
-    - agrupar en cuartetos coherentes según la columna "Agrupación" de `CLAUDE.md`;
+    - agrupar en cuartetos coherentes según la columna "Agrupación" de `docs/SPEC.md`;
     - ser determinista dado el mismo `rng` sembrado.
 3. Escala canónica para `mixSources: true`: cada provider debe exponer además un mapeo a
    `{ power, speed, defense, stamina }` normalizado 0–100, para que mezclar universos

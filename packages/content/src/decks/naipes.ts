@@ -1,59 +1,108 @@
 import type { IconName } from '../icons.generated.js';
-import type { DeckDefinition, DeckFamily } from './types.js';
+import type { DeckAttribute, DeckDefinition, DeckFamily } from './types.js';
+import { text } from './types.js';
 
-/** The classic 52-card French deck (public domain). Each rank is a quartet family, each suit a
- *  pack, so a default 4x8 match plays with four suits of eight ranks. `poder` is unique per
- *  card (value x 4 + suit), so that attribute can never tie. */
-const SUITS: readonly { key: string; label: string; icon: IconName; rank: number; ink: string }[] =
-    [
-        { key: 'treboles', label: 'tréboles', icon: 'clubs', rank: 1, ink: '#15131c' },
-        { key: 'diamantes', label: 'diamantes', icon: 'diamonds', rank: 2, ink: '#b3122e' },
-        { key: 'corazones', label: 'corazones', icon: 'hearts', rank: 3, ink: '#b3122e' },
-        { key: 'picas', label: 'picas', icon: 'spades', rank: 4, ink: '#15131c' },
-    ];
-
-const RANKS: readonly { rank: string; name: string; value: number }[] = [
-    { rank: 'A', name: 'As', value: 14 },
-    { rank: 'K', name: 'Rey', value: 13 },
-    { rank: 'Q', name: 'Reina', value: 12 },
-    { rank: 'J', name: 'Jota', value: 11 },
-    { rank: '10', name: 'Diez', value: 10 },
-    { rank: '9', name: 'Nueve', value: 9 },
-    { rank: '8', name: 'Ocho', value: 8 },
-    { rank: '7', name: 'Siete', value: 7 },
-    { rank: '6', name: 'Seis', value: 6 },
-    { rank: '5', name: 'Cinco', value: 5 },
-    { rank: '4', name: 'Cuatro', value: 4 },
-    { rank: '3', name: 'Tres', value: 3 },
-    { rank: '2', name: 'Dos', value: 2 },
+/**
+ * The classic French deck played as a straight "high card wins" battle: there is one attribute
+ * only, so nobody chooses. Ace (14) beats King (13) beats Queen (12) and so on down to 2. Suits
+ * never break ties - equal ranks tie and the cards go to the pot like any other tie.
+ */
+export const CLASSIC_SUITS: readonly {
+    key: string;
+    label: { es: string; en: string };
+    icon: IconName;
+    rank: number;
+    symbol: string;
+    ink: string;
+}[] = [
+    {
+        key: 'clubs',
+        label: text('tréboles', 'clubs'),
+        icon: 'clubs',
+        rank: 1,
+        symbol: '♣',
+        ink: '#15131c',
+    },
+    {
+        key: 'diamonds',
+        label: text('diamantes', 'diamonds'),
+        icon: 'diamonds',
+        rank: 2,
+        symbol: '♦',
+        ink: '#b3122e',
+    },
+    {
+        key: 'hearts',
+        label: text('corazones', 'hearts'),
+        icon: 'hearts',
+        rank: 3,
+        symbol: '♥',
+        ink: '#b3122e',
+    },
+    {
+        key: 'spades',
+        label: text('picas', 'spades'),
+        icon: 'spades',
+        rank: 4,
+        symbol: '♠',
+        ink: '#15131c',
+    },
 ];
 
-const families: DeckFamily[] = RANKS.map(({ rank, name, value }) => ({
-    key: `rango-${rank}`,
+export const CLASSIC_RANKS: readonly {
+    rank: string;
+    name: { es: string; en: string };
+    value: number;
+}[] = [
+    { rank: 'A', name: text('As', 'Ace'), value: 14 },
+    { rank: 'K', name: text('Rey', 'King'), value: 13 },
+    { rank: 'Q', name: text('Reina', 'Queen'), value: 12 },
+    { rank: 'J', name: text('Jota', 'Jack'), value: 11 },
+    { rank: '10', name: text('Diez', 'Ten'), value: 10 },
+    { rank: '9', name: text('Nueve', 'Nine'), value: 9 },
+    { rank: '8', name: text('Ocho', 'Eight'), value: 8 },
+    { rank: '7', name: text('Siete', 'Seven'), value: 7 },
+    { rank: '6', name: text('Seis', 'Six'), value: 6 },
+    { rank: '5', name: text('Cinco', 'Five'), value: 5 },
+    { rank: '4', name: text('Cuatro', 'Four'), value: 4 },
+    { rank: '3', name: text('Tres', 'Three'), value: 3 },
+    { rank: '2', name: text('Dos', 'Two'), value: 2 },
+];
+
+/** "A", "10", "K" for a rank value - how the table shows the only attribute. */
+export function classicValueLabel(value: number): string {
+    return CLASSIC_RANKS.find((candidate) => candidate.value === value)?.rank ?? String(value);
+}
+
+export const CLASSIC_ATTRIBUTES: readonly DeckAttribute[] = [
+    { key: 'valor', label: text('Valor', 'Rank'), icon: 'crown', higherIsBetter: true },
+];
+
+const families: DeckFamily[] = CLASSIC_RANKS.map(({ rank, name, value }) => ({
+    key: `rank-${rank}`,
     label: name,
     icon: 'spades',
     palette: value >= 11 ? { from: '#fff6dc', to: '#e2c27a' } : { from: '#fffdf7', to: '#e6ddc8' },
-    members: SUITS.map((suit) => ({
-        name: `${name} de ${suit.label}`,
+    members: CLASSIC_SUITS.map((suit) => ({
+        name: text(`${name.es} de ${suit.label.es}`, `${name.en} of ${suit.label.en}`),
         icon: suit.icon,
         rank,
         ink: suit.ink,
-        stats: { poder: value * 4 + suit.rank, valor: value, palo: suit.rank },
+        stats: { valor: value },
     })),
 }));
 
+/** Bundled art for the classic deck - used when the Deck of Cards API images aren't synced. */
 export const NAIPES_DECK: DeckDefinition = {
     id: 'naipes',
-    label: 'Baraja Clásica',
-    tagline: 'Los naipes de toda la vida',
-    description:
-        'La baraja francesa de 52 cartas. Cada valor forma un cuarteto con sus cuatro palos.',
+    label: text('Clásica', 'Classic'),
+    tagline: text('Gana la carta más alta', 'Highest card wins'),
+    description: text(
+        'La baraja francesa: sin elegir atributo, el As vence al Rey, el Rey a la Reina… Valores iguales empatan.',
+        'The French deck: no attribute to pick - Ace beats King, King beats Queen… Equal ranks tie.',
+    ),
     coverIcon: 'spades',
     accent: '#e8e0cc',
-    attributes: [
-        { key: 'poder', label: 'Poder', icon: 'crown', higherIsBetter: true },
-        { key: 'valor', label: 'Valor', icon: 'card-play', higherIsBetter: true },
-        { key: 'palo', label: 'Palo', icon: 'spades', higherIsBetter: true },
-    ],
+    attributes: CLASSIC_ATTRIBUTES,
     families,
 };

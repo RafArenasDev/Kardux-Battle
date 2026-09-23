@@ -5,7 +5,7 @@ import { playerSchema } from './player.js';
 
 /**
  * `LOBBY -> COUNTDOWN -> DEALING -> AWAITING_ATTRIBUTE -> AWAITING_CARDS -> REVEAL -> RESOLVE
- * -> (AWAITING_ATTRIBUTE | TIE_POT | FINISHED)`, exactly as CLAUDE.md's "MÁQUINA DE ESTADOS"
+ * -> (AWAITING_ATTRIBUTE | TIE_POT | FINISHED)`, exactly as docs/SPEC.md's "MÁQUINA DE ESTADOS"
  * section specifies. `TIE_POT` loops back into a fresh `AWAITING_ATTRIBUTE` for the
  * tie-breaking round (same leader, new round index) once the pot carry-over is applied.
  */
@@ -99,7 +99,7 @@ export type MatchState = z.infer<typeof matchStateSchema>;
 
 /** What a viewer sees of the current round: everyone can see who has already played and
  *  the chosen attribute, but the actual cards stay hidden until the engine reaches
- *  `REVEAL` (or later) - matching the "todas a la vez" flip in CLAUDE.md's animation table,
+ *  `REVEAL` (or later) - matching the "todas a la vez" flip in docs/SPEC.md's animation table,
  *  not the progressive reveal the original brief described. */
 export const publicRoundViewSchema = z.object({
     index: z.number().int().min(0),
@@ -116,7 +116,7 @@ export type PublicRoundView = z.infer<typeof publicRoundViewSchema>;
  * What `match:state` actually sends: the same for every field that's already public
  * (config, players, turn order, ...), but `yourTopCard` only ever contains the recipient's
  * own card - this, not `Player`, is where "the client never sees another player's card"
- * (CLAUDE.md's non-negotiable) is enforced.
+ * (docs/SPEC.md's non-negotiable) is enforced.
  */
 export const redactedMatchStateSchema = z.object({
     matchId: z.string().min(1),

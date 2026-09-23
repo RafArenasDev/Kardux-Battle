@@ -5,7 +5,7 @@ import { KarduxError } from '../common/kardux-error.js';
 import { MatchService } from './match.service.js';
 
 const HOST = { id: 'host-1', nickname: 'RafArenas', avatarSeed: 'RafArenas' };
-// Registered (has `username`) - a pure guest can join a match but not host one (2026-09-22).
+// Registered (has `username`) - a pure guest can join a match but not host one.
 const REGISTERED_HOST = { ...HOST, username: 'raf_arenas', passwordHash: 'hashed' };
 
 function createService(overrides: Partial<Record<string, unknown>> = {}) {
@@ -15,7 +15,7 @@ function createService(overrides: Partial<Record<string, unknown>> = {}) {
             findFirst: vi.fn(),
             findMany: vi.fn(),
         },
-        user: {
+        player: {
             findUnique: vi.fn().mockResolvedValue(REGISTERED_HOST),
         },
         ...overrides,
@@ -73,7 +73,7 @@ describe('MatchService.createMatch', () => {
 
     it('rejects hosting for a caller with no username (pure guest)', async () => {
         const { service, prisma } = createService();
-        vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...HOST, username: null } as never);
+        vi.mocked(prisma.player.findUnique).mockResolvedValue({ ...HOST, username: null } as never);
 
         const error = await service
             .createMatch(HOST.id, { visibility: 'public' })

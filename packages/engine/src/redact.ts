@@ -2,7 +2,7 @@ import type { MatchState, PublicRoundView, RedactedMatchState } from '@kardux/co
 
 /**
  * The only supported way to turn the authoritative `MatchState` into something safe to send
- * to a specific player. This is where CLAUDE.md's non-negotiable ("el cliente nunca ... conoce
+ * to a specific player. This is where docs/SPEC.md's non-negotiable ("el cliente nunca ... conoce
  * cartas ajenas") is actually enforced - `viewerId`'s own top card is the only card that ever
  * leaves this function; a round's played cards only appear once they're `revealedAt` or later.
  */

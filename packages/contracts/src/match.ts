@@ -12,7 +12,7 @@ export type MatchRecordStatus = (typeof MATCH_RECORD_STATUSES)[number];
 export const matchRecordStatusSchema = z.enum(MATCH_RECORD_STATUSES);
 
 /** `POST /matches` body: every `MatchConfig` field is optional here and filled with
- *  `matchConfigSchema`'s defaults server-side (CLAUDE.md: "todo configurable desde el
+ *  `matchConfigSchema`'s defaults server-side (docs/SPEC.md: "todo configurable desde el
  *  lobby", but nothing is required to create the room). */
 export const createMatchRequestSchema = matchConfigPatchSchema;
 export type CreateMatchRequest = z.infer<typeof createMatchRequestSchema>;
@@ -38,7 +38,7 @@ export type MatchSummary = z.infer<typeof matchSummarySchema>;
 export const matchSummaryListSchema = z.array(matchSummarySchema);
 
 /** The caller's relationship to a match returned by `GET /matches/mine`: `admin` for the
- *  host, `player` for an approved `MatchPlayer` (CLAUDE.md's `status` split, see
+ *  host, `player` for an approved `MatchPlayer` (docs/SPEC.md's `status` split, see
  *  `MatchPlayerStatus` in the Prisma schema - only `APPROVED` rows count as "mine"; a still
  *  `PENDING` join request doesn't make the match show up here yet). */
 export const MATCH_PLAYER_ROLES = ['admin', 'player'] as const;

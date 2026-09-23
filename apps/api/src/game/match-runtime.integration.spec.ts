@@ -62,7 +62,7 @@ describe('MatchRuntimeService (real game loop, via sockets)', () => {
             await prisma.match.deleteMany({ where: { id: { in: createdMatchIds.splice(0) } } });
         }
         if (createdUserIds.length > 0) {
-            await prisma.user.deleteMany({ where: { id: { in: createdUserIds.splice(0) } } });
+            await prisma.player.deleteMany({ where: { id: { in: createdUserIds.splice(0) } } });
         }
     });
 
@@ -71,7 +71,7 @@ describe('MatchRuntimeService (real game loop, via sockets)', () => {
     });
 
     async function createRegisteredUser(username: string) {
-        const user = await prisma.user.create({
+        const user = await prisma.player.create({
             data: { nickname: username, avatarSeed: username, username, passwordHash: 'x' },
         });
         createdUserIds.push(user.id);
@@ -157,7 +157,7 @@ describe('MatchRuntimeService (real game loop, via sockets)', () => {
         expect(round.playOrder).toHaveLength(2);
 
         for (const playerId of round.playOrder) {
-            // `playerId` is the engine's `userId:tabId` playerKey, not the bare `User.id`.
+            // `playerId` is the engine's `userId:tabId` playerKey, not the bare `Player.id`.
             const socket = playerId.startsWith(`${host.id}:`) ? hostSocket : playerSocket;
             socket.emit('round:playCard');
         }

@@ -4,7 +4,7 @@ import { z } from 'zod';
  * Public metadata about a match participant - safe to show every viewer, including
  * rivals. Never carries the player's actual cards (see `MatchState.piles` /
  * `RedactedMatchState.yourTopCard` in `match-state.ts`); `cardCount` is the only
- * card-related fact everyone gets to see, matching CLAUDE.md's "arco de rivales
+ * card-related fact everyone gets to see, matching docs/SPEC.md's "arco de rivales
  * (avatar, nickname, contador de cartas, ...)".
  */
 export const playerSchema = z.object({

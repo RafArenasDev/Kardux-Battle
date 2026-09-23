@@ -11,7 +11,7 @@ import type {
 } from './match-state.js';
 
 /**
- * Namespace `/game` (CLAUDE.md's "CONTRATO DE EVENTOS SOCKET.IO"). Every payload below is a
+ * Namespace `/game` (docs/SPEC.md's "CONTRATO DE EVENTOS SOCKET.IO"). Every payload below is a
  * Zod schema, validated on both ends: the gateway validates what it receives (never trusts a
  * client payload just because it type-checked on their side), and `ClientEvents`/
  * `ServerEvents` give `Socket<ClientEvents, ServerEvents>` (both in `apps/api`'s gateway and
@@ -51,7 +51,7 @@ export type MatchRejoinPayload = z.infer<typeof matchRejoinPayloadSchema>;
  * `match:requestJoin` - the discovery counterpart to `match:join`: a player who picked the
  * match from `GET /matches/public` (no code in hand) instead of typing/receiving one. Creates
  * a `PENDING` `MatchPlayer` row that the host must approve via `match:respondJoin` before the
- * requester is actually seated - see the 2026-09-21 join-request design in CLAUDE.md.
+ * requester is actually seated - see the 2026-09-21 join-request design in docs/SPEC.md.
  */
 export const matchRequestJoinPayloadSchema = z.object({
     matchId: z.string().min(1),
@@ -205,7 +205,7 @@ export interface ClientEvents {
     'match:config': (payload: z.infer<typeof matchConfigPatchSchema>) => void;
     'match:start': () => void;
     /** Host-only, `COUNTDOWN` phase only - cancels the `autoStartPlayers` countdown back to
-     *  `LOBBY` (CLAUDE.md rule 3: "cancelable solo por el anfitrión"). No dedicated payload;
+     *  `LOBBY` (docs/SPEC.md rule 3: "cancelable solo por el anfitrión"). No dedicated payload;
      *  the engine's `match.cancelCountdown` action needs nothing beyond the caller's id. */
     'match:cancelCountdown': () => void;
     'match:leave': () => void;

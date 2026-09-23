@@ -3,6 +3,7 @@ import type { DeckEntity, DeckInfo } from '@kardux/content';
 import {
     NAIPES_DECK,
     deckFamilies,
+    effectiveAttributeCount,
     getDeck,
     getDeckInfo,
     sharedAttributes,
@@ -50,14 +51,14 @@ export class DeckBuilder {
     async build(config: DeckBuildConfig, options: BuildDeckOptions): Promise<Card[]> {
         const problem = validateDeckConfig(config);
         if (problem) {
-            throw new KarduxError('ERR_INVALID_CONFIG', problem);
+            throw new KarduxError('ERR_INVALID_CONFIG', problem.en);
         }
 
         const infos = config.deckSources
             .map((id) => getDeckInfo(id))
             .filter((info): info is DeckInfo => info !== undefined);
         const attributeKeys = sharedAttributes(infos)
-            .slice(0, config.attributeCount)
+            .slice(0, effectiveAttributeCount(config.deckSources, config.attributeCount))
             .map((attribute) => attribute.key);
 
         const families: SourcedFamily[] = [];
@@ -71,8 +72,8 @@ export class DeckBuilder {
             throw new KarduxError(
                 'ERR_INVALID_CONFIG',
                 families.length === 0
-                    ? 'Este mazo todavía se está descargando. Intenta de nuevo en unos segundos.'
-                    : `Solo hay ${families.length} familias con ${config.packs} cartas; baja las cartas por paquete.`,
+                    ? 'This deck is still being downloaded. Try again in a few seconds.'
+                    : `Only ${families.length} families have ${config.packs} cards; lower the cards per pack.`,
             );
         }
 
@@ -93,6 +94,7 @@ export class DeckBuilder {
                     code: `${packIndex + 1}${QUARTET_LETTERS[letterIndex]}`,
                     quartet: QUARTET_LETTERS[letterIndex]!,
                     name: entity.name,
+                    nameEn: entity.nameEn,
                     imageUrl: entity.imageUrl,
                     source: family.source,
                     stats,
@@ -104,8 +106,8 @@ export class DeckBuilder {
     }
 
     private async familiesFor(source: DeckSourceId): Promise<DeckEntity[][]> {
-        if (source === 'pokeapi') {
-            return this.cardPool.getFamilies('pokeapi');
+        if (source === 'pokeapi' || source === 'paises') {
+            return this.cardPool.getFamilies(source);
         }
 
         if (source === 'deckofcards') {

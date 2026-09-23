@@ -1,5 +1,5 @@
 import type { MatchConfig } from '@kardux/contracts';
-import type { Match, MatchPlayer, User } from '@prisma/client';
+import type { Match, MatchPlayer, Player as PlayerRow } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 // Value import required: Nest's DI resolves constructor params via `design:paramtypes`
 // reflection metadata, which `import type` erases at compile time.
@@ -7,8 +7,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { KarduxError } from '../common/kardux-error.js';
 
-export type MatchWithHost = Match & { host: User };
-export type MatchPlayerWithUser = MatchPlayer & { user: User };
+export type MatchWithHost = Match & { host: PlayerRow };
+export type MatchPlayerWithUser = MatchPlayer & { user: PlayerRow };
 
 export interface JoinDirectResult {
     match: MatchWithHost;
@@ -41,7 +41,7 @@ export type RespondJoinResult =
  * Deliberately narrow: only the two join paths from the 2026-09-21 join-request design
  * (`GameGateway`'s `match:join`/`match:requestJoin`/`match:respondJoin`). Seating the deck,
  * starting the match, and everything else `MatchRuntimeService` will eventually own is out of
- * scope here - see CLAUDE.md's "MatchRuntimeService" section for that later phase.
+ * scope here - see docs/SPEC.md's "MatchRuntimeService" section for that later phase.
  */
 @Injectable()
 export class GameService {
@@ -90,13 +90,13 @@ export class GameService {
     }
 
     /**
-     * Direct join (CLAUDE.md's `match:join` contract): immediate `APPROVED` seat, no admin
+     * Direct join (docs/SPEC.md's `match:join` contract): immediate `APPROVED` seat, no admin
      * involved. `upsert` so a player who already has a row (e.g. previously `REJECTED` from a
      * request-join, or reconnecting) can still get straight in via a code/deep link - direct
      * join never asks for approval, per the 2026-09-21 design.
      */
-    async getUser(userId: string): Promise<User> {
-        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    async getPlayer(userId: string): Promise<PlayerRow> {
+        const user = await this.prisma.player.findUnique({ where: { id: userId } });
         if (!user) throw new KarduxError('ERR_UNAUTHORIZED');
         return user;
     }

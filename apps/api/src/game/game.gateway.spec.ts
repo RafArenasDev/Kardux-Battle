@@ -61,7 +61,7 @@ describe('GameGateway (/game)', () => {
             await prisma.match.deleteMany({ where: { id: { in: createdMatchIds.splice(0) } } });
         }
         if (createdUserIds.length > 0) {
-            await prisma.user.deleteMany({ where: { id: { in: createdUserIds.splice(0) } } });
+            await prisma.player.deleteMany({ where: { id: { in: createdUserIds.splice(0) } } });
         }
     });
 
@@ -70,7 +70,7 @@ describe('GameGateway (/game)', () => {
     });
 
     async function createUser(nickname: string) {
-        const user = await prisma.user.create({ data: { nickname, avatarSeed: nickname } });
+        const user = await prisma.player.create({ data: { nickname, avatarSeed: nickname } });
         createdUserIds.push(user.id);
         return user;
     }

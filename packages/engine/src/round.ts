@@ -17,7 +17,7 @@ function standingsOf(players: readonly Player[]): Player[] {
  *
  * - **clear winner**: they collect every card on the table plus any carried-over pot: cards
  *   move from `state.piles` (already emptied of the played card when it was played) into the
- *   winner's pile; any loser whose pile is now empty is eliminated (CLAUDE.md rule 9); if
+ *   winner's pile; any loser whose pile is now empty is eliminated (docs/SPEC.md rule 9); if
  *   that leaves a single active player, the match ends (rule 10, "un jugador tiene todas las
  *   cartas"); otherwise the winner leads the next round (rule 8).
  * - **tie** (2 or more players share the highest value, chained ties included): every played
@@ -174,7 +174,7 @@ export function resolveRound(
 }
 
 /**
- * Forces the match to end because `matchDurationMs` elapsed (CLAUDE.md rule 10): most cards
+ * Forces the match to end because `matchDurationMs` elapsed (docs/SPEC.md rule 10): most cards
  * wins, a tied card count is a draw, based on each player's own pile (`Player.cardCount`).
  *
  * If the clock strikes mid-round (some players already played this round, or a tie's pot
