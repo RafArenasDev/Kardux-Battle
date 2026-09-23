@@ -141,7 +141,7 @@ that actually persist and wait for the next action.
 | Database                | PostgreSQL + Prisma                                                                                                               | [ADR 0004](docs/adr/0004-postgres-redis-swappable-cache.md) |
 | Cache / locks / pub-sub | Redis                                                                                                                             | [ADR 0004](docs/adr/0004-postgres-redis-swappable-cache.md) |
 | API docs                | `@nestjs/swagger` + `nestjs-zod` (generated from the same Zod schemas used for validation — never duplicated)                     | [ADR 0005](docs/adr/0005-api-docs-and-http-client.md)       |
-| Manual API testing      | [Bruno](https://www.usebruno.com/) (free, open source, collections as text files in the repo)                                     | [ADR 0005](docs/adr/0005-api-docs-and-http-client.md)       |
+| Manual API testing      | Local Postman collection (`apps/api/postman/`, importable JSON files, no cloud sync)                                              | [ADR 0005](docs/adr/0005-api-docs-and-http-client.md)       |
 | Deck data reliability   | Local `CardPoolEntry` mirror per source, synced on a schedule; decks are built from our own database, not a live third-party call | [ADR 0006](docs/adr/0006-local-card-pool-mirror.md)         |
 | Web                     | React 19 + Vite + Tailwind + Zustand + Framer Motion                                                                              | `CLAUDE.md`                                                 |
 | Desktop                 | Tauri 2                                                                                                                           | `CLAUDE.md`                                                 |
@@ -213,9 +213,10 @@ message if something's missing), and serves:
   (ADR 0005), so it's never out of sync with what the API actually accepts.
 - `GET /api/docs-json` — the raw OpenAPI document, importable by any HTTP client.
 
-`apps/api/bruno/` has a matching [Bruno](https://www.usebruno.com/) collection (open the
-folder in Bruno, pick the `local` environment) if you'd rather click through requests than
-use Swagger's "Try it out."
+`apps/api/postman/` has a matching Postman collection + local environment (import both files,
+select the environment, run "Create a guest identity" first to auto-fill the auth token) if
+you'd rather click through requests than use Swagger's "Try it out." See `API-TESTING.md` for
+the full walkthrough.
 
 Nothing here touches Postgres or Redis yet — `AuthModule`/`MatchModule`/`GameGateway` (the
 pieces that actually need them) are the next phase. Until then:

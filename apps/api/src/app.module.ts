@@ -7,6 +7,7 @@ import { AppConfigModule } from './config/app-config.module.js';
 import type { AppConfig } from './config/app-config.js';
 import { AuthModule } from './auth/auth.module.js';
 import { DeckModule } from './deck/deck.module.js';
+import { GameModule } from './game/game.module.js';
 import { HealthModule } from './health/health.module.js';
 import { LeaderboardModule } from './leaderboard/leaderboard.module.js';
 import { MatchModule } from './match/match.module.js';
@@ -46,6 +47,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
         HealthModule,
         AuthModule,
         MatchModule,
+        GameModule,
         DeckModule,
         LeaderboardModule,
     ],

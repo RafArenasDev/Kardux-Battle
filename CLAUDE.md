@@ -94,6 +94,14 @@ Validar con Zod y rechazar combinaciones imposibles (`autoStartPlayers > maxPlay
 Implementar un patrón **DeckProvider** con una interfaz común. Cada provider descarga
 entidades de una API pública, las normaliza a `Card` y arma cuartetos coherentes.
 
+> **Estado real de los datos (2026-09-22)**: `pokeapi`, `deckofcards` y `apitcg` (sets de
+> Pokémon TCG) tienen datos reales sincronizados hoy vía el repo hermano
+> `github.com/FlakoArenas26/tcg-github-sync` (`GET /decks/sources` ya los consume en vivo
+> desde ese manifest, ver `docs/PENDING-WORK.md`). El resto de la tabla de abajo
+> (`dragonball`, `naruto`, `digimon`, `rickmorty`, `swapi`, `superheroes`, `marvel`,
+> `transformers`) sigue siendo solo el diseño aspiracional original - ningún dato sincronizado
+> todavía para ninguno de ellos.
+
 ```ts
 interface Card {
     code: string; // "1A"
