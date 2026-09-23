@@ -152,11 +152,10 @@ describe('MatchRuntimeService (real game loop, via sockets)', () => {
 
         // Whoever the engine picked as leader is unknown to the test in advance - both sockets
         // attempt to select an attribute; only the real leader's attempt succeeds, the other
-        // gets a harmless `ERR_NOT_YOUR_TURN` this test doesn't assert on. `local`'s attribute
-        // keys are ['power','defense','speed','magic','luck','stamina'] sliced to
-        // `attributeCount` (3 here) - 'power' is always present.
-        hostSocket.emit('round:selectAttribute', { attribute: 'power' });
-        playerSocket.emit('round:selectAttribute', { attribute: 'power' });
+        // gets a harmless `ERR_NOT_YOUR_TURN` this test doesn't assert on.
+        // `local` plays the mythic deck: 'poder' is always its first attribute.
+        hostSocket.emit('round:selectAttribute', { attribute: 'poder' });
+        playerSocket.emit('round:selectAttribute', { attribute: 'poder' });
 
         const round = await roundStartedPromise;
         expect(round.playOrder).toHaveLength(2);

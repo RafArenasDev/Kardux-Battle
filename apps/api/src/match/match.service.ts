@@ -4,10 +4,11 @@ import type {
     MatchSummary,
     MatchSummaryWithRole,
 } from '@kardux/contracts';
-import type { Match, User } from '@prisma/client';
+import type { Match, Prisma, User } from '@prisma/client';
 import { randomInt, randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { matchConfigSchema } from '@kardux/contracts';
+import { DECKS, deckLimits, validateDeckConfig } from '@kardux/content';
 // Value import required: Nest's DI resolves constructor params via `design:paramtypes`
 // reflection metadata, which `import type` erases at compile time.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -19,51 +20,76 @@ const CODE_ALPHABET = '0123456789ABCDEF';
 const CODE_LENGTH = 6;
 const MAX_CODE_ATTEMPTS = 10;
 
-type MatchWithHost = Match & { host: User };
+const WITH_HOST_AND_COUNT = {
+    host: true,
+    _count: { select: { players: { where: { status: 'APPROVED' } } } },
+} satisfies Prisma.MatchInclude;
 
+type MatchWithHost = Match & { host: User; _count: { players: number } };
+
+/**
+ * Two kinds of rooms (2026-09-23 decision):
+ * - **Private** (`POST /matches`, registered players only): never listed anywhere except the
+ *   host's own panel; others get in with the hex code or the share link.
+ * - **Quick** (`match:quick`, anyone including guests): public 1v1 lobbies that auto-start the
+ *   moment the second player sits down - no approval step.
+ */
 @Injectable()
 export class MatchService {
     constructor(private readonly prisma: PrismaService) {}
 
-    /**
-     * Persists a new `LOBBY` room. Only the config + room metadata are stored here - the
-     * live engine state (`@kardux/engine`'s `MatchState`: piles, turn order, RNG, ...) only
-     * starts existing once `MatchRuntimeService` boots this match for real play, which
-     * happens at the gateway layer (next phase), not on this REST call.
-     *
-     * Hosting requires a registered account (2026-09-22 decision): a pure guest (no
-     * `username` set via `POST /auth/register`) can join any match but can't create one -
-     * otherwise a host's in-progress lobby is only as durable as their guest JWT's 12h TTL.
-     * `@CurrentUser()`'s `GuestJwtPayload` doesn't carry `username` (it's fixed at token-issue
-     * time and guests have none anyway), so this re-reads the `User` row fresh.
-     */
     async createMatch(hostUserId: string, request: CreateMatchRequest): Promise<MatchSummary> {
         const host = await this.prisma.user.findUnique({ where: { id: hostUserId } });
         if (!host?.username) {
             throw new KarduxError('ERR_GUEST_CANNOT_HOST');
         }
 
-        const config = this.parseConfig(request);
-        const code = await this.generateUniqueCode();
-        const seed = config.seed ?? randomUUID();
+        return this.insertMatch(hostUserId, { ...request, visibility: 'private' });
+    }
 
-        const match = await this.prisma.match.create({
-            data: {
-                code,
-                config,
-                seed,
-                hostId: hostUserId,
+    /** A fresh public quick-match lobby hosted by whoever asked for it (guests allowed). */
+    async createQuickMatch(hostUserId: string): Promise<MatchSummary> {
+        const deck = DECKS[randomInt(DECKS.length)]!;
+        const limits = deckLimits(deck);
+
+        return this.insertMatch(hostUserId, {
+            visibility: 'public',
+            minPlayers: 2,
+            maxPlayers: 2,
+            autoStartPlayers: 2,
+            autoStartCountdownMs: 4_000,
+            matchDurationMs: 10 * 60_000,
+            turnTimeoutMs: 20_000,
+            onTurnTimeout: 'random_attr',
+            deckSources: [deck.id],
+            packs: Math.min(4, limits.maxPacks),
+            cardsPerPack: Math.min(8, limits.maxCardsPerPack),
+            attributeCount: Math.min(4, limits.maxAttributes),
+        });
+    }
+
+    /** Open quick-match lobbies with a free seat, oldest first (fair queue). */
+    async listQuickCandidates(excludeUserId: string): Promise<MatchSummary[]> {
+        const matches = await this.prisma.match.findMany({
+            where: {
+                status: 'LOBBY',
+                config: { path: ['visibility'], equals: 'public' },
+                players: { none: { userId: excludeUserId } },
             },
-            include: { host: true },
+            include: WITH_HOST_AND_COUNT,
+            orderBy: { createdAt: 'asc' },
+            take: 20,
         });
 
-        return this.toSummary(match);
+        return matches
+            .map((match) => this.toSummary(match))
+            .filter((summary) => summary.playerCount < summary.config.autoStartPlayers);
     }
 
     async getByCode(code: string): Promise<MatchSummary> {
         const match = await this.prisma.match.findFirst({
             where: { code: code.toUpperCase(), status: { in: ['LOBBY', 'IN_PROGRESS'] } },
-            include: { host: true },
+            include: WITH_HOST_AND_COUNT,
         });
 
         if (!match) {
@@ -73,52 +99,46 @@ export class MatchService {
         return this.toSummary(match);
     }
 
-    /** `GET /matches/public`: open lobbies (`visibility: 'public'`) still accepting
-     *  players, newest first. `config` is a JSONB column, so `visibility` is filtered via
-     *  Prisma's Postgres JSON path filter rather than a real relational column. */
-    async listPublic(): Promise<MatchSummary[]> {
-        const matches = await this.prisma.match.findMany({
-            where: {
-                status: 'LOBBY',
-                config: { path: ['visibility'], equals: 'public' },
-            },
-            include: { host: true },
+    /** The host's private rooms - the only place a private match is ever listed. */
+    async listMine(userId: string): Promise<MatchSummaryWithRole[]> {
+        const hosted = await this.prisma.match.findMany({
+            where: { hostId: userId, config: { path: ['visibility'], equals: 'private' } },
+            include: WITH_HOST_AND_COUNT,
             orderBy: { createdAt: 'desc' },
-            take: 50,
+            take: 20,
         });
 
-        return matches.map((match) => this.toSummary(match));
+        return hosted.map((match) => ({ ...this.toSummary(match), role: 'admin' as const }));
     }
 
-    /** `GET /matches/mine`: every match the caller hosts, plus every match where they have an
-     *  `APPROVED` `MatchPlayer` row - a still-`PENDING` join request doesn't count as "mine"
-     *  yet (CLAUDE.md's 2026-09-21 join-request design). A host who also seated themselves as
-     *  a player in their own match is only reported once, tagged `"admin"` - the two queries
-     *  are mutually exclusive (`hostId: { not: userId }` on the second one) so there's nothing
-     *  to de-duplicate afterwards. */
-    async listMine(userId: string): Promise<MatchSummaryWithRole[]> {
-        const [hosted, joined] = await Promise.all([
-            this.prisma.match.findMany({
-                where: { hostId: userId },
-                include: { host: true },
-                orderBy: { createdAt: 'desc' },
-            }),
-            this.prisma.match.findMany({
-                where: {
-                    hostId: { not: userId },
-                    players: { some: { userId, status: 'APPROVED' } },
-                },
-                include: { host: true },
-                orderBy: { createdAt: 'desc' },
-            }),
-        ]);
+    /** The match the caller is currently seated in (lobby or playing), for "Continuar". */
+    async findActive(userId: string): Promise<MatchSummary | null> {
+        const match = await this.prisma.match.findFirst({
+            where: {
+                status: { in: ['LOBBY', 'IN_PROGRESS'] },
+                players: { some: { userId, status: 'APPROVED' } },
+            },
+            include: WITH_HOST_AND_COUNT,
+            orderBy: { createdAt: 'desc' },
+        });
 
-        const withRole = (matches: MatchWithHost[], role: MatchSummaryWithRole['role']) =>
-            matches.map((match) => ({ ...this.toSummary(match), role }));
+        return match ? this.toSummary(match) : null;
+    }
 
-        return [...withRole(hosted, 'admin'), ...withRole(joined, 'player')].sort((a, b) =>
-            b.createdAt.localeCompare(a.createdAt),
-        );
+    private async insertMatch(
+        hostUserId: string,
+        request: CreateMatchRequest,
+    ): Promise<MatchSummary> {
+        const config = this.parseConfig(request);
+        const code = await this.generateUniqueCode();
+        const seed = config.seed ?? randomUUID();
+
+        const match = await this.prisma.match.create({
+            data: { code, config, seed, hostId: hostUserId },
+            include: WITH_HOST_AND_COUNT,
+        });
+
+        return this.toSummary(match);
     }
 
     private parseConfig(request: CreateMatchRequest): MatchConfig {
@@ -126,6 +146,12 @@ export class MatchService {
 
         if (!result.success) {
             throw new KarduxError('ERR_INVALID_CONFIG', result.error.issues[0]?.message);
+        }
+
+        // Fail at creation, not when the host presses "Iniciar": the deck must be buildable.
+        const deckProblem = validateDeckConfig(result.data);
+        if (deckProblem) {
+            throw new KarduxError('ERR_INVALID_CONFIG', deckProblem);
         }
 
         return result.data;
@@ -163,6 +189,7 @@ export class MatchService {
             hostId: match.hostId,
             hostNickname: match.host.nickname,
             hostAvatarUrl: buildAvatarUrl(match.host.avatarSeed),
+            playerCount: match._count.players,
             createdAt: match.createdAt.toISOString(),
         };
     }

@@ -1,3 +1,4 @@
+import { Throttle } from '@nestjs/throttler';
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import {
     ApiBody,
@@ -30,6 +31,8 @@ import {
 export class AuthController {
     constructor(private readonly authService: AuthService) {}
 
+    // Brute-force / account-farming guard, on top of the global rate limit.
+    @Throttle({ default: { limit: 20, ttl: 60_000 } })
     @Post('guest')
     @ApiOperation({
         summary: 'Create a guest identity',
@@ -59,6 +62,8 @@ export class AuthController {
         return this.authService.createGuest(body);
     }
 
+    // Brute-force / account-farming guard, on top of the global rate limit.
+    @Throttle({ default: { limit: 5, ttl: 60_000 } })
     @Post('register')
     @ApiOperation({
         summary: 'Register a new account',
@@ -96,6 +101,8 @@ export class AuthController {
         return this.authService.checkUsername(query.username);
     }
 
+    // Brute-force / account-farming guard, on top of the global rate limit.
+    @Throttle({ default: { limit: 10, ttl: 60_000 } })
     @Post('login')
     @ApiOperation({
         summary: 'Sign into a previously registered identity',

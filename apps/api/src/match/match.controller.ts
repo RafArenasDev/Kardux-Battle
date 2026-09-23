@@ -1,4 +1,4 @@
-import type { GuestJwtPayload, MatchSummaryWithRole } from '@kardux/contracts';
+import type { GuestJwtPayload, MatchSummary, MatchSummaryWithRole } from '@kardux/contracts';
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/current-user.decorator.js';
@@ -6,7 +6,6 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import {
     CreateMatchRequestDto,
     MatchSummaryDto,
-    MatchSummaryListDto,
     MatchSummaryWithRoleListDto,
 } from './match.dto.js';
 // Value import required: Nest's DI resolves constructor params via `design:paramtypes`
@@ -16,25 +15,22 @@ import { MatchService } from './match.service.js';
 
 @ApiTags('matches')
 @Controller('matches')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class MatchController {
     constructor(private readonly matchService: MatchService) {}
 
     @Post()
-    @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth()
     @ApiOperation({
-        summary: 'Create a match',
+        summary: 'Create a private match',
         description:
-            'Creates a new room in `LOBBY` status and returns its 6-character join code. ' +
-            'The caller (from the bearer token) becomes the host. Every field is optional - ' +
-            "anything left out falls back to the defaults in CLAUDE.md's `MatchConfig` " +
-            '(2-12 players, 4 packs x 8 cards, etc.). Actual gameplay (dealing cards, turns) ' +
-            'only starts once players connect to the Socket.IO `/game` namespace and the ' +
-            'host issues `match:start` - this endpoint only reserves the room. Requires a ' +
-            '**registered** caller (`POST /auth/register` or `POST /auth/login` first) - a ' +
-            'pure guest identity can join any match but cannot host one, otherwise the room ' +
-            "would only be as durable as the host's 12h guest JWT. Fails with " +
-            '`ERR_GUEST_CANNOT_HOST` (403) if the caller never registered.',
+            'Creates a private room in `LOBBY` status and returns its 6-character hex code. ' +
+            'The caller becomes the host. Private rooms are never listed publicly - the host ' +
+            'shares the code or the `/join/<code>` link. Every field is optional and falls ' +
+            'back to the `MatchConfig` defaults; `visibility` is always forced to `private`. ' +
+            'Rejected with `ERR_INVALID_CONFIG` when the chosen deck cannot cover the requested ' +
+            'packs / cards per pack / attribute count, and with `ERR_GUEST_CANNOT_HOST` (403) ' +
+            'for guest identities - guests play quick matches (`match:quick` socket event).',
     })
     @ApiBody({
         type: CreateMatchRequestDto,
@@ -48,49 +44,37 @@ export class MatchController {
         return this.matchService.createMatch(user.sub, body);
     }
 
-    @Get('public')
-    @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth()
-    @ApiOperation({
-        summary: 'List public matches',
-        description:
-            'Open lobbies (`visibility: "public"`) still in `LOBBY` status, newest first ' +
-            '(up to 50) - what a "join a random game" screen would call. Requires a bearer ' +
-            'token like every other endpoint - "public" describes the lobby\'s visibility ' +
-            'setting, not anonymous access to the API.',
-    })
-    @ApiOkResponse({ type: MatchSummaryListDto })
-    async listPublic(): Promise<MatchSummaryListDto> {
-        return this.matchService.listPublic();
-    }
-
     @Get('mine')
-    @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth()
     @ApiOperation({
-        summary: "List the caller's matches",
+        summary: "The caller's private rooms",
         description:
-            'Every match the authenticated caller (from the bearer token) is involved in - ' +
-            'either as the host or as a player whose join request has already been approved ' +
-            '(`MatchPlayer.status: "APPROVED"`) - each tagged with `role`: `"admin"` if the ' +
-            'caller is the host, `"player"` otherwise. A match still waiting on the host\'s ' +
-            "`match:respondJoin` decision (`PENDING`) doesn't show up here yet. Newest first.",
+            'Private rooms the caller hosts, newest first (up to 20). This is the only place ' +
+            'a private match is ever listed.',
     })
     @ApiOkResponse({ type: MatchSummaryWithRoleListDto })
     async listMine(@CurrentUser() user: GuestJwtPayload): Promise<MatchSummaryWithRole[]> {
         return this.matchService.listMine(user.sub);
     }
 
+    @Get('active')
+    @ApiOperation({
+        summary: "The caller's current match",
+        description:
+            'The lobby or in-progress match the caller is seated in, or `null` - lets the ' +
+            'client offer "Continuar partida" after a reload or a closed tab.',
+    })
+    @ApiOkResponse({ type: MatchSummaryDto })
+    async active(@CurrentUser() user: GuestJwtPayload): Promise<MatchSummary | null> {
+        return this.matchService.findActive(user.sub);
+    }
+
     @Get(':code')
-    @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth()
     @ApiOperation({
         summary: 'Get a match by its join code',
         description:
             'Looks up an active (`LOBBY` or `IN_PROGRESS`) match by its 6-character code - ' +
-            'what a "join by code" screen calls before connecting to the socket, to show the ' +
-            'room/host before committing. Returns `ERR_MATCH_NOT_FOUND` (404) if the code ' +
-            "doesn't match any active match. Requires a bearer token.",
+            'what the join-by-code / share-link screen shows before connecting. ' +
+            '`ERR_MATCH_NOT_FOUND` (404) otherwise.',
     })
     @ApiOkResponse({ type: MatchSummaryDto })
     async getByCode(@Param('code') code: string): Promise<MatchSummaryDto> {

@@ -39,7 +39,7 @@ function createService() {
 describe('LeaderboardService.getGlobal', () => {
     beforeEach(() => vi.restoreAllMocks());
 
-    it('maps rows to leaderboard entries with a DiceBear avatar URL', async () => {
+    it('maps rows to leaderboard entries with a generated avatar image', async () => {
         const { service, prisma } = createService();
         vi.mocked(prisma.leaderboardStat.findMany).mockResolvedValue([statRow()] as never);
 
@@ -63,7 +63,7 @@ describe('LeaderboardService.getGlobal', () => {
             elo: 1300,
             favoriteAttribute: 'attack',
         });
-        expect(result.entries[0]?.avatarUrl).toContain(USER_A.avatarSeed);
+        expect(result.entries[0]?.avatarUrl).toMatch(/^data:image\/svg\+xml/);
     });
 
     it('returns a nextCursor when there are more rows than the page limit', async () => {

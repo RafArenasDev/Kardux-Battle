@@ -30,6 +30,10 @@ import { toErrorPayload } from './to-error-payload.js';
 
 const LOCK_PREFIX = 'kardux:lock:match:';
 const LOCK_TTL_MS = 5_000;
+const STATE_PREFIX = 'kardux:match:state:';
+/** Live matches are kept for a day; a finished one only long enough to show the result. */
+const STATE_TTL_SECONDS = 24 * 60 * 60;
+const FINISHED_STATE_TTL_SECONDS = 15 * 60;
 
 /**
  * Owns every match's live `@kardux/engine` `MatchState` in memory and is the only thing that
@@ -39,13 +43,11 @@ const LOCK_TTL_MS = 5_000;
  * the durable side effects (`Round`/`DeckSnapshot`/`MatchEvent`/final `Match`/`MatchPlayer`
  * rows), and scheduling the next timer-driven `system.tick`.
  *
- * State lives only in this process's memory - there is no snapshot of a live, in-progress
- * `MatchState` in the database (only its durable *outcomes*: rounds, the initial deck, the
- * final standings). If this process restarts mid-match, that match's live state is lost; a
- * fresh `ensureSession` call for it fails loudly (`ERR_VALIDATION`) rather than silently
- * re-dealing a new hand under the old match id. Fine for this project's current single-
- * instance free-tier deployment; a real multi-instance deployment would need to persist and
- * rehydrate `MatchState` itself, not just its outcomes - out of scope here.
+ * Live state is held in memory and snapshotted to Redis after every accepted action
+ * (`kardux:match:state:<id>`), so a page reload, a dropped socket or an API restart (every
+ * file save in `nest start --watch`) resumes the exact same match - same piles, same turn,
+ * same timers. Without Redis the service still works, just memory-only: a restart then marks
+ * any in-progress match as abandoned instead of re-dealing it under the same id.
  */
 @Injectable()
 export class MatchRuntimeService implements OnModuleDestroy {
@@ -141,7 +143,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
 
         let deck: Card[];
         try {
-            deck = await this.deckBuilder.build(state.config, { seed: state.seed });
+            deck = this.deckBuilder.build(state.config, { seed: state.seed });
         } catch (error) {
             client.emit('error', toErrorPayload(error));
             return;
@@ -163,11 +165,17 @@ export class MatchRuntimeService implements OnModuleDestroy {
         playerId: string,
         attribute: string,
     ): Promise<void> {
-        await this.dispatchAndReport(matchId, client, {
+        const result = await this.dispatchAndReport(matchId, client, {
             type: 'round.selectAttribute',
             playerId,
             attribute,
         });
+
+        // Choosing the attribute *is* the leader's play (CLAUDE.md rule 6: the leader picks
+        // and lays their card down) - one gesture, not two.
+        if (result && !this.firstError(result.events)) {
+            await this.dispatchAndReport(matchId, client, { type: 'round.playCard', playerId });
+        }
     }
 
     async playCard(matchId: string, client: GameSocket, playerId: string): Promise<void> {
@@ -193,23 +201,45 @@ export class MatchRuntimeService implements OnModuleDestroy {
         return true;
     }
 
+    /** Current engine phase of a live match, or `null` when nothing is loaded for it. Used
+     *  by quick matchmaking to skip lobbies that already started their countdown. */
+    async phaseOf(matchId: string): Promise<MatchState['phase'] | null> {
+        try {
+            return (await this.ensureSession(matchId)).phase;
+        } catch {
+            return null;
+        }
+    }
+
     // ---- Core dispatch ----
 
     private async ensureSession(matchId: string): Promise<MatchState> {
         const existing = this.sessions.get(matchId);
         if (existing) return existing;
 
+        const snapshot = await this.loadSnapshot(matchId);
+        if (snapshot) {
+            this.sessions.set(matchId, snapshot);
+            this.scheduleTimer(matchId, snapshot);
+            return snapshot;
+        }
+
         const match = await this.prisma.match.findUnique({ where: { id: matchId } });
 
-        if (!match) {
+        if (!match || match.status === 'FINISHED') {
             throw new KarduxError('ERR_MATCH_NOT_FOUND');
         }
 
-        if (match.status !== 'LOBBY') {
+        if (match.status === 'IN_PROGRESS') {
+            // Nothing left to resume from (no Redis snapshot) - close it out instead of
+            // leaving a zombie match that every "Continuar" would keep pointing at.
+            await this.prisma.match.update({
+                where: { id: matchId },
+                data: { status: 'FINISHED', endedAt: new Date() },
+            });
             throw new KarduxError(
-                'ERR_VALIDATION',
-                "This match's live state is not available in memory (the server may have " +
-                    'restarted since it started) and cannot be resumed.',
+                'ERR_MATCH_NOT_FOUND',
+                'Esta partida se interrumpió y ya no se puede retomar.',
             );
         }
 
@@ -220,6 +250,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
             now: Date.now(),
         });
         this.sessions.set(matchId, state);
+        await this.saveSnapshot(state);
 
         return state;
     }
@@ -231,6 +262,9 @@ export class MatchRuntimeService implements OnModuleDestroy {
             const result = reduce(before, action, { now });
 
             this.sessions.set(matchId, result.state);
+            if (result.state.version !== before.version) {
+                await this.saveSnapshot(result.state);
+            }
 
             // Persist durable side effects (Round/DeckSnapshot/Match/MatchEvent rows) BEFORE
             // telling any client what happened - a socket reacting to a broadcast (e.g.
@@ -292,12 +326,14 @@ export class MatchRuntimeService implements OnModuleDestroy {
         if (activeCount < state.config.autoStartPlayers) return;
 
         try {
-            const deck = await this.deckBuilder.build(state.config, { seed: state.seed });
+            const deck = this.deckBuilder.build(state.config, { seed: state.seed });
             await this.dispatchAction(matchId, { type: 'match.beginCountdown', deck });
         } catch (error) {
             this.logger.warn(
                 `Auto-start deck build failed for match ${matchId}: ${(error as Error).message}`,
             );
+            // Tell the room why nothing is happening instead of failing silently.
+            this.server?.to(matchId).emit('error', toErrorPayload(error));
         }
     }
 
@@ -558,7 +594,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
     }
 
     private async acquireRedisLock(matchId: string): Promise<string | null> {
-        if (!this.redis) return null;
+        if (!this.redis || this.redis.status !== 'ready') return null;
 
         const token = randomUUID();
 
@@ -577,7 +613,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
     }
 
     private async releaseRedisLock(matchId: string, token: string | null): Promise<void> {
-        if (!this.redis || !token) return;
+        if (!this.redis || !token || this.redis.status !== 'ready') return;
 
         try {
             // Compare-and-delete via a tiny Lua script: only clear the lock if it's still the
@@ -594,15 +630,57 @@ export class MatchRuntimeService implements OnModuleDestroy {
         }
     }
 
+    // ---- Redis snapshots of live MatchState (see the class comment) ----
+
+    private async saveSnapshot(state: MatchState): Promise<void> {
+        if (!this.redis || this.redis.status !== 'ready') return;
+
+        const ttl = state.phase === 'FINISHED' ? FINISHED_STATE_TTL_SECONDS : STATE_TTL_SECONDS;
+        try {
+            await this.redis.set(
+                `${STATE_PREFIX}${state.matchId}`,
+                JSON.stringify(state),
+                'EX',
+                ttl,
+            );
+        } catch (error) {
+            this.logger.warn(
+                `Could not snapshot match ${state.matchId}: ${(error as Error).message}`,
+            );
+        }
+    }
+
+    private async loadSnapshot(matchId: string): Promise<MatchState | null> {
+        if (!this.redis || this.redis.status !== 'ready') return null;
+
+        try {
+            const raw = await this.redis.get(`${STATE_PREFIX}${matchId}`);
+            return raw ? (JSON.parse(raw) as MatchState) : null;
+        } catch {
+            return null;
+        }
+    }
+
     private createRedisClient(url: string): Redis | null {
         try {
             const client = new Redis(url, {
                 lazyConnect: true,
                 maxRetriesPerRequest: 1,
-                retryStrategy: () => null,
+                // Keep retrying in the background (Redis may start after the API) without
+                // blocking any request: every call checks `status === 'ready'` first.
+                retryStrategy: (attempt) => Math.min(attempt * 1_000, 10_000),
             });
+            let warned = false;
             client.on('error', (error: Error) => {
-                this.logger.warn(`Redis lock backend unavailable: ${error.message}`);
+                if (warned) return;
+                warned = true;
+                this.logger.warn(
+                    `Redis unavailable (${error.message || 'connection refused'}) - running memory-only until it comes back.`,
+                );
+            });
+            client.on('ready', () => {
+                warned = false;
+                this.logger.log('Redis connected - match state snapshots enabled.');
             });
             client.connect().catch(() => undefined);
             return client;

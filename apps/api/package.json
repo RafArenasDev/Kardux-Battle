@@ -19,6 +19,7 @@
         "seed": "tsx prisma/seed.ts"
     },
     "dependencies": {
+        "@kardux/content": "workspace:*",
         "@kardux/contracts": "workspace:*",
         "@kardux/engine": "workspace:*",
         "@nestjs/common": "^11.2.5",

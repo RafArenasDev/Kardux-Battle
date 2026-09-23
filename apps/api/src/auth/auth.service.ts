@@ -6,7 +6,7 @@ import type {
     LoginRequest,
     RegisterRequest,
 } from '@kardux/contracts';
-import { randomInt, randomUUID } from 'node:crypto';
+import { randomInt } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 // Value imports required: Nest's DI resolves constructor params via `design:paramtypes`
 // reflection metadata, which `import type` erases at compile time.
@@ -15,6 +15,7 @@ import { JwtService } from '@nestjs/jwt';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { PrismaService } from '../prisma/prisma.service.js';
 import { buildAvatarUrl } from '../common/avatar.js';
+import { isCatalogAvatarSeed, randomAvatarSeed } from '@kardux/content';
 import * as bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { KarduxError } from '../common/kardux-error.js';
@@ -49,7 +50,7 @@ export class AuthService {
         const user = await this.prisma.user.create({
             data: {
                 nickname: generateGuestNickname(),
-                avatarSeed: randomUUID(),
+                avatarSeed: randomAvatarSeed(() => randomInt(1_000_000) / 1_000_000),
             },
         });
 
@@ -89,12 +90,18 @@ export class AuthService {
             });
         }
 
+        if (request.avatarSeed !== undefined && !isCatalogAvatarSeed(request.avatarSeed)) {
+            throw new KarduxError('ERR_VALIDATION', 'Pick an avatar from the catalog.');
+        }
+
         const passwordHash = await bcrypt.hash(request.password, PASSWORD_HASH_ROUNDS);
         const user = await this.withUniqueUsernameCheck(request.username, () =>
             this.prisma.user.create({
                 data: {
                     nickname: request.username,
-                    avatarSeed: request.username,
+                    avatarSeed:
+                        request.avatarSeed ??
+                        randomAvatarSeed(() => randomInt(1_000_000) / 1_000_000),
                     username: request.username,
                     passwordHash,
                 },

@@ -18,16 +18,13 @@ export class DeckController {
     @ApiOperation({
         summary: 'List available deck sources',
         description:
-            'Returns exactly the deck sources `tcg-github-sync` ' +
-            '(github.com/FlakoArenas26/tcg-github-sync) reports as synced right now - ' +
-            '`pokeapi`, `deckofcards`, `apitcg`, resolved live against its `manifest.json` ' +
-            'on every call (short in-memory cache), each with real `cardCount` and a 4-card ' +
-            '`preview` pulled from the actual synced JSON. No placeholder rows: a source with ' +
-            'no synced data (including `local`, not implemented yet) simply does not appear ' +
-            'in the response.',
+            'Every playable deck: original, copyright-free content bundled with the game ' +
+            '(mythic creatures, real animal facts, the classic French deck). Each entry carries ' +
+            'its attributes, a 4-card preview with generated vector art, and the pack / ' +
+            'cards-per-pack limits the create-match form must respect.',
     })
     @ApiOkResponse({ type: DeckSourceListDto })
-    async listSources(): Promise<DeckSourceListDto> {
+    listSources(): DeckSourceListDto {
         return this.deckService.listSources();
     }
 }

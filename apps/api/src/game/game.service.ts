@@ -67,7 +67,7 @@ export class GameService {
         return this.prisma.match.findFirst({
             where: {
                 status: { in: ['LOBBY', 'IN_PROGRESS'] },
-                players: { some: { userId, status: 'APPROVED' } },
+                players: { some: { userId, status: 'APPROVED', eliminatedAt: null } },
             },
             include: { host: true },
             orderBy: { createdAt: 'desc' },
@@ -93,10 +93,30 @@ export class GameService {
      * request-join, or reconnecting) can still get straight in via a code/deep link - direct
      * join never asks for approval, per the 2026-09-21 design.
      */
+    async getUser(userId: string): Promise<User> {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new KarduxError('ERR_UNAUTHORIZED');
+        return user;
+    }
+
     async joinDirect(userId: string, code: string): Promise<JoinDirectResult> {
         const match = await this.findActiveMatchByCode(code);
+        const existing = await this.prisma.matchPlayer.findUnique({
+            where: { matchId_userId: { matchId: match.id, userId } },
+        });
+
+        // Coming back to a seat you already hold (reload, share link opened twice) is never
+        // "match full".
+        if (existing?.status === 'APPROVED') {
+            return { match, seat: existing.seat, joinOrder: existing.joinOrder };
+        }
+
         const approvedCount = await this.countApproved(match.id);
-        this.assertCapacity(match.config as MatchConfig, approvedCount);
+        // Once a match is underway, newcomers watch as spectators (engine rule), so only the
+        // lobby enforces the seat limit.
+        if (match.status === 'LOBBY') {
+            this.assertCapacity(match.config as MatchConfig, approvedCount);
+        }
 
         await this.prisma.matchPlayer.upsert({
             where: { matchId_userId: { matchId: match.id, userId } },
@@ -189,6 +209,31 @@ export class GameService {
             seat: approvedCount,
             joinOrder: approvedCount,
         };
+    }
+
+    /** Mirrors a voluntary leave in the durable rows: a lobby seat is freed outright (and an
+     *  emptied lobby is closed), a mid-match leave is recorded as an elimination so the
+     *  player isn't offered "Continuar" for a match they walked away from. */
+    async leave(matchId: string, userId: string): Promise<void> {
+        const match = await this.prisma.match.findUnique({ where: { id: matchId } });
+        if (!match) return;
+
+        if (match.status === 'LOBBY') {
+            await this.prisma.matchPlayer.deleteMany({ where: { matchId, userId } });
+            const remaining = await this.countApproved(matchId);
+            if (remaining === 0) {
+                await this.prisma.match.update({
+                    where: { id: matchId },
+                    data: { status: 'FINISHED', endedAt: new Date() },
+                });
+            }
+            return;
+        }
+
+        await this.prisma.matchPlayer.updateMany({
+            where: { matchId, userId, eliminatedAt: null },
+            data: { eliminatedAt: new Date() },
+        });
     }
 
     private async countApproved(matchId: string): Promise<number> {

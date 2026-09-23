@@ -1,112 +1,38 @@
-import type { DeckPreviewCard, DeckSourceDescriptor, DeckSourceId } from '@kardux/contracts';
+import type { DeckSourceDescriptor } from '@kardux/contracts';
+import { DECKS, deckFamilies, deckLimits } from '@kardux/content';
 import { Injectable } from '@nestjs/common';
-import type { GithubSyncManifestEntry } from './github-sync.client.js';
-// Value import required: Nest's DI resolves constructor params via `design:paramtypes`
-// reflection metadata, which `import type` erases at compile time.
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { GithubSyncClient } from './github-sync.client.js';
 
-/**
- * Attribute metadata for the sources `tcg-github-sync` actually has data for, keyed by the
- *  manifest's `source` field. Not every `DeckSourceId` synced there has a fixed attribute
- *  set yet (`apitcg` covers many not-yet-normalized TCGs) - `HP` is the one numeric field
- *  every apitcg Pokémon card shares today. */
-const SYNCED_SOURCE_META: Record<
-    string,
-    Pick<DeckSourceDescriptor, 'label' | 'attributes' | 'requiresApiKey'>
-> = {
-    pokeapi: {
-        label: 'Pokémon',
-        attributes: [
-            { key: 'hp', label: 'HP', higherIsBetter: true },
-            { key: 'attack', label: 'Attack', higherIsBetter: true },
-            { key: 'defense', label: 'Defense', higherIsBetter: true },
-            { key: 'speed', label: 'Speed', higherIsBetter: true },
-            { key: 'special-attack', label: 'Special Attack', higherIsBetter: true },
-            { key: 'weight', label: 'Weight', unit: 'kg', higherIsBetter: true },
-        ],
-        requiresApiKey: false,
-    },
-    deckofcards: {
-        label: 'Standard playing cards',
-        attributes: [{ key: 'rank', label: 'Rank', higherIsBetter: true }],
-        requiresApiKey: false,
-    },
-    apitcg: {
-        label: 'Pokémon TCG (apitcg.com sets)',
-        attributes: [{ key: 'hp', label: 'HP', higherIsBetter: true }],
-        requiresApiKey: false,
-    },
-};
-
+/** The lobby's deck catalog, straight from `@kardux/content` - every deck is original and
+ *  bundled with the app, so every entry is always `ready`. */
 @Injectable()
 export class DeckService {
-    constructor(private readonly githubSync: GithubSyncClient) {}
+    listSources(): DeckSourceDescriptor[] {
+        return DECKS.map((deck) => {
+            const families = deckFamilies(deck);
+            const limits = deckLimits(deck);
 
-    /**
-     * Returns exactly the sources the `tcg-github-sync` manifest reports right now - nothing
-     * invented. No placeholder rows for `local` or for the rest of CLAUDE.md's original
-     * per-source-API table (`dragonball`, `naruto`, ...): none of them have synced data, so
-     * they don't appear here at all until a real provider exists for them. If the manifest
-     * fetch itself fails, this returns whatever was last cached (`GithubSyncClient`), or `[]`
-     * on a cold start with no network - never a fabricated catalog entry.
-     */
-    async listSources(): Promise<DeckSourceDescriptor[]> {
-        const manifest = await this.githubSync.getManifest();
-        return this.buildSyncedDescriptors(manifest?.decks ?? []);
+            return {
+                id: deck.id,
+                label: deck.label,
+                tagline: deck.tagline,
+                description: deck.description,
+                accent: deck.accent,
+                attributes: deck.attributes.map(({ key, label, unit, higherIsBetter }) => ({
+                    key,
+                    label,
+                    higherIsBetter,
+                    ...(unit ? { unit } : {}),
+                })),
+                requiresApiKey: false,
+                ready: true,
+                cardCount: families.reduce((sum, members) => sum + members.length, 0),
+                maxPacks: limits.maxPacks,
+                maxCardsPerPack: limits.maxCardsPerPack,
+                preview: families.slice(0, 4).map(([first]) => ({
+                    name: first!.name,
+                    imageUrl: first!.imageUrl,
+                })),
+            };
+        });
     }
-
-    private async buildSyncedDescriptors(
-        entries: GithubSyncManifestEntry[],
-    ): Promise<DeckSourceDescriptor[]> {
-        const bySource = new Map<string, GithubSyncManifestEntry[]>();
-        for (const entry of entries) {
-            const bucket = bySource.get(entry.source) ?? [];
-            bucket.push(entry);
-            bySource.set(entry.source, bucket);
-        }
-
-        const descriptors: DeckSourceDescriptor[] = [];
-        for (const [source, group] of bySource) {
-            const meta = SYNCED_SOURCE_META[source];
-            if (!meta || !isDeckSourceId(source)) {
-                // A source the sync repo knows about but this game hasn't mapped attributes
-                // for yet - skip rather than guess at comparable stats.
-                continue;
-            }
-
-            const cardCount = group.reduce((sum, deck) => sum + deck.count, 0);
-            const preview = await this.buildPreview(group);
-
-            descriptors.push({
-                id: source,
-                label: meta.label,
-                attributes: meta.attributes,
-                requiresApiKey: meta.requiresApiKey,
-                ready: cardCount > 0,
-                cardCount,
-                preview,
-            });
-        }
-
-        return descriptors;
-    }
-
-    private async buildPreview(group: GithubSyncManifestEntry[]): Promise<DeckPreviewCard[]> {
-        // Biggest deck first - a more representative sample than whichever synced first.
-        const [largest] = [...group].sort((a, b) => b.count - a.count);
-        if (!largest) {
-            return [];
-        }
-
-        const cards = await this.githubSync.getDeck(largest.path);
-        return (cards ?? []).slice(0, 4).map((card) => ({
-            name: card.name,
-            imageUrl: card.image.medium || card.image.small || card.image.large,
-        }));
-    }
-}
-
-function isDeckSourceId(value: string): value is DeckSourceId {
-    return value in SYNCED_SOURCE_META;
 }

@@ -27,9 +27,8 @@ describe('AuthService.createGuest', () => {
         expect(prisma.user.create).toHaveBeenCalledWith({
             data: {
                 nickname: expect.stringMatching(/^Jugador\d{4}$/) as unknown as string,
-                avatarSeed: expect.stringMatching(
-                    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-                ) as unknown as string,
+                // A random `icon:color` pair from the avatar catalog.
+                avatarSeed: expect.stringMatching(/^[a-z-]+:[a-z]+$/) as unknown as string,
             },
         });
         expect(jwt.signAsync).toHaveBeenCalledWith({
@@ -43,7 +42,7 @@ describe('AuthService.createGuest', () => {
                 id: user.id,
                 nickname: user.nickname,
                 avatarSeed: user.avatarSeed,
-                avatarUrl: `https://api.dicebear.com/9.x/adventurer/svg?seed=${user.avatarSeed}`,
+                avatarUrl: expect.stringMatching(/^data:image\/svg\+xml/) as unknown as string,
             },
         });
     });

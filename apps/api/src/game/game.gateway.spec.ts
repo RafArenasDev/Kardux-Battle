@@ -135,7 +135,8 @@ describe('GameGateway (/game)', () => {
         expect((ack as { playerId: string }).playerId).toContain(player.id);
 
         const broadcast = await broadcastPromise;
-        expect(broadcast).toMatchObject({ nickname: 'Ash', avatarSeed: 'ash-1', seat: 1 });
+        // Identity comes from the User row, never from the client payload.
+        expect(broadcast).toMatchObject({ nickname: 'Ash', avatarSeed: player.avatarSeed, seat: 1 });
 
         const row = await prisma.matchPlayer.findUnique({
             where: { matchId_userId: { matchId: match.id, userId: player.id } },

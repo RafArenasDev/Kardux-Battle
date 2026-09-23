@@ -9,6 +9,7 @@ import { AppModule } from './app.module.js';
 import type { AppConfig } from './config/app-config.js';
 import { parseCorsOrigins } from './config/app-config.js';
 import { KarduxExceptionFilter } from './common/kardux-exception.filter.js';
+import { KarduxIoAdapter } from './common/kardux-io.adapter.js';
 
 async function bootstrap(): Promise<void> {
     const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -16,8 +17,11 @@ async function bootstrap(): Promise<void> {
 
     const config = app.get(ConfigService<AppConfig, true>);
 
+    const allowedOrigins = parseCorsOrigins(config.get('CORS_ORIGINS', { infer: true }));
+
     app.use(helmet());
-    app.enableCors({ origin: parseCorsOrigins(config.get('CORS_ORIGINS', { infer: true })) });
+    app.enableCors({ origin: allowedOrigins });
+    app.useWebSocketAdapter(new KarduxIoAdapter(app, allowedOrigins));
     // Every request/response body is validated against the same Zod schemas @kardux/contracts
     // exports (ADR 0002) - no class-validator decorators anywhere in this codebase.
     app.useGlobalPipes(new ZodValidationPipe());
@@ -44,7 +48,7 @@ async function bootstrap(): Promise<void> {
                 )
                 .setVersion('0.1.0')
                 .addTag('health', 'Liveness/readiness.')
-                .addTag('auth', 'Guest identities (no accounts, no passwords).')
+                .addTag('auth', 'Guest identities and registered accounts.')
                 .addTag(
                     'matches',
                     'Create/find match rooms (lobby only - live play is Socket.IO, not REST).',

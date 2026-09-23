@@ -37,6 +37,8 @@ import { JwtService } from '@nestjs/jwt';
 import { GameService } from './game.service.js';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { MatchRuntimeService } from './match-runtime.service.js';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { MatchService } from '../match/match.service.js';
 import { KarduxError } from '../common/kardux-error.js';
 import type { GameSocket } from './game-socket.type.js';
 import { toErrorPayload } from './to-error-payload.js';
@@ -70,7 +72,8 @@ interface RequestMeta {
  * Tightening this to the real origin whitelist is a `main.ts`-level concern for a later phase,
  * not something worth wiring a second, ad hoc env read for here.
  */
-@WebSocketGateway({ namespace: '/game', cors: { origin: true, credentials: true } })
+// CORS for this namespace is enforced by `KarduxIoAdapter` (main.ts) from `CORS_ORIGINS`.
+@WebSocketGateway({ namespace: '/game' })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
     @WebSocketServer()
     private readonly server!: Server<ClientEvents, ServerEvents>;
@@ -100,6 +103,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         private readonly gameService: GameService,
         private readonly jwtService: JwtService,
         private readonly matchRuntime: MatchRuntimeService,
+        private readonly matchService: MatchService,
     ) {}
 
     afterInit(server: Server<ClientEvents, ServerEvents>): void {
@@ -160,26 +164,69 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     ): Promise<AckResponse<MatchJoinAck>> {
         try {
             const payload: MatchJoinPayload = matchJoinPayloadSchema.parse(body);
-            const auth = this.requireAuth(client);
-            const { match } = await this.gameService.joinDirect(auth.userId, payload.code);
-
-            await client.join(match.id);
-            await this.matchRuntime.playerJoin(
-                match.id,
-                client,
-                this.playerKey(auth),
-                payload.nickname,
-                payload.avatarSeed,
-            );
-
-            return {
-                code: match.code,
-                matchId: match.id,
-                token: auth.token,
-                playerId: this.playerKey(auth),
-            };
+            return await this.joinByCode(client, this.requireAuth(client), payload.code);
         } catch (error) {
             return toErrorPayload(error);
+        }
+    }
+
+    /**
+     * Quick match (guests included): sit in the oldest open public lobby that still has a
+     * live player waiting in it, or open a fresh one. No approval step - the lobby
+     * auto-starts as soon as `autoStartPlayers` are seated.
+     */
+    @SubscribeMessage('match:quick')
+    async handleQuick(@ConnectedSocket() client: GameSocket): Promise<AckResponse<MatchJoinAck>> {
+        try {
+            const auth = this.requireAuth(client);
+            const current = await this.gameService.findActiveMatchForUser(auth.userId);
+            if (current) {
+                return await this.joinByCode(client, auth, current.code);
+            }
+
+            for (const candidate of await this.matchService.listQuickCandidates(auth.userId)) {
+                const waiting = await this.server.in(candidate.matchId).fetchSockets();
+                const phase = await this.matchRuntime.phaseOf(candidate.matchId);
+                if (waiting.length > 0 && phase === 'LOBBY') {
+                    return await this.joinByCode(client, auth, candidate.code);
+                }
+            }
+
+            const created = await this.matchService.createQuickMatch(auth.userId);
+            return await this.joinByCode(client, auth, created.code);
+        } catch (error) {
+            return toErrorPayload(error);
+        }
+    }
+
+    /** Seats (or re-seats) the caller and pushes them a fresh snapshot. Nickname/avatar always
+     *  come from the caller's `User` row - a client can't impersonate another name. */
+    private async joinByCode(
+        client: GameSocket,
+        auth: SocketAuth,
+        code: string,
+    ): Promise<MatchJoinAck> {
+        const { match } = await this.gameService.joinDirect(auth.userId, code);
+        const user = await this.gameService.getUser(auth.userId);
+        const playerId = this.playerKey(auth);
+
+        await this.leaveOtherMatchRooms(client, match.id);
+        await client.join(match.id);
+        await this.matchRuntime.playerJoin(
+            match.id,
+            client,
+            playerId,
+            user.nickname,
+            user.avatarSeed,
+        );
+        await this.matchRuntime.rejoin(match.id, client, playerId);
+
+        return { code: match.code, matchId: match.id, token: auth.token, playerId };
+    }
+
+    private async leaveOtherMatchRooms(client: GameSocket, keepMatchId: string): Promise<void> {
+        for (const room of client.rooms) {
+            if (room !== client.id && room !== keepMatchId) await client.leave(room);
         }
     }
 
@@ -312,9 +359,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
             const rejoined = await this.matchRuntime.rejoin(match.id, client, playerId);
 
             if (!rejoined) {
+                // A lobby simply re-seats you; a started match you're not part of can't be
+                // resumed from this tab.
+                if (match.status === 'LOBBY') {
+                    return await this.joinByCode(client, auth, match.code);
+                }
                 throw new KarduxError('ERR_MATCH_NOT_FOUND');
             }
 
+            await this.leaveOtherMatchRooms(client, match.id);
             await client.join(match.id);
 
             return { code: match.code, matchId: match.id, token: auth.token, playerId };
@@ -373,6 +426,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
         if (auth && matchId) {
             await this.matchRuntime.playerLeave(matchId, this.playerKey(auth));
+            await this.gameService.leave(matchId, auth.userId).catch((error: unknown) => {
+                this.logger.warn(`Could not record leave: ${(error as Error).message}`);
+            });
         }
 
         if (matchId) {
