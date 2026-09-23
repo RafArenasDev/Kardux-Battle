@@ -180,16 +180,32 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         try {
             const auth = this.requireAuth(client);
             const current = await this.gameService.findActiveMatchForUser(auth.userId);
-            if (current) {
+            const waitingAlone =
+                current !== null &&
+                current.status === 'LOBBY' &&
+                (current.config as { visibility?: string }).visibility === 'public' &&
+                (await this.gameService.countSeated(current.id)) <= 1;
+
+            if (current && !waitingAlone) {
                 return await this.joinByCode(client, auth, current.code);
             }
 
+            // Pair with someone already waiting. When two players search at the same time each
+            // ends up alone in their own lobby; the waiting room re-sends `match:quick` every few
+            // seconds, and only the *newer* lobby moves into the older one (deterministic
+            // tie-break, so the two never swap past each other).
             for (const candidate of await this.matchService.listQuickCandidates(auth.userId)) {
+                if (current && candidate.createdAt >= current.createdAt.toISOString()) continue;
                 const waiting = await this.server.in(candidate.matchId).fetchSockets();
                 const phase = await this.matchRuntime.phaseOf(candidate.matchId);
                 if (waiting.length > 0 && phase === 'LOBBY') {
+                    if (current) await this.abandonLobby(client, auth, current.id);
                     return await this.joinByCode(client, auth, candidate.code);
                 }
+            }
+
+            if (current) {
+                return await this.joinByCode(client, auth, current.code);
             }
 
             const created = await this.matchService.createQuickMatch(auth.userId);
@@ -206,22 +222,38 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         auth: SocketAuth,
         code: string,
     ): Promise<MatchJoinAck> {
-        const { match } = await this.gameService.joinDirect(auth.userId, code);
+        const { match, created } = await this.gameService.joinDirect(auth.userId, code);
         const user = await this.gameService.getUser(auth.userId);
         const playerId = this.playerKey(auth);
 
-        await this.leaveOtherMatchRooms(client, match.id);
-        await client.join(match.id);
-        await this.matchRuntime.playerJoin(
+        const refused = await this.matchRuntime.playerJoin(
             match.id,
-            client,
             playerId,
             user.nickname,
             user.avatarSeed,
         );
+        if (refused) {
+            if (created) await this.gameService.releaseSeat(match.id, auth.userId);
+            throw new KarduxError(refused.code, refused.message);
+        }
+
+        await this.leaveOtherMatchRooms(client, match.id);
+        await client.join(match.id);
         await this.matchRuntime.rejoin(match.id, client, playerId);
 
         return { code: match.code, matchId: match.id, token: auth.token, playerId };
+    }
+
+    /** Drops the caller's own empty quick lobby before moving them into another one. */
+    private async abandonLobby(
+        client: GameSocket,
+        auth: SocketAuth,
+        matchId: string,
+    ): Promise<void> {
+        await this.matchRuntime.playerLeave(matchId, this.playerKey(auth));
+        await this.gameService.leave(matchId, auth.userId);
+        await this.matchRuntime.dispose(matchId);
+        await client.leave(matchId);
     }
 
     private async leaveOtherMatchRooms(client: GameSocket, keepMatchId: string): Promise<void> {
@@ -322,7 +354,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
                 await this.matchRuntime.playerJoin(
                     result.match.id,
-                    socket,
                     this.playerKey(requesterAuth),
                     nickname,
                     avatarSeed,

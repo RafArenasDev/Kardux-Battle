@@ -20,6 +20,20 @@ export function telegramUrl(code: string): string {
     return `https://t.me/share/url?url=${encodeURIComponent(inviteUrl(code))}&text=${encodeURIComponent('¡Te reto en Kardux Battle!')}`;
 }
 
+/** Pulls a room code out of anything pasted: the bare code or a full invite link. */
+export function extractRoomCode(text: string): string | null {
+    const match = /(?:join\/)?([0-9a-fA-F]{6})(?![0-9a-fA-F])/.exec(text.trim());
+    return match ? match[1]!.toUpperCase() : null;
+}
+
+export async function readClipboardCode(): Promise<string | null> {
+    try {
+        return extractRoomCode(await navigator.clipboard.readText());
+    } catch {
+        return null;
+    }
+}
+
 export async function copyToClipboard(text: string): Promise<boolean> {
     try {
         await navigator.clipboard.writeText(text);

@@ -233,6 +233,8 @@ export interface ServerEvents {
     'round:tie': (payload: RoundTiePayload) => void;
     'turn:timer': (payload: TurnTimerPayload) => void;
     'match:finished': (payload: MatchFinishedPayload) => void;
+    /** The host deleted the match; everyone in the room is sent back to the lobby. */
+    'match:closed': (payload: { matchId: string }) => void;
     error: (payload: z.infer<typeof errorPayloadSchema>) => void;
     'chat:message': (payload: ChatMessagePayload) => void;
     'pong:latency': (payload: PongLatencyPayload) => void;

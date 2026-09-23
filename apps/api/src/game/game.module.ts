@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module.js';
 import { DeckModule } from '../deck/deck.module.js';
 import { MatchModule } from '../match/match.module.js';
 import { GameGateway } from './game.gateway.js';
+import { MatchLifecycleController } from './match-lifecycle.controller.js';
 import { GameService } from './game.service.js';
 import { MatchRuntimeService } from './match-runtime.service.js';
 
@@ -14,6 +15,7 @@ import { MatchRuntimeService } from './match-runtime.service.js';
 // real deck a match is dealt from it.
 @Module({
     imports: [AuthModule, DeckModule, MatchModule],
+    controllers: [MatchLifecycleController],
     providers: [GameGateway, GameService, MatchRuntimeService],
     exports: [GameService, MatchRuntimeService],
 })

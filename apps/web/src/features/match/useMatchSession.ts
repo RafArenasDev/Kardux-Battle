@@ -12,16 +12,27 @@ import { getToken } from '../../lib/session';
 import type { GameSocket } from '../../lib/socket';
 import { whenConnected } from '../../lib/socket';
 
-/** How long a resolved round stays on the table before the next one takes over. */
-export const REVEAL_HOLD_MS = 3_400;
+/**
+ * Round choreography, in ms after the server resolves a round. Deliberately unhurried: every
+ * player has to be able to *read* the comparison before the cards leave the table.
+ *   0         flip every card face-up (staggered)
+ *   REVEAL    the winner's card lights up, the rest dim, the banner lands
+ *   COLLECT   the cards fly to the winner's seat (or into the pot on a tie)
+ *   HOLD      the table clears and the next round begins
+ */
+export const REVEAL_RESULT_MS = 1_300;
+export const REVEAL_COLLECT_MS = 3_700;
+export const REVEAL_HOLD_MS = 4_900;
 /** Shuffle + deal animation length at match start. */
-export const DEAL_MS = 2_800;
+export const DEAL_MS = 4_200;
+
+export type RevealStage = 'flip' | 'result' | 'collect';
 
 export interface RevealState {
     attribute: string;
     cards: Record<string, Card>;
     result: RoundResult | null;
-    tiePot: number | null;
+    stage: RevealStage;
 }
 
 export type SessionStatus = 'connecting' | 'ready' | 'lost';
@@ -35,20 +46,19 @@ export interface MatchSession {
     myPlayedCard: Card | null;
     finished: MatchFinishedPayload | null;
     chat: ChatMessagePayload[];
-    latency: number | null;
     selectAttribute: (attribute: string) => void;
-    playCard: () => void;
     start: () => void;
     cancelCountdown: () => void;
     leave: () => void;
     sendChat: (text: string) => void;
+    quickRematch: () => Promise<string | null>;
 }
 
 /**
  * Owns the live connection to one match: (re)joins on mount and on every socket reconnect
  * (a page reload or a dropped connection lands you back in your exact seat), and turns the
- * server's event stream into render-ready state - including the timed reveal of each round
- * and the deal animation, which the server resolves instantly but players need to *see*.
+ * server's event stream into render-ready state - including the paced reveal of each round and
+ * the deal animation, which the server resolves instantly but players need to *see*.
  */
 export function useMatchSession(matchId: string, onError: (message: string) => void): MatchSession {
     const [status, setStatus] = useState<SessionStatus>('connecting');
@@ -59,11 +69,10 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
     const [myPlayedCard, setMyPlayedCard] = useState<Card | null>(null);
     const [finished, setFinished] = useState<MatchFinishedPayload | null>(null);
     const [chat, setChat] = useState<ChatMessagePayload[]>([]);
-    const [latency, setLatency] = useState<number | null>(null);
 
     const socketRef = useRef<GameSocket | null>(null);
     const stateRef = useRef<RedactedMatchState | null>(null);
-    const revealTimer = useRef<number | undefined>(undefined);
+    const revealTimers = useRef<number[]>([]);
     const dealTimer = useRef<number | undefined>(undefined);
     const onErrorRef = useRef(onError);
     onErrorRef.current = onError;
@@ -71,6 +80,11 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
     useEffect(() => {
         let disposed = false;
         let socket: GameSocket | null = null;
+
+        const clearRevealTimers = (): void => {
+            for (const timer of revealTimers.current) window.clearTimeout(timer);
+            revealTimers.current = [];
+        };
 
         const rejoin = async (target: GameSocket): Promise<void> => {
             try {
@@ -123,42 +137,55 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
                 window.clearTimeout(dealTimer.current);
                 dealTimer.current = window.setTimeout(() => setDealing(false), DEAL_MS);
             },
+            'round:cardPlayed': (payload: { playerId: string }) => {
+                // The server lays our top card down for us; `stateRef` still holds the snapshot
+                // from before that play, so its top card is exactly the one that just left.
+                const current = stateRef.current;
+                if (current && payload.playerId === current.yourId && current.yourTopCard) {
+                    setMyPlayedCard(current.yourTopCard);
+                }
+            },
             'round:revealed': (payload: { cards: Record<string, Card> }) => {
-                window.clearTimeout(revealTimer.current);
+                clearRevealTimers();
                 setReveal({
                     attribute: stateRef.current?.round?.attribute ?? '',
                     cards: payload.cards,
                     result: null,
-                    tiePot: null,
+                    stage: 'flip',
                 });
             },
             'round:resolved': (result: RoundResult) => {
-                setReveal((current) => ({
+                setReveal({
                     attribute: result.attribute,
                     cards: result.cards,
                     result,
-                    tiePot: current?.tiePot ?? null,
-                }));
-                window.clearTimeout(revealTimer.current);
-                revealTimer.current = window.setTimeout(() => {
-                    setReveal(null);
-                    setMyPlayedCard(null);
-                }, REVEAL_HOLD_MS);
-            },
-            'round:tie': (payload: { potSize: number }) => {
-                setReveal((current) =>
-                    current ? { ...current, tiePot: payload.potSize } : current,
-                );
+                    stage: 'flip',
+                });
+                clearRevealTimers();
+                revealTimers.current = [
+                    window.setTimeout(
+                        () => setReveal((current) => current && { ...current, stage: 'result' }),
+                        REVEAL_RESULT_MS,
+                    ),
+                    window.setTimeout(
+                        () => setReveal((current) => current && { ...current, stage: 'collect' }),
+                        REVEAL_COLLECT_MS,
+                    ),
+                    window.setTimeout(() => {
+                        setReveal(null);
+                        setMyPlayedCard(null);
+                    }, REVEAL_HOLD_MS),
+                ];
             },
             'match:finished': (payload: MatchFinishedPayload) => {
-                // Let the last round's reveal play before the curtain.
+                // Let the last round's reveal play out before the curtain.
                 window.setTimeout(() => setFinished(payload), REVEAL_HOLD_MS);
+            },
+            'match:closed': () => {
+                setFatalError('El anfitrión cerró la partida.');
             },
             'chat:message': (message: ChatMessagePayload) => {
                 setChat((current) => [...current, message].slice(-60));
-            },
-            'pong:latency': (payload: { t: number }) => {
-                setLatency(Math.round(performance.now() - payload.t));
             },
             error: (payload: ErrorPayload) => {
                 onErrorRef.current(errorMessage(payload));
@@ -180,14 +207,9 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
             await rejoin(socket);
         })();
 
-        const ping = window.setInterval(() => {
-            socketRef.current?.emit('ping:latency', { t: performance.now() });
-        }, 5_000);
-
         return () => {
             disposed = true;
-            window.clearInterval(ping);
-            window.clearTimeout(revealTimer.current);
+            clearRevealTimers();
             window.clearTimeout(dealTimer.current);
             if (socket) {
                 for (const [event, handler] of Object.entries(handlers)) {
@@ -207,18 +229,10 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
     }, []);
 
     const selectAttribute = useCallback(
-        (attribute: string) => {
-            setMyPlayedCard(stateRef.current?.yourTopCard ?? null);
-            emit((socket) => socket.emit('round:selectAttribute', { attribute }));
-        },
+        (attribute: string) =>
+            emit((socket) => socket.emit('round:selectAttribute', { attribute })),
         [emit],
     );
-
-    const playCard = useCallback(() => {
-        setMyPlayedCard(stateRef.current?.yourTopCard ?? null);
-        emit((socket) => socket.emit('round:playCard'));
-    }, [emit]);
-
     const start = useCallback(() => emit((socket) => socket.emit('match:start')), [emit]);
     const cancelCountdown = useCallback(
         () => emit((socket) => socket.emit('match:cancelCountdown')),
@@ -230,6 +244,19 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
         [emit],
     );
 
+    /** While alone in a quick lobby: ask the server again, in case someone else started
+     *  searching at the same time and got their own lobby. Returns the match to move to. */
+    const quickRematch = useCallback(async (): Promise<string | null> => {
+        const socket = socketRef.current;
+        if (!socket?.connected) return null;
+        try {
+            const ack = await socket.timeout(8_000).emitWithAck('match:quick', {});
+            return isErrorPayload(ack) ? null : ack.matchId;
+        } catch {
+            return null;
+        }
+    }, []);
+
     return {
         status,
         fatalError,
@@ -239,12 +266,11 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
         myPlayedCard,
         finished,
         chat,
-        latency,
         selectAttribute,
-        playCard,
         start,
         cancelCountdown,
         leave,
         sendChat,
+        quickRematch,
     };
 }

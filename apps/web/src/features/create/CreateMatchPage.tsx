@@ -7,7 +7,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
 import { Button } from '../../components/ui/Button';
 import { Icon } from '../../components/ui/Icon';
-import { Segmented, Stepper } from '../../components/ui/Segmented';
+import { ChoiceChips, Stepper } from '../../components/ui/Segmented';
 import { useToast } from '../../components/ui/Toast';
 import { useDocumentTitle } from '../../hooks/useNow';
 import { createMatch, listDeckSources } from '../../lib/api';
@@ -27,19 +27,19 @@ const TURN_TIMEOUTS = [15, 30, 60, 0].map((seconds) => ({
 }));
 
 export default function CreateMatchPage(): JSX.Element {
-    useDocumentTitle('Crear sala');
+    useDocumentTitle('');
     const navigate = useNavigate();
     const toast = useToast();
 
     const [decks, setDecks] = useState<DeckSourceDescriptor[]>([]);
     const [deckId, setDeckId] = useState<DeckSourceId>('pokeapi');
     const [minPlayers, setMinPlayers] = useState(2);
-    const [maxPlayers, setMaxPlayers] = useState(4);
-    const [autoStartPlayers, setAutoStartPlayers] = useState(4);
+    const [maxPlayers, setMaxPlayers] = useState(7);
+    const [autoStartPlayers, setAutoStartPlayers] = useState(7);
     const [packs, setPacks] = useState(4);
     const [cardsPerPack, setCardsPerPack] = useState(8);
     const [attributeCount, setAttributeCount] = useState(4);
-    const [matchDurationMs, setMatchDurationMs] = useState(20 * 60_000);
+    const [matchDurationMs, setMatchDurationMs] = useState(60 * 60_000);
     const [turnTimeoutMs, setTurnTimeoutMs] = useState(30_000);
     const [busy, setBusy] = useState(false);
 
@@ -110,13 +110,11 @@ export default function CreateMatchPage(): JSX.Element {
         try {
             const match = await createMatch(config);
             const socket = await whenConnected();
-            const ack = await socket
-                .timeout(10_000)
-                .emitWithAck('match:join', {
-                    code: match.code,
-                    nickname: user.nickname,
-                    avatarSeed: user.avatarSeed,
-                });
+            const ack = await socket.timeout(10_000).emitWithAck('match:join', {
+                code: match.code,
+                nickname: user.nickname,
+                avatarSeed: user.avatarSeed,
+            });
             if (isErrorPayload(ack)) throw ack;
             toast.show(`Sala ${match.code} creada`, 'success');
             navigate(`/match/${ack.matchId}`, { replace: true });
@@ -273,7 +271,7 @@ export default function CreateMatchPage(): JSX.Element {
                         </div>
                         <div className="config-row">
                             <span className="config-row__label">Duración</span>
-                            <Segmented
+                            <ChoiceChips
                                 label="Duración"
                                 value={matchDurationMs}
                                 options={DURATIONS}
@@ -282,7 +280,7 @@ export default function CreateMatchPage(): JSX.Element {
                         </div>
                         <div className="config-row">
                             <span className="config-row__label">Tiempo por turno</span>
-                            <Segmented
+                            <ChoiceChips
                                 label="Tiempo por turno"
                                 value={turnTimeoutMs}
                                 options={TURN_TIMEOUTS}
@@ -292,9 +290,6 @@ export default function CreateMatchPage(): JSX.Element {
 
                         <div className="config-summary">
                             <span className="badge">{totalCards} cartas</span>
-                            <span className="badge badge--muted">
-                                {Math.floor(totalCards / minPlayers)} por jugador con {minPlayers}
-                            </span>
                             <span className="badge badge--muted">
                                 {formatDuration(matchDurationMs)}
                             </span>

@@ -118,6 +118,11 @@ export function listMyMatches(): Promise<MatchSummaryWithRole[]> {
     return request('/matches/mine');
 }
 
+/** Host: deletes the match for good. Anyone else seated: leaves it. */
+export function deleteMatch(matchId: string): Promise<void> {
+    return request(`/matches/${matchId}`, { method: 'DELETE' });
+}
+
 export function getMatchByCode(code: string): Promise<MatchSummary> {
     return request(`/matches/${code}`);
 }

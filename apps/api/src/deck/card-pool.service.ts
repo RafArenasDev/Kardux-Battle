@@ -1,5 +1,6 @@
 import type { DeckEntity } from '@kardux/content';
 import { POKEMON_TYPE_LABELS } from '@kardux/content';
+import { disabledDeckIds } from '../config/app-config.js';
 import type { Prisma } from '@prisma/client';
 import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 // Value import required: Nest's DI resolves constructor params via `design:paramtypes`
@@ -76,7 +77,9 @@ export class CardPoolService implements OnApplicationBootstrap {
     constructor(private readonly prisma: PrismaService) {}
 
     onApplicationBootstrap(): void {
+        const disabled = disabledDeckIds();
         for (const source of ['pokeapi', 'deckofcards'] as const) {
+            if (disabled.has(source)) continue;
             void this.syncIfStale(source);
         }
     }

@@ -2,7 +2,7 @@ import type { DeckSourceId, MatchConfig } from '@kardux/contracts';
 import { renderCardArt } from '../art.js';
 import { hashString } from '../avatars.js';
 import type { IconName } from '../icons.generated.js';
-import { FAUNA_DECK } from './fauna.js';
+import { MOTORES_DECK } from './motores.js';
 import { MYTHIC_DECK } from './mythic.js';
 import { NAIPES_DECK } from './naipes.js';
 import { POKEMON_DECK, POKER_DECK } from './remote.js';
@@ -14,7 +14,7 @@ export { POKEMON_DECK, POKER_DECK, POKEMON_TYPE_LABELS, REMOTE_DECKS } from './r
 
 /** Bundled decks with their own families (and art). `naipes` is not listed in the catalog: it
  *  is the offline fallback for the poker deck when deckofcardsapi hasn't synced yet. */
-export const BUNDLED_DECKS: readonly DeckDefinition[] = [MYTHIC_DECK, FAUNA_DECK, NAIPES_DECK];
+export const BUNDLED_DECKS: readonly DeckDefinition[] = [MOTORES_DECK, MYTHIC_DECK, NAIPES_DECK];
 
 export interface DeckLimits {
     /** Max `packs`: every quartet needs one card per pack. */
@@ -60,9 +60,12 @@ function bundledInfo(deck: DeckDefinition): DeckInfo {
     };
 }
 
-/** Every deck a player can pick, in lobby order: the two API-backed decks first. */
+/** Every deck a player can pick for a *card battle* (attribute comparison). The poker deck is
+ *  deliberately NOT here: playing cards follow casino rules (poker, 21, rummy, baccarat), which
+ *  is a separate game mode with its own engine - see docs/casino-mode.md. `POKER_DECK` stays
+ *  exported for that mode, and `getDeckInfo('deckofcards')` still resolves for old matches. */
 export const DECK_CATALOG: readonly DeckInfo[] = [
-    ...[POKEMON_DECK, POKER_DECK].map((meta): DeckInfo => ({
+    ...[POKEMON_DECK].map((meta): DeckInfo => ({
         id: meta.id,
         kind: 'remote',
         label: meta.label,
@@ -78,14 +81,32 @@ export const DECK_CATALOG: readonly DeckInfo[] = [
             maxAttributes: meta.attributes.length,
         },
     })),
+    bundledInfo(MOTORES_DECK),
     bundledInfo(MYTHIC_DECK),
-    bundledInfo(FAUNA_DECK),
 ];
 
 /** Metadata for any deck id, including the unlisted `naipes`/`local` fallbacks. */
 export function getDeckInfo(id: DeckSourceId): DeckInfo | undefined {
     const listed = DECK_CATALOG.find((deck) => deck.id === id);
     if (listed) return listed;
+    if (id === 'deckofcards') {
+        return {
+            id: POKER_DECK.id,
+            kind: 'remote',
+            label: POKER_DECK.label,
+            tagline: POKER_DECK.tagline,
+            description: POKER_DECK.description,
+            coverIcon: POKER_DECK.coverIcon,
+            accent: POKER_DECK.accent,
+            attributes: POKER_DECK.attributes,
+            credits: POKER_DECK.credits,
+            limits: {
+                maxPacks: POKER_DECK.maxPacks,
+                maxCardsPerPack: POKER_DECK.maxCardsPerPack,
+                maxAttributes: POKER_DECK.attributes.length,
+            },
+        };
+    }
     const bundled = getDeck(id);
     return bundled ? bundledInfo(bundled) : undefined;
 }
@@ -188,4 +209,4 @@ export function deckFamilies(deck: DeckDefinition): DeckEntity[][] {
     return families;
 }
 
-export { FAUNA_DECK, MYTHIC_DECK, NAIPES_DECK };
+export { MOTORES_DECK, MYTHIC_DECK, NAIPES_DECK };

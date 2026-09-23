@@ -24,9 +24,7 @@
 .shell__main {
     flex: 1;
     width: 100%;
-    max-width: var(--content-max);
-    margin: 0 auto;
-    padding: clamp(18px, 3vw, 36px) var(--gutter) 40px;
+    padding: clamp(16px, 2.5vw, 32px) var(--gutter) 40px;
 }
 
 .shell--immersive .shell__main {
@@ -52,9 +50,7 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    max-width: var(--content-max);
     min-height: var(--header-h);
-    margin: 0 auto;
     padding: 0 var(--gutter);
 }
 
@@ -466,6 +462,12 @@
     border-radius: var(--r-lg);
     background: linear-gradient(90deg, rgba(63, 214, 164, 0.14), rgba(63, 214, 164, 0.04));
     border: 1px solid rgba(63, 214, 164, 0.35);
+}
+
+.resume-banner__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .resume-banner__text {

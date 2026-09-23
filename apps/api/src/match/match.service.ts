@@ -15,6 +15,7 @@ import { DECK_CATALOG, validateDeckConfig } from '@kardux/content';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { buildAvatarUrl } from '../common/avatar.js';
 import { KarduxError } from '../common/kardux-error.js';
+import { disabledDeckIds } from '../config/app-config.js';
 
 const CODE_ALPHABET = '0123456789ABCDEF';
 const CODE_LENGTH = 6;
@@ -49,9 +50,10 @@ export class MatchService {
 
     /** A fresh public quick-match lobby hosted by whoever asked for it (guests allowed). */
     async createQuickMatch(hostUserId: string): Promise<MatchSummary> {
-        // Quick matches rotate through the two headline decks (Pokémon / poker).
-        const featured = DECK_CATALOG.filter((deck) => deck.kind === 'remote');
-        const deck = featured[randomInt(featured.length)]!;
+        // Quick matches rotate through every enabled battle deck.
+        const disabled = disabledDeckIds();
+        const pool = DECK_CATALOG.filter((deck) => !disabled.has(deck.id));
+        const deck = pool[randomInt(pool.length)]!;
         const { limits } = deck;
 
         return this.insertMatch(hostUserId, {
@@ -148,6 +150,14 @@ export class MatchService {
 
         if (!result.success) {
             throw new KarduxError('ERR_INVALID_CONFIG', result.error.issues[0]?.message);
+        }
+
+        const disabled = disabledDeckIds();
+        if (result.data.deckSources.some((id) => disabled.has(id))) {
+            throw new KarduxError(
+                'ERR_INVALID_CONFIG',
+                'Ese mazo no está disponible en este servidor.',
+            );
         }
 
         // Fail at creation, not when the host presses "Iniciar": the deck must be buildable.

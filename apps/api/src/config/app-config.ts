@@ -29,6 +29,13 @@ const envSchema = z.object({
 
     RATE_LIMIT_TTL_MS: z.coerce.number().int().positive(),
     RATE_LIMIT_MAX: z.coerce.number().int().positive(),
+
+    // --- Free-tier data retention (see RetentionService) ---
+    RETENTION_FINISHED_DAYS: z.coerce.number().int().positive().default(7),
+    RETENTION_EVENTS_DAYS: z.coerce.number().int().positive().default(2),
+
+    // --- Deck kill switch: comma-separated deck ids hidden from players (e.g. "pokeapi") ---
+    DISABLED_DECKS: z.string().default(''),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
@@ -47,4 +54,15 @@ export function parseCorsOrigins(value: string): string[] {
         .split(',')
         .map((origin) => origin.trim())
         .filter((origin) => origin.length > 0);
+}
+
+/** Deck ids switched off by the operator (`DISABLED_DECKS`), e.g. to pull a deck instantly
+ *  from a public deployment without a code change. */
+export function disabledDeckIds(env: NodeJS.ProcessEnv = process.env): Set<string> {
+    return new Set(
+        (env.DISABLED_DECKS ?? '')
+            .split(',')
+            .map((id) => id.trim())
+            .filter((id) => id.length > 0),
+    );
 }

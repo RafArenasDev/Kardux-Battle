@@ -55,7 +55,7 @@ describe('GameService.joinDirect', () => {
             },
             update: { status: 'APPROVED' },
         });
-        expect(result).toEqual({ match: MATCH, seat: 0, joinOrder: 0 });
+        expect(result).toEqual({ match: MATCH, seat: 0, joinOrder: 0, created: true });
     });
 
     it('throws ERR_MATCH_FULL without touching MatchPlayer when the room is at capacity', async () => {

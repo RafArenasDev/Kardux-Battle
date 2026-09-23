@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from 'nestjs-pino';
 import { AppConfigModule } from './config/app-config.module.js';
 import type { AppConfig } from './config/app-config.js';
@@ -10,6 +11,7 @@ import { DeckModule } from './deck/deck.module.js';
 import { GameModule } from './game/game.module.js';
 import { HealthModule } from './health/health.module.js';
 import { LeaderboardModule } from './leaderboard/leaderboard.module.js';
+import { MaintenanceModule } from './maintenance/maintenance.module.js';
 import { MatchModule } from './match/match.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 
@@ -43,6 +45,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
                 },
             ],
         }),
+        ScheduleModule.forRoot(),
         PrismaModule,
         HealthModule,
         AuthModule,
@@ -50,6 +53,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
         GameModule,
         DeckModule,
         LeaderboardModule,
+        MaintenanceModule,
     ],
     providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

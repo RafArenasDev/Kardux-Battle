@@ -2,6 +2,7 @@ import type { DeckSourceDescriptor } from '@kardux/contracts';
 import type { DeckEntity, DeckInfo } from '@kardux/content';
 import { DECK_CATALOG, NAIPES_DECK, deckFamilies, getDeck } from '@kardux/content';
 import { Injectable } from '@nestjs/common';
+import { disabledDeckIds } from '../config/app-config.js';
 // Value import required: Nest's DI resolves constructor params via `design:paramtypes`
 // reflection metadata, which `import type` erases at compile time.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -14,7 +15,12 @@ export class DeckService {
     constructor(private readonly cardPool: CardPoolService) {}
 
     async listSources(): Promise<DeckSourceDescriptor[]> {
-        return Promise.all(DECK_CATALOG.map((info) => this.describe(info)));
+        const disabled = disabledDeckIds();
+        return Promise.all(
+            DECK_CATALOG.filter((info) => !disabled.has(info.id)).map((info) =>
+                this.describe(info),
+            ),
+        );
     }
 
     private async describe(info: DeckInfo): Promise<DeckSourceDescriptor> {

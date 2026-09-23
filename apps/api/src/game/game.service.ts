@@ -14,6 +14,8 @@ export interface JoinDirectResult {
     match: MatchWithHost;
     seat: number;
     joinOrder: number;
+    /** `false` when the caller already held this seat (reload, second open of a link). */
+    created: boolean;
 }
 
 export interface RequestJoinResult {
@@ -108,7 +110,7 @@ export class GameService {
         // Coming back to a seat you already hold (reload, share link opened twice) is never
         // "match full".
         if (existing?.status === 'APPROVED') {
-            return { match, seat: existing.seat, joinOrder: existing.joinOrder };
+            return { match, seat: existing.seat, joinOrder: existing.joinOrder, created: false };
         }
 
         const approvedCount = await this.countApproved(match.id);
@@ -130,7 +132,12 @@ export class GameService {
             update: { status: 'APPROVED' },
         });
 
-        return { match, seat: approvedCount, joinOrder: approvedCount };
+        return { match, seat: approvedCount, joinOrder: approvedCount, created: true };
+    }
+
+    /** Undoes a seat the engine refused (two players raced for the last one). */
+    async releaseSeat(matchId: string, userId: string): Promise<void> {
+        await this.prisma.matchPlayer.deleteMany({ where: { matchId, userId } });
     }
 
     /**
@@ -234,6 +241,10 @@ export class GameService {
             where: { matchId, userId, eliminatedAt: null },
             data: { eliminatedAt: new Date() },
         });
+    }
+
+    async countSeated(matchId: string): Promise<number> {
+        return this.countApproved(matchId);
     }
 
     private async countApproved(matchId: string): Promise<number> {

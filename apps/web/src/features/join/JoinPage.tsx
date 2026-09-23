@@ -50,13 +50,11 @@ export default function JoinPage(): JSX.Element {
         setJoining(true);
         try {
             const socket = await whenConnected();
-            const ack = await socket
-                .timeout(10_000)
-                .emitWithAck('match:join', {
-                    code,
-                    nickname: user.nickname,
-                    avatarSeed: user.avatarSeed,
-                });
+            const ack = await socket.timeout(10_000).emitWithAck('match:join', {
+                code,
+                nickname: user.nickname,
+                avatarSeed: user.avatarSeed,
+            });
             if (isErrorPayload(ack)) throw ack;
             navigate(`/match/${ack.matchId}`, { replace: true });
         } catch (reason) {

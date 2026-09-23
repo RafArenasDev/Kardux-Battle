@@ -10,9 +10,10 @@ import { Button } from '../../components/ui/Button';
 import { Icon } from '../../components/ui/Icon';
 import { useToast } from '../../components/ui/Toast';
 import { useDocumentTitle } from '../../hooks/useNow';
-import { getActiveMatch, getLeaderboard, listMyMatches } from '../../lib/api';
+import { deleteMatch, getActiveMatch, getLeaderboard, listMyMatches } from '../../lib/api';
 import { errorMessage, isErrorPayload } from '../../lib/errors';
 import { clearSession, getUser, isGuest } from '../../lib/session';
+import { extractRoomCode, readClipboardCode } from '../../lib/share';
 import { disconnectGameSocket, whenConnected } from '../../lib/socket';
 
 const CODE_PATTERN = /^[0-9A-F]{6}$/;
@@ -29,7 +30,7 @@ const cardMotion = {
 };
 
 export default function HomePage(): JSX.Element {
-    useDocumentTitle('Inicio');
+    useDocumentTitle('');
     const navigate = useNavigate();
     const location = useLocation();
     const toast = useToast();
@@ -83,6 +84,28 @@ export default function HomePage(): JSX.Element {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [wantsQuick]);
 
+    async function removeActive(): Promise<void> {
+        if (!active) return;
+        const isHost = active.hostId === user?.id;
+        try {
+            await deleteMatch(active.matchId);
+            setActive(null);
+            setRooms((current) => current.filter((room) => room.matchId !== active.matchId));
+            toast.show(isHost ? 'Partida eliminada' : 'Saliste de la partida', 'success');
+        } catch (error) {
+            toast.show(errorMessage(error), 'error');
+        }
+    }
+
+    async function pasteCode(): Promise<void> {
+        const pasted = await readClipboardCode();
+        if (pasted) {
+            setCode(pasted);
+        } else {
+            toast.show('No encontramos un código en el portapapeles', 'error');
+        }
+    }
+
     function joinByCode(event: FormEvent): void {
         event.preventDefault();
         if (CODE_PATTERN.test(code)) navigate(`/join/${code}`);
@@ -111,17 +134,25 @@ export default function HomePage(): JSX.Element {
                         <div className="resume-banner__text">
                             <strong>Tienes una partida en curso</strong>
                             <span className="text-2">
-                                Sala {active.code} · {STATUS_LABEL[active.status]} ·{' '}
+                                {active.config.visibility === 'public'
+                                    ? 'Partida rápida'
+                                    : `Sala ${active.code}`}{' '}
+                                · {STATUS_LABEL[active.status]} ·{' '}
                                 {getDeckInfo(active.config.deckSources[0] ?? 'pokeapi')?.label}
                             </span>
                         </div>
-                        <Button
-                            variant="emerald"
-                            icon="crossed-swords"
-                            onClick={() => navigate(`/match/${active.matchId}`)}
-                        >
-                            Continuar
-                        </Button>
+                        <div className="resume-banner__actions">
+                            <Button
+                                variant="emerald"
+                                icon="crossed-swords"
+                                onClick={() => navigate(`/match/${active.matchId}`)}
+                            >
+                                Continuar
+                            </Button>
+                            <Button variant="ghost" icon="cancel" onClick={removeActive}>
+                                {active.hostId === user?.id ? 'Eliminar' : 'Salir'}
+                            </Button>
+                        </div>
                     </motion.div>
                 ) : null}
 
@@ -210,14 +241,27 @@ export default function HomePage(): JSX.Element {
                                 autoComplete="off"
                                 autoCapitalize="characters"
                                 spellCheck={false}
-                                maxLength={6}
+                                maxLength={64}
                                 value={code}
                                 onChange={(event) =>
                                     setCode(
-                                        event.target.value.toUpperCase().replace(/[^0-9A-F]/g, ''),
+                                        extractRoomCode(event.target.value) ??
+                                            event.target.value
+                                                .toUpperCase()
+                                                .replace(/[^0-9A-F]/g, '')
+                                                .slice(0, 6),
                                     )
                                 }
                             />
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                icon="card-pickup"
+                                onClick={pasteCode}
+                            >
+                                Pegar código
+                            </Button>
                             <Button
                                 type="submit"
                                 disabled={!CODE_PATTERN.test(code)}

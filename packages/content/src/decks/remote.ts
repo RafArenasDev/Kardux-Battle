@@ -35,7 +35,7 @@ export const POKEMON_DECK: RemoteDeckMeta = {
         { key: 'special-defense', label: 'Def. especial', icon: 'brain', higherIsBetter: true },
     ],
     credits:
-        'Datos e imágenes vía PokéAPI (pokeapi.co). Pokémon © Nintendo, Game Freak y The Pokémon Company. Proyecto sin fines de lucro.',
+        'Datos vía PokéAPI (pokeapi.co). Proyecto de fans sin fines de lucro, no afiliado ni respaldado por Nintendo, Game Freak ni The Pokémon Company.',
     maxPacks: 6,
     maxCardsPerPack: 16,
 };

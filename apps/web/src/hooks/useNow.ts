@@ -13,9 +13,10 @@ export function useNow(intervalMs = 250, active = true): number {
     return now;
 }
 
-/** `Page · Kardux Battle` - keeps many open tabs tellable apart. */
+/** Tab title: always "Kardux Battle", optionally prefixed with a room code - never a player
+ *  name (tabs are visible to anyone looking at the screen). */
 export function useDocumentTitle(title: string): void {
     useEffect(() => {
-        document.title = title ? `${title} · Kardux Battle` : 'Kardux Battle';
+        document.title = title ? `Kardux Battle · ${title}` : 'Kardux Battle';
     }, [title]);
 }

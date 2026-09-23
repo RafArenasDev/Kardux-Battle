@@ -1,7 +1,8 @@
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import type { JSX, ReactNode } from 'react';
 import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { InstallPrompt } from '../components/layout/InstallPrompt';
 import { isAuthenticated } from '../lib/session';
 import AuthPage from '../features/auth/AuthPage';
 import HomePage from '../features/home/HomePage';
@@ -23,15 +24,15 @@ function RedirectIfAuthenticated({ children }: { children: JSX.Element }): JSX.E
     return isAuthenticated() ? <Navigate to="/home" replace /> : children;
 }
 
+/** Pages only animate in. Route changes never wait on an exit animation, so navigating away
+ *  (e.g. "Volver al inicio" from the victory screen) is instant and can't get stuck. */
 function Page({ children }: { children: ReactNode }): JSX.Element {
-    const reduceMotion = useReducedMotion();
     return (
         <motion.div
             className="page"
-            initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: reduceMotion ? 0 : -8 }}
-            transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
+            transition={{ type: 'spring', bounce: 0, duration: 0.55 }}
         >
             {children}
         </motion.div>
@@ -52,60 +53,59 @@ export default function App(): JSX.Element {
 
     return (
         <Suspense fallback={<Loading />}>
-            <AnimatePresence mode="wait" initial={false}>
-                <Routes location={location} key={location.pathname}>
-                    <Route
-                        path="/"
-                        element={
-                            <RedirectIfAuthenticated>
-                                <Page>
-                                    <AuthPage />
-                                </Page>
-                            </RedirectIfAuthenticated>
-                        }
-                    />
-                    <Route
-                        path="/home"
-                        element={
-                            <RequireAuth>
-                                <Page>
-                                    <HomePage />
-                                </Page>
-                            </RequireAuth>
-                        }
-                    />
-                    <Route
-                        path="/create"
-                        element={
-                            <RequireAuth>
-                                <Page>
-                                    <CreateMatchPage />
-                                </Page>
-                            </RequireAuth>
-                        }
-                    />
-                    {/* Share links must work before signing in: JoinPage handles the redirect. */}
-                    <Route
-                        path="/join/:code"
-                        element={
+            <InstallPrompt />
+            <Routes location={location} key={location.pathname}>
+                <Route
+                    path="/"
+                    element={
+                        <RedirectIfAuthenticated>
                             <Page>
-                                <JoinPage />
+                                <AuthPage />
                             </Page>
-                        }
-                    />
-                    <Route
-                        path="/match/:matchId"
-                        element={
-                            <RequireAuth>
-                                <Page>
-                                    <MatchPage />
-                                </Page>
-                            </RequireAuth>
-                        }
-                    />
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-            </AnimatePresence>
+                        </RedirectIfAuthenticated>
+                    }
+                />
+                <Route
+                    path="/home"
+                    element={
+                        <RequireAuth>
+                            <Page>
+                                <HomePage />
+                            </Page>
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/create"
+                    element={
+                        <RequireAuth>
+                            <Page>
+                                <CreateMatchPage />
+                            </Page>
+                        </RequireAuth>
+                    }
+                />
+                {/* Share links must work before signing in: JoinPage handles the redirect. */}
+                <Route
+                    path="/join/:code"
+                    element={
+                        <Page>
+                            <JoinPage />
+                        </Page>
+                    }
+                />
+                <Route
+                    path="/match/:matchId"
+                    element={
+                        <RequireAuth>
+                            <Page>
+                                <MatchPage />
+                            </Page>
+                        </RequireAuth>
+                    }
+                />
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
         </Suspense>
     );
 }

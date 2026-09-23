@@ -29,15 +29,15 @@ const FEATURES = [
         text: 'Más de mil Pokémon con sus estadísticas oficiales.',
     },
     {
-        icon: 'spades',
-        title: 'Baraja de póker',
-        text: 'Las 52 cartas clásicas, cuarteto por valor.',
+        icon: 'race-car',
+        title: 'Máquinas y criaturas',
+        text: 'Autos, aviones, trenes y bestias míticas.',
     },
     { icon: 'sword-clash', title: 'Duelos en vivo', text: 'Hasta 12 jugadores, en tiempo real.' },
 ] as const;
 
 export default function AuthPage(): JSX.Element {
-    useDocumentTitle('Entrar');
+    useDocumentTitle('');
     const navigate = useNavigate();
     const location = useLocation();
     const toast = useToast();

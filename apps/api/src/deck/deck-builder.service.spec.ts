@@ -31,13 +31,19 @@ describe('DeckBuilder', async () => {
     it('is deterministic for a given seed', async () => {
         const config = {
             ...base,
-            deckSources: ['fauna'] as const,
+            deckSources: ['motores'] as const,
             packs: 4,
             cardsPerPack: 6,
             attributeCount: 3,
         };
-        const first = await builder.build({ ...config, deckSources: ['fauna'] }, { seed: 'same' });
-        const second = await builder.build({ ...config, deckSources: ['fauna'] }, { seed: 'same' });
+        const first = await builder.build(
+            { ...config, deckSources: ['motores'] },
+            { seed: 'same' },
+        );
+        const second = await builder.build(
+            { ...config, deckSources: ['motores'] },
+            { seed: 'same' },
+        );
         expect(first).toEqual(second);
     });
 
@@ -62,7 +68,7 @@ describe('DeckBuilder', async () => {
     it('rejects more packs than a family has members', async () => {
         await expect(
             builder.build(
-                { ...base, deckSources: ['fauna'], packs: 5, cardsPerPack: 4, attributeCount: 3 },
+                { ...base, deckSources: ['motores'], packs: 5, cardsPerPack: 4, attributeCount: 3 },
                 { seed: 'x' },
             ),
         ).rejects.toThrow(/paquetes/);

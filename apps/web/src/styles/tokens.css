@@ -54,7 +54,7 @@
     --dur: 220ms;
 
     /* Layout. */
-    --gutter: clamp(16px, 4vw, 32px);
+    --gutter: clamp(16px, 3vw, 40px);
     --header-h: 68px;
     --content-max: 1180px;
     --safe-top: env(safe-area-inset-top, 0px);

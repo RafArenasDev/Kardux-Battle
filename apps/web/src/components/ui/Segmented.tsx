@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion';
+import type { IconName } from '@kardux/content';
 import type { JSX } from 'react';
+import { Icon } from './Icon';
 import { useId } from 'react';
 
 interface SegmentedProps<T extends string | number> {
@@ -78,6 +80,48 @@ export function Stepper({ value, min, max, onChange, label, format }: StepperPro
             >
                 +
             </button>
+        </div>
+    );
+}
+
+interface ChoiceChipsProps<T extends string | number> {
+    value: T;
+    options: readonly { value: T; label: string; icon?: IconName }[];
+    onChange: (value: T) => void;
+    label: string;
+}
+
+/** Wrapping row of pill buttons (radio group) - for short option lists that must never
+ *  scroll sideways on small screens. */
+export function ChoiceChips<T extends string | number>({
+    value,
+    options,
+    onChange,
+    label,
+}: ChoiceChipsProps<T>): JSX.Element {
+    return (
+        <div className="chips" role="radiogroup" aria-label={label}>
+            {options.map((option) => {
+                const selected = option.value === value;
+                return (
+                    <button
+                        key={String(option.value)}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        className={`chip ${selected ? 'is-selected' : ''}`}
+                        onClick={() => onChange(option.value)}
+                        title={option.label}
+                    >
+                        {option.icon ? <Icon name={option.icon} /> : null}
+                        {option.icon ? (
+                            <span className="sr-only">{option.label}</span>
+                        ) : (
+                            option.label
+                        )}
+                    </button>
+                );
+            })}
         </div>
     );
 }

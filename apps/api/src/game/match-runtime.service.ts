@@ -29,6 +29,10 @@ import type { GameSocket } from './game-socket.type.js';
 import { toErrorPayload } from './to-error-payload.js';
 
 const LOCK_PREFIX = 'kardux:lock:match:';
+/** Pause before the leader's card lands, then between each following player's card - slow
+ *  enough that everyone can follow the cards being laid on the table one by one. */
+const LEADER_PLAY_DELAY_MS = 450;
+const FOLLOWER_PLAY_DELAY_MS = 1_100;
 const LOCK_TTL_MS = 5_000;
 const STATE_PREFIX = 'kardux:match:state:';
 /** Live matches are kept for a day; a finished one only long enough to show the result. */
@@ -55,6 +59,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
     private readonly sessions = new Map<string, MatchState>();
     private readonly locks = new Map<string, Promise<unknown>>();
     private readonly timers = new Map<string, NodeJS.Timeout>();
+    private readonly autoPlays = new Map<string, NodeJS.Timeout>();
     private readonly redis: Redis | null;
     private server?: Server<ClientEvents, ServerEvents>;
 
@@ -76,6 +81,8 @@ export class MatchRuntimeService implements OnModuleDestroy {
     onModuleDestroy(): void {
         for (const timer of this.timers.values()) clearTimeout(timer);
         this.timers.clear();
+        for (const timer of this.autoPlays.values()) clearTimeout(timer);
+        this.autoPlays.clear();
         // `.quit()` rejects with "Connection is closed" if the client never actually
         // connected (e.g. no local Redis running, per docs/PENDING-WORK.md) - harmless during
         // shutdown, but left uncaught it surfaces as an unhandled rejection in tests.
@@ -90,21 +97,25 @@ export class MatchRuntimeService implements OnModuleDestroy {
      *  reconnect/retried join, not a real error the joining client needs to see. */
     async playerJoin(
         matchId: string,
-        client: GameSocket,
         playerId: string,
         nickname: string,
         avatarSeed: string,
-    ): Promise<void> {
-        const result = await this.dispatchAndReport(
-            matchId,
-            client,
-            { type: 'player.join', playerId, nickname, avatarSeed },
-            (error) => error.code !== 'ERR_VALIDATION',
-        );
+    ): Promise<ErrorPayload | null> {
+        const result = await this.dispatchAction(matchId, {
+            type: 'player.join',
+            playerId,
+            nickname,
+            avatarSeed,
+        });
+        const error = this.firstError(result.events);
 
-        if (result) {
-            await this.maybeAutoStart(matchId);
+        // "Already seated" is the expected outcome of a reload/rejoin - not a failure.
+        if (error && error.code !== 'ERR_VALIDATION') {
+            return error;
         }
+
+        await this.maybeAutoStart(matchId);
+        return null;
     }
 
     async playerLeave(matchId: string, playerId: string): Promise<void> {
@@ -165,7 +176,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
         playerId: string,
         attribute: string,
     ): Promise<void> {
-        // The leader's card is laid down automatically right after (see `autoPlayLeader`).
+        // Every card of the round is then laid down automatically (see `autoPlayNext`).
         await this.dispatchAndReport(matchId, client, {
             type: 'round.selectAttribute',
             playerId,
@@ -274,29 +285,58 @@ export class MatchRuntimeService implements OnModuleDestroy {
             }
 
             this.scheduleTimer(matchId, result.state);
-            this.autoPlayLeader(matchId, result.state);
+            this.autoPlayNext(matchId, result.state);
 
             return result;
         });
     }
 
-    /** Choosing the attribute *is* the leader's play (CLAUDE.md rule 6: the leader picks and
-     *  lays their card down) - whether they picked it themselves or the turn timer picked it
-     *  for them. Queued after the current lock is released, never nested inside it. */
-    private autoPlayLeader(matchId: string, state: MatchState): void {
+    /**
+     * Siigo Match Battle / CLAUDE.md rule 6: once the leader picks the attribute, the leader and
+     * then every other player "coloca su propia carta de juego (la de encima)" in play order.
+     * Nobody chooses which card to play, so nobody is asked to - the runtime lays each top card
+     * down itself, one player at a time, paced so the table can animate every throw. Queued
+     * outside the per-match lock (never nested inside it).
+     */
+    private autoPlayNext(matchId: string, state: MatchState): void {
         const round = state.round;
-        if (state.phase !== 'AWAITING_CARDS' || !round || round.playedCards[round.leaderId]) return;
+        if (state.phase !== 'AWAITING_CARDS' || !round) return;
 
-        setImmediate(() => {
+        const nextPlayerId = round.playOrder.find((id) => !round.playedCards[id]);
+        if (!nextPlayerId || this.autoPlays.has(matchId)) return;
+
+        const delay =
+            nextPlayerId === round.leaderId ? LEADER_PLAY_DELAY_MS : FOLLOWER_PLAY_DELAY_MS;
+        const timer = setTimeout(() => {
+            this.autoPlays.delete(matchId);
             void this.dispatchAction(matchId, {
                 type: 'round.playCard',
-                playerId: round.leaderId,
+                playerId: nextPlayerId,
             }).catch((error: unknown) =>
                 this.logger.error(
-                    `Leader auto-play failed for match ${matchId}: ${(error as Error).message}`,
+                    `Auto-play failed for match ${matchId}: ${(error as Error).message}`,
                 ),
             );
-        });
+        }, delay);
+        this.autoPlays.set(matchId, timer);
+    }
+
+    /** Stops everything this process runs for a match (host deleted it, or it ended). */
+    async dispose(matchId: string): Promise<void> {
+        this.clearTimer(matchId);
+        const autoPlay = this.autoPlays.get(matchId);
+        if (autoPlay) clearTimeout(autoPlay);
+        this.autoPlays.delete(matchId);
+        this.sessions.delete(matchId);
+        if (this.redis?.status === 'ready') {
+            await this.redis.del(`${STATE_PREFIX}${matchId}`).catch(() => undefined);
+        }
+    }
+
+    /** Tells everyone still in the room that the host closed the match, then empties it. */
+    closeRoom(matchId: string): void {
+        this.server?.to(matchId).emit('match:closed', { matchId });
+        this.server?.in(matchId).socketsLeave(matchId);
     }
 
     /** Runs `action`, reports the first `error` event (if any) to `client`, and swallows/reports

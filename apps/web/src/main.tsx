@@ -19,10 +19,9 @@ import { ToastProvider } from './components/ui/Toast';
 const container = document.getElementById('root');
 if (!container) throw new Error('#root element not found.');
 
-// Installable PWA: offline app shell, silently updated in the background.
-if (import.meta.env.PROD) {
-    registerSW({ immediate: true });
-}
+// Installable PWA (also on localhost in dev, so installing can be tested before deploying):
+// offline app shell, silently updated in the background.
+registerSW({ immediate: true });
 
 createRoot(container).render(
     <StrictMode>

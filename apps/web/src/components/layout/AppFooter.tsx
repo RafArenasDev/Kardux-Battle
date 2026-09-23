@@ -11,16 +11,13 @@ export function AppFooter({ compact = false }: { compact?: boolean }): JSX.Eleme
             </div>
             {compact ? null : (
                 <p className="app-footer__credits">
-                    Datos de{' '}
+                    Proyecto de fans sin fines de lucro. No está afiliado, patrocinado ni respaldado
+                    por Nintendo, Game Freak ni The Pokémon Company; Pokémon y sus nombres son
+                    marcas de sus respectivos dueños. Datos vía{' '}
                     <a href="https://pokeapi.co" target="_blank" rel="noopener noreferrer">
                         PokéAPI
-                    </a>{' '}
-                    y{' '}
-                    <a href="https://deckofcardsapi.com" target="_blank" rel="noopener noreferrer">
-                        Deck of Cards API
                     </a>
-                    . Pokémon © Nintendo, Game Freak y The Pokémon Company - proyecto sin fines de
-                    lucro. Íconos de{' '}
+                    . Íconos de{' '}
                     <a href="https://game-icons.net" target="_blank" rel="noopener noreferrer">
                         game-icons.net
                     </a>{' '}

@@ -467,3 +467,54 @@
     letter-spacing: 0.08em;
     color: var(--gold-400);
 }
+
+/* ---------- Choice chips: wrapping radio pills (never scroll sideways) ---------- */
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 64px;
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: var(--r-pill);
+    border: 1.5px solid var(--hairline);
+    background: rgba(8, 7, 12, 0.7);
+    color: var(--text-2);
+    font-weight: 800;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition:
+        transform var(--dur-fast) var(--ease-out),
+        background var(--dur) var(--ease-out),
+        color var(--dur) var(--ease-out),
+        border-color var(--dur) var(--ease-out);
+}
+
+.chip svg {
+    font-size: 1.35em;
+}
+
+.chip:active {
+    transform: scale(0.95);
+}
+
+.chip.is-selected {
+    background: linear-gradient(180deg, #ffe3a0, #d9a54a);
+    color: var(--text-on-gold);
+    border-color: transparent;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+}
+
+/* Nothing may ever push past the viewport edge. */
+img,
+svg,
+video {
+    max-width: 100%;
+}

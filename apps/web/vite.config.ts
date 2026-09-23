@@ -44,7 +44,12 @@ export default defineConfig({
                 navigateFallback: '/index.html',
                 navigateFallbackDenylist: [/^\/api/],
             },
-            devOptions: { enabled: false },
+            devOptions: {
+                enabled: true,
+                type: 'module',
+                navigateFallback: 'index.html',
+                suppressWarnings: true,
+            },
         }),
     ],
     build: {

@@ -11,6 +11,7 @@ import { z } from 'zod';
  */
 export const DECK_SOURCE_IDS = [
     'mythic',
+    'motores',
     'fauna',
     'naipes',
     'local',

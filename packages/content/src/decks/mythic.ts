@@ -1,6 +1,7 @@
 import type { DeckDefinition } from './types.js';
 
-/** Creatures from public-domain mythology - original names, original stats. */
+/** Creatures from public-domain mythology - original names, original stats, a distinct
+ *  glyph per creature where game-icons.net has one. */
 export const MYTHIC_DECK: DeckDefinition = {
     id: 'mythic',
     label: 'Criaturas Míticas',
@@ -32,12 +33,12 @@ export const MYTHIC_DECK: DeckDefinition = {
                 resistencia: 84,
             },
             members: [
-                { name: 'Dragón Carmesí' },
-                { name: 'Wyvern de Ceniza' },
-                { name: 'Dragón Abisal' },
-                { name: 'Sierpe Dorada' },
-                { name: 'Drake de Tormenta' },
-                { name: 'Dragón Rúnico' },
+                { name: 'Dragón Carmesí', icon: 'dragon-head' },
+                { name: 'Wyvern de Ceniza', icon: 'spiked-dragon-head' },
+                { name: 'Dragón Abisal', icon: 'sea-dragon' },
+                { name: 'Sierpe Dorada', icon: 'dragon-spiral' },
+                { name: 'Drake de Tormenta', icon: 'dragon-breath' },
+                { name: 'Dragón Rúnico', icon: 'double-dragon' },
             ],
         },
         {
@@ -54,10 +55,10 @@ export const MYTHIC_DECK: DeckDefinition = {
                 resistencia: 60,
             },
             members: [
-                { name: 'Grifo Real' },
+                { name: 'Grifo Real', icon: 'griffin-symbol' },
                 { name: 'Grifo de las Cumbres' },
                 { name: 'Grifo Solar' },
-                { name: 'Grifo Centinela' },
+                { name: 'Grifo Centinela', icon: 'griffin-shield' },
                 { name: 'Grifo del Alba' },
                 { name: 'Grifo Errante' },
             ],
@@ -76,11 +77,11 @@ export const MYTHIC_DECK: DeckDefinition = {
                 resistencia: 90,
             },
             members: [
-                { name: 'Kraken Abisal' },
+                { name: 'Kraken Abisal', icon: 'kraken-tentacle' },
                 { name: 'Kraken de Coral' },
                 { name: 'Kraken Tempestad' },
                 { name: 'Kraken Glacial' },
-                { name: 'Kraken Ancestral' },
+                { name: 'Kraken Ancestral', icon: 'spiral-tentacle' },
                 { name: 'Kraken Sombrío' },
             ],
         },
@@ -99,9 +100,9 @@ export const MYTHIC_DECK: DeckDefinition = {
             },
             members: [
                 { name: 'Hidra de Lerna' },
-                { name: 'Hidra Venenosa' },
+                { name: 'Hidra Venenosa', icon: 'hydra-shot' },
                 { name: 'Hidra del Pantano' },
-                { name: 'Hidra Tricéfala' },
+                { name: 'Hidra Tricéfala', icon: 'hydra-shot' },
                 { name: 'Hidra de Jade' },
                 { name: 'Hidra Eterna' },
             ],
@@ -120,12 +121,12 @@ export const MYTHIC_DECK: DeckDefinition = {
                 resistencia: 92,
             },
             members: [
-                { name: 'Gólem de Granito' },
-                { name: 'Gólem de Obsidiana' },
-                { name: 'Gólem de Bronce' },
-                { name: 'Gólem Rúnico' },
-                { name: 'Gólem de Arcilla' },
-                { name: 'Gólem de Hierro' },
+                { name: 'Gólem de Granito', icon: 'rock-golem' },
+                { name: 'Gólem de Obsidiana', icon: 'golem-head' },
+                { name: 'Gólem de Bronce', icon: 'metal-golem-head' },
+                { name: 'Gólem Rúnico', icon: 'robot-golem' },
+                { name: 'Gólem de Arcilla', icon: 'rock-golem' },
+                { name: 'Gólem de Hierro', icon: 'metal-golem-head' },
             ],
         },
         {
@@ -256,8 +257,8 @@ export const MYTHIC_DECK: DeckDefinition = {
                 { name: 'Cíclope Pastor' },
                 { name: 'Cíclope Tronante' },
                 { name: 'Cíclope de la Isla' },
-                { name: 'Cíclope Colosal' },
-                { name: 'Cíclope Anciano' },
+                { name: 'Cíclope Colosal', icon: 'jawless-cyclop' },
+                { name: 'Cíclope Anciano', icon: 'jawless-cyclop' },
             ],
         },
         {
@@ -275,9 +276,9 @@ export const MYTHIC_DECK: DeckDefinition = {
             },
             members: [
                 { name: 'Esfinge de Tebas' },
-                { name: 'Esfinge del Desierto' },
+                { name: 'Esfinge del Desierto', icon: 'egyptian-sphinx' },
                 { name: 'Esfinge Guardiana' },
-                { name: 'Esfinge de Arena' },
+                { name: 'Esfinge de Arena', icon: 'egyptian-sphinx' },
                 { name: 'Esfinge Enigmática' },
                 { name: 'Esfinge Dorada' },
             ],
@@ -318,10 +319,10 @@ export const MYTHIC_DECK: DeckDefinition = {
                 resistencia: 76,
             },
             members: [
-                { name: 'Licántropo Alfa' },
-                { name: 'Lobo de Luna Llena' },
+                { name: 'Licántropo Alfa', icon: 'direwolf' },
+                { name: 'Lobo de Luna Llena', icon: 'wolf-howl' },
                 { name: 'Licántropo Plateado' },
-                { name: 'Cazador Nocturno' },
+                { name: 'Cazador Nocturno', icon: 'direwolf' },
                 { name: 'Licántropo Salvaje' },
                 { name: 'Licántropo Ancestral' },
             ],
@@ -362,9 +363,9 @@ export const MYTHIC_DECK: DeckDefinition = {
                 resistencia: 82,
             },
             members: [
-                { name: 'Leviatán Menor' },
+                { name: 'Leviatán Menor', icon: 'sea-dragon' },
                 { name: 'Serpiente de Jade' },
-                { name: 'Serpiente Colosal' },
+                { name: 'Serpiente Colosal', icon: 'sea-serpent' },
                 { name: 'Serpiente Espiral' },
                 { name: 'Serpiente Nocturna' },
                 { name: 'Serpiente Primordial' },

@@ -16,6 +16,8 @@ import { SidePanel } from './SidePanel';
 import { useMatchSession } from './useMatchSession';
 import { WaitingRoom } from './WaitingRoom';
 
+const QUICK_REMATCH_EVERY_MS = 4_000;
+
 export default function MatchPage(): JSX.Element {
     const { matchId = '' } = useParams();
     const navigate = useNavigate();
@@ -23,12 +25,13 @@ export default function MatchPage(): JSX.Element {
     const breakpoint = useBreakpoint();
     const showError = useCallback((message: string) => toast.show(message, 'error'), [toast]);
     const session = useMatchSession(matchId, showError);
-    const { state } = session;
+    const { state, quickRematch } = session;
     const [sheetOpen, setSheetOpen] = useState(false);
     const [confirmLeave, setConfirmLeave] = useState(false);
 
-    const me = state?.players.find((player) => player.id === state.yourId);
-    useDocumentTitle(state ? `${me?.nickname ?? 'Sala'} · ${state.code}` : 'Partida');
+    const isQuick = state?.config.visibility === 'public';
+    // The tab shows only the game - plus the room code for private rooms, never a player name.
+    useDocumentTitle(state && !isQuick ? `Sala ${state.code}` : '');
 
     useEffect(() => {
         if (session.fatalError) {
@@ -36,6 +39,23 @@ export default function MatchPage(): JSX.Element {
             navigate('/home', { replace: true });
         }
     }, [session.fatalError, navigate, toast]);
+
+    // Alone in a quick lobby: keep asking the server for someone else who is searching.
+    const aloneInQuickLobby =
+        isQuick &&
+        state?.phase === 'LOBBY' &&
+        state.players.filter((player) => !player.isSpectator).length < 2;
+    useEffect(() => {
+        if (!aloneInQuickLobby) return;
+        const timer = window.setInterval(() => {
+            void quickRematch().then((nextMatchId) => {
+                if (nextMatchId && nextMatchId !== matchId) {
+                    navigate(`/match/${nextMatchId}`, { replace: true });
+                }
+            });
+        }, QUICK_REMATCH_EVERY_MS);
+        return () => window.clearInterval(timer);
+    }, [aloneInQuickLobby, quickRematch, matchId, navigate]);
 
     function leave(): void {
         session.leave();
@@ -48,9 +68,7 @@ export default function MatchPage(): JSX.Element {
     return (
         <AppShell
             immersive
-            headerExtra={
-                state && !inLobby ? <MatchHud state={state} latency={session.latency} /> : null
-            }
+            headerExtra={state && !inLobby ? <MatchHud state={state} showCode={!isQuick} /> : null}
         >
             {!state ? (
                 <div className="page-loading" role="status">
@@ -76,7 +94,6 @@ export default function MatchPage(): JSX.Element {
                             myPlayedCard={session.myPlayedCard}
                             breakpoint={breakpoint}
                             onSelectAttribute={session.selectAttribute}
-                            onPlayCard={session.playCard}
                         />
 
                         <div className="match__tools">
@@ -85,8 +102,9 @@ export default function MatchPage(): JSX.Element {
                                     size="sm"
                                     icon="podium-winner"
                                     onClick={() => setSheetOpen(true)}
+                                    aria-label="Posiciones y chat"
                                 >
-                                    Mesa y chat
+                                    {breakpoint === 'mobile' ? undefined : 'Mesa y chat'}
                                 </Button>
                             ) : null}
                             {confirmLeave ? (
@@ -112,9 +130,10 @@ export default function MatchPage(): JSX.Element {
                                     size="sm"
                                     variant="ghost"
                                     icon="exit-door"
+                                    aria-label="Abandonar"
                                     onClick={() => setConfirmLeave(true)}
                                 >
-                                    Abandonar
+                                    {breakpoint === 'mobile' ? undefined : 'Abandonar'}
                                 </Button>
                             )}
                         </div>
@@ -127,6 +146,7 @@ export default function MatchPage(): JSX.Element {
                             {sheetOpen ? (
                                 <>
                                     <motion.div
+                                        key="scrim"
                                         className="sheet-scrim"
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
@@ -134,17 +154,19 @@ export default function MatchPage(): JSX.Element {
                                         onClick={() => setSheetOpen(false)}
                                     />
                                     <motion.div
+                                        key="sheet"
                                         className="sheet"
                                         initial={{ y: '100%' }}
                                         animate={{ y: 0 }}
                                         exit={{ y: '100%' }}
-                                        transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
+                                        transition={{ type: 'spring', bounce: 0.12, duration: 0.5 }}
                                         drag="y"
                                         dragConstraints={{ top: 0, bottom: 0 }}
                                         dragElastic={{ top: 0.05, bottom: 0.8 }}
                                         onDragEnd={(_, info) => {
-                                            if (info.offset.y > 120 || info.velocity.y > 600)
+                                            if (info.offset.y > 120 || info.velocity.y > 600) {
                                                 setSheetOpen(false);
+                                            }
                                         }}
                                     >
                                         <span className="sheet__handle" aria-hidden />
@@ -185,36 +207,29 @@ export default function MatchPage(): JSX.Element {
 
 function MatchHud({
     state,
-    latency,
+    showCode,
 }: {
     state: RedactedMatchState;
-    latency: number | null;
+    showCode: boolean;
 }): JSX.Element {
     const now = useNow(1_000, state.endsAt !== null);
 
     return (
         <div className="hud" role="group" aria-label="Estado de la partida">
-            <span className="hud__item" title="Código de sala">
-                <Icon name="linked-rings" /> {state.code}
-            </span>
+            {showCode ? (
+                <span className="hud__item" title="Código de sala">
+                    <Icon name="linked-rings" /> {state.code}
+                </span>
+            ) : null}
             {state.round ? (
                 <span className="hud__item" title="Ronda">
                     <Icon name="card-play" /> Ronda {state.round.index + 1}
                 </span>
             ) : null}
-            {state.endsAt ? (
-                <span className="hud__item tabular" title="Tiempo restante">
-                    <Icon name="stopwatch" /> {formatClock(state.endsAt - now)}
-                </span>
-            ) : null}
-            {latency !== null ? (
-                <span
-                    className={`hud__item hud__ping ${latency > 250 ? 'is-slow' : ''}`}
-                    title="Latencia"
-                >
-                    {latency} ms
-                </span>
-            ) : null}
+            <span className="hud__item tabular" title="Tiempo restante">
+                <Icon name={state.endsAt ? 'stopwatch' : 'infinity'} />{' '}
+                {state.endsAt ? formatClock(state.endsAt - now) : 'Sin límite'}
+            </span>
         </div>
     );
 }
