@@ -10,20 +10,22 @@ import { PrismaClient } from '@prisma/client';
  */
 const prisma = new PrismaClient();
 
+/** Original placeholder players. `key` keeps the historical row ids stable, so re-running the
+ *  seed renames older rows in place instead of duplicating them. */
 const SEED_USERS = [
-    { nickname: 'Ash', avatarSeed: 'ash-1' },
-    { nickname: 'Misty', avatarSeed: 'misty-1' },
-    { nickname: 'Brock', avatarSeed: 'brock-1' },
-    { nickname: 'Goku', avatarSeed: 'goku-1' },
+    { key: 'ash-1', nickname: 'Valkar', avatarSeed: 'visored-helm:gold' },
+    { key: 'misty-1', nickname: 'Nyra', avatarSeed: 'woman-elf-face:ice' },
+    { key: 'brock-1', nickname: 'Tormund', avatarSeed: 'dwarf-face:ember' },
+    { key: 'goku-1', nickname: 'Kaelen', avatarSeed: 'samurai-helmet:rose' },
 ];
 
 async function main(): Promise<void> {
     for (const user of SEED_USERS) {
         const created = await prisma.user.upsert({
-            where: { id: `seed-${user.avatarSeed}` },
-            update: {},
+            where: { id: `seed-${user.key}` },
+            update: { nickname: user.nickname, avatarSeed: user.avatarSeed },
             create: {
-                id: `seed-${user.avatarSeed}`,
+                id: `seed-${user.key}`,
                 nickname: user.nickname,
                 avatarSeed: user.avatarSeed,
             },
