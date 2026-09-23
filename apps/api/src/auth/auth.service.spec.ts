@@ -17,17 +17,20 @@ function createService() {
 }
 
 describe('AuthService.createGuest', () => {
-    it('persists a new guest User row and signs a JWT bound to that user + tabId', async () => {
+    it('creates an anonymous guest User row (server-generated nickname/avatar) and signs a JWT bound to that user + tabId', async () => {
         const { service, prisma, jwt, user } = createService();
 
         const result = await service.createGuest({
-            nickname: 'RafArenas',
-            avatarSeed: 'RafArenas',
             tabId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
         });
 
         expect(prisma.user.create).toHaveBeenCalledWith({
-            data: { nickname: 'RafArenas', avatarSeed: 'RafArenas' },
+            data: {
+                nickname: expect.stringMatching(/^Jugador\d{4}$/) as unknown as string,
+                avatarSeed: expect.stringMatching(
+                    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+                ) as unknown as string,
+            },
         });
         expect(jwt.signAsync).toHaveBeenCalledWith({
             sub: user.id,

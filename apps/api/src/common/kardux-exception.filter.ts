@@ -27,6 +27,7 @@ const ERROR_HTTP_STATUS: Record<ErrorCode, HttpStatus> = {
     ERR_ALREADY_PLAYED: HttpStatus.CONFLICT,
     ERR_SPECTATOR_CANNOT_ACT: HttpStatus.FORBIDDEN,
     ERR_RATE_LIMITED: HttpStatus.TOO_MANY_REQUESTS,
+    ERR_GUEST_CANNOT_HOST: HttpStatus.FORBIDDEN,
 };
 
 @Catch(KarduxError)
@@ -40,6 +41,7 @@ export class KarduxExceptionFilter implements ExceptionFilter {
             code: exception.code,
             message: exception.message !== exception.code ? exception.message : copy.en,
             messageEs: copy.es,
+            ...(exception.data ? { data: exception.data } : {}),
         });
     }
 }

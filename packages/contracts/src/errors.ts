@@ -19,6 +19,7 @@ export const ERROR_CODES = [
     'ERR_ALREADY_PLAYED',
     'ERR_SPECTATOR_CANNOT_ACT',
     'ERR_RATE_LIMITED',
+    'ERR_GUEST_CANNOT_HOST',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -30,6 +31,10 @@ export const errorPayloadSchema = z.object({
     /** Human-readable, already-localized fallback for clients that don't bother looking up
      *  `code` in their own i18n bundle. */
     message: z.string().min(1),
+    /** Generic, optional, per-throw extra context a specific error needs beyond its static
+     *  `code`/`message` - e.g. `ERR_VALIDATION` on a taken username attaches
+     *  `{ suggestions: string[] }`. Absent on every error that has nothing extra to say. */
+    data: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type ErrorPayload = z.infer<typeof errorPayloadSchema>;
@@ -88,5 +93,9 @@ export const ERROR_MESSAGES: Record<ErrorCode, { es: string; en: string }> = {
     ERR_RATE_LIMITED: {
         es: 'Estás enviando acciones demasiado rápido.',
         en: "You're sending actions too fast.",
+    },
+    ERR_GUEST_CANNOT_HOST: {
+        es: 'Debes registrarte (usuario y contraseña) para crear una sala. Los invitados solo pueden unirse a partidas ya creadas.',
+        en: 'You must register (username and password) to create a room. Guests can only join matches that already exist.',
     },
 };

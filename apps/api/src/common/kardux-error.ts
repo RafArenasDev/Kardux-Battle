@@ -9,6 +9,9 @@ export class KarduxError extends Error {
     constructor(
         public readonly code: ErrorCode,
         message?: string,
+        /** Optional generic extra context for this specific throw - see
+         *  `@kardux/contracts`'s `errorPayloadSchema.data`. */
+        public readonly data?: Record<string, unknown>,
     ) {
         super(message ?? code);
         this.name = 'KarduxError';
