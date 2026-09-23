@@ -22,6 +22,10 @@ export const matchConfigShape = {
     packs: z.number().int().min(1).default(4),
     cardsPerPack: z.number().int().min(1).max(26).default(8),
     attributeCount: z.number().int().min(1).max(6).default(4),
+    /** 0 = every player plays the top card of their pile (the original rule). Above 0 = players
+     *  see that many cards from the top of their pile and choose which one to play (the classic
+     *  deck: highest rank wins, equal ranks tie). */
+    handSize: z.number().int().min(0).max(7).default(0),
     deckSources: z.array(deckSourceIdSchema).min(1).default(['mythic']),
     mixSources: z.boolean().default(false),
     allowSpectators: z.boolean().default(true),

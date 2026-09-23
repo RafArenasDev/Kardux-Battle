@@ -23,10 +23,12 @@ import {
     chatSendPayloadSchema,
     matchConfigPatchSchema,
     matchJoinPayloadSchema,
+    matchQuickPayloadSchema,
     matchRejoinPayloadSchema,
     matchRequestJoinPayloadSchema,
     matchRespondJoinPayloadSchema,
     pingLatencyPayloadSchema,
+    roundPlayCardPayloadSchema,
     roundSelectAttributePayloadSchema,
 } from '@kardux/contracts';
 // Value import required: Nest's DI resolves constructor params via `design:paramtypes`
@@ -176,8 +178,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
      * auto-starts as soon as `autoStartPlayers` are seated.
      */
     @SubscribeMessage('match:quick')
-    async handleQuick(@ConnectedSocket() client: GameSocket): Promise<AckResponse<MatchJoinAck>> {
+    async handleQuick(
+        @ConnectedSocket() client: GameSocket,
+        @MessageBody() body: unknown,
+    ): Promise<AckResponse<MatchJoinAck>> {
         try {
+            const options = matchQuickPayloadSchema.parse(body ?? {});
             const auth = this.requireAuth(client);
             const current = await this.gameService.findActiveMatchForUser(auth.userId);
             const waitingAlone =
@@ -190,11 +196,27 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
                 return await this.joinByCode(client, auth, current.code);
             }
 
+            // Against the machine: a fresh lobby, the bot takes the other seat and it starts.
+            if (options.vsBot && options.deck !== 'deckofcards') {
+                if (current) await this.abandonLobby(client, auth, current.id);
+                const created = await this.matchService.createQuickMatch(auth.userId, {
+                    deck: options.deck,
+                    vsBot: true,
+                });
+                const ack = await this.joinByCode(client, auth, created.code);
+                await this.matchRuntime.addBot(created.matchId);
+                return ack;
+            }
+
             // Pair with someone already waiting. When two players search at the same time each
             // ends up alone in their own lobby; the waiting room re-sends `match:quick` every few
             // seconds, and only the *newer* lobby moves into the older one (deterministic
             // tie-break, so the two never swap past each other).
-            for (const candidate of await this.matchService.listQuickCandidates(auth.userId)) {
+            const candidates = await this.matchService.listQuickCandidates(
+                auth.userId,
+                options.deck,
+            );
+            for (const candidate of candidates) {
                 if (current && candidate.createdAt >= current.createdAt.toISOString()) continue;
                 const waiting = await this.server.in(candidate.matchId).fetchSockets();
                 const phase = await this.matchRuntime.phaseOf(candidate.matchId);
@@ -208,7 +230,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
                 return await this.joinByCode(client, auth, current.code);
             }
 
-            const created = await this.matchService.createQuickMatch(auth.userId);
+            const created = await this.matchService.createQuickMatch(auth.userId, {
+                deck: options.deck,
+            });
             return await this.joinByCode(client, auth, created.code);
         } catch (error) {
             return toErrorPayload(error);
@@ -490,13 +514,22 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
 
     @SubscribeMessage('round:playCard')
-    async handlePlayCard(@ConnectedSocket() client: GameSocket): Promise<void> {
+    async handlePlayCard(
+        @ConnectedSocket() client: GameSocket,
+        @MessageBody() body: unknown,
+    ): Promise<void> {
         try {
+            const payload = roundPlayCardPayloadSchema.parse(body ?? {});
             const auth = this.requireAuth(client);
             const matchId = this.currentMatchRoom(client);
             if (!matchId) throw new KarduxError('ERR_MATCH_NOT_FOUND');
 
-            await this.matchRuntime.playCard(matchId, client, this.playerKey(auth));
+            await this.matchRuntime.playCard(
+                matchId,
+                client,
+                this.playerKey(auth),
+                payload.cardCode,
+            );
         } catch (error) {
             client.emit('error', toErrorPayload(error));
         }

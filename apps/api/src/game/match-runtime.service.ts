@@ -33,6 +33,14 @@ const LOCK_PREFIX = 'kardux:lock:match:';
  *  enough that everyone can follow the cards being laid on the table one by one. */
 const LEADER_PLAY_DELAY_MS = 450;
 const FOLLOWER_PLAY_DELAY_MS = 1_100;
+/** A bot "thinks" before choosing, and a single-attribute deck pauses so the table reads well. */
+const BOT_THINK_MS = 2_200;
+const AUTO_ATTRIBUTE_MS = 1_200;
+
+/** Player ids starting with this prefix are the server-driven Kardux bot. */
+export const BOT_PREFIX = 'bot:';
+const BOT_NICKNAME = 'Kardux Bot';
+const BOT_AVATAR = 'robot-golem:gold';
 const LOCK_TTL_MS = 5_000;
 const STATE_PREFIX = 'kardux:match:state:';
 /** Live matches are kept for a day; a finished one only long enough to show the result. */
@@ -60,6 +68,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
     private readonly locks = new Map<string, Promise<unknown>>();
     private readonly timers = new Map<string, NodeJS.Timeout>();
     private readonly autoPlays = new Map<string, NodeJS.Timeout>();
+    private readonly autoSelects = new Map<string, NodeJS.Timeout>();
     private readonly redis: Redis | null;
     private server?: Server<ClientEvents, ServerEvents>;
 
@@ -82,6 +91,8 @@ export class MatchRuntimeService implements OnModuleDestroy {
         for (const timer of this.timers.values()) clearTimeout(timer);
         this.timers.clear();
         for (const timer of this.autoPlays.values()) clearTimeout(timer);
+        for (const timer of this.autoSelects.values()) clearTimeout(timer);
+        this.autoSelects.clear();
         this.autoPlays.clear();
         // `.quit()` rejects with "Connection is closed" if the client never actually
         // connected (e.g. no local Redis running, per docs/PENDING-WORK.md) - harmless during
@@ -184,8 +195,17 @@ export class MatchRuntimeService implements OnModuleDestroy {
         });
     }
 
-    async playCard(matchId: string, client: GameSocket, playerId: string): Promise<void> {
-        await this.dispatchAndReport(matchId, client, { type: 'round.playCard', playerId });
+    async playCard(
+        matchId: string,
+        client: GameSocket,
+        playerId: string,
+        cardCode?: string,
+    ): Promise<void> {
+        await this.dispatchAndReport(matchId, client, {
+            type: 'round.playCard',
+            playerId,
+            ...(cardCode ? { cardCode } : {}),
+        });
     }
 
     /** Used by `match:rejoin`: pushes a fresh redacted snapshot to the reconnecting socket
@@ -286,21 +306,22 @@ export class MatchRuntimeService implements OnModuleDestroy {
 
             this.scheduleTimer(matchId, result.state);
             this.autoPlayNext(matchId, result.state);
+            this.autoSelectAttribute(matchId, result.state);
 
             return result;
         });
     }
 
     /**
-     * Siigo Match Battle / docs/SPEC.md rule 6: once the leader picks the attribute, the leader and
-     * then every other player "coloca su propia carta de juego (la de encima)" in play order.
-     * Nobody chooses which card to play, so nobody is asked to - the runtime lays each top card
-     * down itself, one player at a time, paced so the table can animate every throw. Queued
-     * outside the per-match lock (never nested inside it).
+     * Rule 6 of the spec: once the leader picks the attribute, the leader and then every other
+     * player lays down their top card in play order. Nobody chooses which card to play, so the
+     * runtime lays each top card down itself, one player at a time, paced so the table can
+     * animate every throw. Queued outside the per-match lock (never nested inside it).
      */
     private autoPlayNext(matchId: string, state: MatchState): void {
         const round = state.round;
-        if (state.phase !== 'AWAITING_CARDS' || !round) return;
+        // Hand matches: every player chooses their own card, nothing is played for them.
+        if (state.phase !== 'AWAITING_CARDS' || !round || (state.config.handSize ?? 0) > 0) return;
 
         const nextPlayerId = round.playOrder.find((id) => !round.playedCards[id]);
         if (!nextPlayerId || this.autoPlays.has(matchId)) return;
@@ -321,12 +342,91 @@ export class MatchRuntimeService implements OnModuleDestroy {
         this.autoPlays.set(matchId, timer);
     }
 
+    /**
+     * Picks the round attribute when no human needs to: immediately-ish for a single-attribute
+     * deck (the classic deck compares ranks only) and after a short "think" for the bot leader.
+     */
+    private autoSelectAttribute(matchId: string, state: MatchState): void {
+        if (state.phase !== 'AWAITING_ATTRIBUTE' || this.autoSelects.has(matchId)) return;
+
+        const leaderId = state.turnOrder[state.currentTurnIndex];
+        const card = leaderId ? state.piles[leaderId]?.[0] : undefined;
+        if (!leaderId || !card) return;
+
+        const attributes = Object.keys(card.stats);
+        const isBot = leaderId.startsWith(BOT_PREFIX);
+        if (attributes.length !== 1 && !isBot) return;
+
+        const attribute =
+            attributes.length === 1 ? attributes[0]! : this.bestAttributeFor(state, leaderId);
+        const timer = setTimeout(
+            () => {
+                this.autoSelects.delete(matchId);
+                void this.dispatchAction(matchId, {
+                    type: 'round.selectAttribute',
+                    playerId: leaderId,
+                    attribute,
+                }).catch((error: unknown) =>
+                    this.logger.error(
+                        `Auto-select failed for match ${matchId}: ${(error as Error).message}`,
+                    ),
+                );
+            },
+            isBot ? BOT_THINK_MS : AUTO_ATTRIBUTE_MS,
+        );
+        this.autoSelects.set(matchId, timer);
+    }
+
+    /**
+     * The bot's choice: the attribute where its top card ranks highest against every card in
+     * the match (a percentile per attribute). It only uses the deck's overall distribution -
+     * never another player's current card.
+     */
+    private bestAttributeFor(state: MatchState, botId: string): string {
+        const card = state.piles[botId]![0]!;
+        const everyCard = [
+            ...Object.values(state.piles).flat(),
+            ...state.pot,
+            ...Object.values(state.round?.playedCards ?? {}),
+        ];
+
+        let best = Object.keys(card.stats)[0]!;
+        let bestScore = -1;
+        for (const [key, value] of Object.entries(card.stats)) {
+            const beaten = everyCard.filter((other) => (other.stats[key] ?? 0) < value).length;
+            const score = beaten / Math.max(1, everyCard.length);
+            if (score > bestScore) {
+                bestScore = score;
+                best = key;
+            }
+        }
+        return best;
+    }
+
+    /** Seats the Kardux bot in a lobby ("play against the machine"). */
+    async addBot(matchId: string): Promise<void> {
+        const result = await this.dispatchAction(matchId, {
+            type: 'player.join',
+            playerId: `${BOT_PREFIX}kardux`,
+            nickname: BOT_NICKNAME,
+            avatarSeed: BOT_AVATAR,
+        });
+        const error = this.firstError(result.events);
+        if (error && error.code !== 'ERR_VALIDATION') {
+            throw new KarduxError(error.code, error.message);
+        }
+        await this.maybeAutoStart(matchId);
+    }
+
     /** Stops everything this process runs for a match (host deleted it, or it ended). */
     async dispose(matchId: string): Promise<void> {
         this.clearTimer(matchId);
         const autoPlay = this.autoPlays.get(matchId);
         if (autoPlay) clearTimeout(autoPlay);
         this.autoPlays.delete(matchId);
+        const autoSelect = this.autoSelects.get(matchId);
+        if (autoSelect) clearTimeout(autoSelect);
+        this.autoSelects.delete(matchId);
         this.sessions.delete(matchId);
         if (this.redis?.status === 'ready') {
             await this.redis.del(`${STATE_PREFIX}${matchId}`).catch(() => undefined);

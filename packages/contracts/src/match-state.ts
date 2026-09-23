@@ -134,6 +134,8 @@ export const redactedMatchStateSchema = z.object({
     currentTurnIndex: z.number().int().min(0),
     yourId: z.string().min(1),
     yourTopCard: cardSchema.nullable(),
+    /** The recipient's own playable hand when `config.handSize` > 0; empty otherwise. */
+    yourHand: z.array(cardSchema),
     round: publicRoundViewSchema.nullable(),
     potSize: z.number().int().min(0),
     winnerId: z.string().min(1).nullable(),

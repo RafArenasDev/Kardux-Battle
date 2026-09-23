@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { cardSchema } from './card.js';
+import { cardSchema, deckSourceIdSchema } from './card.js';
 import type { errorPayloadSchema } from './errors.js';
 import type { matchConfigPatchSchema } from './match-config.js';
 import { matchConfigSchema } from './match-config.js';
@@ -42,6 +42,16 @@ export type MatchJoinPayload = z.infer<typeof matchJoinPayloadSchema>;
 export const matchJoinAckSchema = matchCreateAckSchema;
 export type MatchJoinAck = z.infer<typeof matchJoinAckSchema>;
 
+/** `match:quick` - pick a deck (or leave it random) and a rival: a real player or the bot. */
+export const matchQuickPayloadSchema = z.object({
+    deck: deckSourceIdSchema.optional().describe('Battle deck to play; random when omitted.'),
+    vsBot: z
+        .boolean()
+        .default(false)
+        .describe('Play against the Kardux bot instead of waiting for another player.'),
+});
+export type MatchQuickPayload = z.input<typeof matchQuickPayloadSchema>;
+
 export const matchRejoinPayloadSchema = z.object({
     token: z.string().min(1),
 });
@@ -72,6 +82,16 @@ export const roundSelectAttributePayloadSchema = z.object({
     attribute: z.string().min(1),
 });
 export type RoundSelectAttributePayload = z.infer<typeof roundSelectAttributePayloadSchema>;
+
+/** `round:playCard` - `cardCode` picks a card from the hand when the match uses one. */
+export const roundPlayCardPayloadSchema = z.object({
+    cardCode: z
+        .string()
+        .regex(/^\d+[A-Z]$/)
+        .optional()
+        .describe('Card to play from your hand (hand matches only). Defaults to your top card.'),
+});
+export type RoundPlayCardPayload = z.infer<typeof roundPlayCardPayloadSchema>;
 
 export const chatSendPayloadSchema = z.object({
     text: z.string().min(1).max(500),
@@ -188,7 +208,7 @@ export interface ClientEvents {
      *  still has a live player waiting, or opens a new one. No approval step - the match
      *  auto-starts as soon as `autoStartPlayers` are seated. */
     'match:quick': (
-        payload: Record<string, never>,
+        payload: MatchQuickPayload,
         ack: (response: AckResponse<MatchJoinAck>) => void,
     ) => void;
     'match:rejoin': (
@@ -210,7 +230,7 @@ export interface ClientEvents {
     'match:cancelCountdown': () => void;
     'match:leave': () => void;
     'round:selectAttribute': (payload: RoundSelectAttributePayload) => void;
-    'round:playCard': () => void;
+    'round:playCard': (payload?: RoundPlayCardPayload) => void;
     'chat:send': (payload: ChatSendPayload) => void;
     'ping:latency': (payload: PingLatencyPayload) => void;
 }

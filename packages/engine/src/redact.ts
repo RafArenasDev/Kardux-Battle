@@ -25,6 +25,10 @@ export function redactFor(viewerId: string, state: MatchState): RedactedMatchSta
         currentTurnIndex: state.currentTurnIndex,
         yourId: viewerId,
         yourTopCard: yourPile && yourPile.length > 0 ? yourPile[0]! : null,
+        yourHand:
+            yourPile && (state.config.handSize ?? 0) > 0
+                ? yourPile.slice(0, state.config.handSize)
+                : [],
         round: state.round ? redactRound(state.round) : null,
         potSize: state.pot.length,
         winnerId: state.winnerId,

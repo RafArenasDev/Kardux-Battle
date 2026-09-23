@@ -1,5 +1,6 @@
 import type {
     CreateMatchRequest,
+    DeckSourceId,
     MatchConfig,
     MatchSummary,
     MatchSummaryWithRole,
@@ -8,7 +9,7 @@ import type { Match, Prisma, Player as PlayerRow } from '@prisma/client';
 import { randomInt, randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { matchConfigSchema } from '@kardux/contracts';
-import { DECK_CATALOG, validateDeckConfig } from '@kardux/content';
+import { DECK_CATALOG, getDeckInfo, validateDeckConfig } from '@kardux/content';
 // Value import required: Nest's DI resolves constructor params via `design:paramtypes`
 // reflection metadata, which `import type` erases at compile time.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -49,15 +50,23 @@ export class MatchService {
     }
 
     /** A fresh public quick-match lobby hosted by whoever asked for it (guests allowed). */
-    async createQuickMatch(hostUserId: string): Promise<MatchSummary> {
-        // Quick matches rotate through every enabled battle deck.
+    async createQuickMatch(
+        hostUserId: string,
+        options: { deck?: DeckSourceId | undefined; vsBot?: boolean } = {},
+    ): Promise<MatchSummary> {
         const disabled = disabledDeckIds();
-        const pool = DECK_CATALOG.filter((deck) => !disabled.has(deck.id));
-        const deck = pool[randomInt(pool.length)]!;
+        // The bot plays attribute battles only; the classic deck is always player vs player.
+        const pool = DECK_CATALOG.filter(
+            (deck) => !disabled.has(deck.id) && !(options.vsBot && deck.autoCompare),
+        );
+        const deck =
+            pool.find((candidate) => candidate.id === options.deck) ??
+            pool[randomInt(pool.length)]!;
         const { limits } = deck;
 
         return this.insertMatch(hostUserId, {
             visibility: 'public',
+            fillWithBots: options.vsBot ?? false,
             minPlayers: 2,
             maxPlayers: 2,
             autoStartPlayers: 2,
@@ -73,7 +82,7 @@ export class MatchService {
     }
 
     /** Open quick-match lobbies with a free seat, oldest first (fair queue). */
-    async listQuickCandidates(excludeUserId: string): Promise<MatchSummary[]> {
+    async listQuickCandidates(excludeUserId: string, deck?: DeckSourceId): Promise<MatchSummary[]> {
         const matches = await this.prisma.match.findMany({
             where: {
                 status: 'LOBBY',
@@ -87,7 +96,12 @@ export class MatchService {
 
         return matches
             .map((match) => this.toSummary(match))
-            .filter((summary) => summary.playerCount < summary.config.autoStartPlayers);
+            .filter(
+                (summary) =>
+                    !summary.config.fillWithBots &&
+                    summary.playerCount < summary.config.autoStartPlayers &&
+                    (deck === undefined || summary.config.deckSources[0] === deck),
+            );
     }
 
     async getByCode(code: string): Promise<MatchSummary> {
@@ -146,7 +160,10 @@ export class MatchService {
     }
 
     private parseConfig(request: CreateMatchRequest): MatchConfig {
-        const result = matchConfigSchema.safeParse(request);
+        const decks = (request.deckSources ?? []).map((id) => getDeckInfo(id));
+        const handGame = decks.length > 0 && decks.every((deck) => deck?.autoCompare);
+        // Rank-only decks are played from a hand of 5; attribute decks always play the top card.
+        const result = matchConfigSchema.safeParse({ ...request, handSize: handGame ? 5 : 0 });
 
         if (!result.success) {
             throw new KarduxError('ERR_INVALID_CONFIG', result.error.issues[0]?.message);

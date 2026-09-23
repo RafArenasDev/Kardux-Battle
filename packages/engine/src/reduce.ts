@@ -445,10 +445,21 @@ function applyPlayCard(
         return fail(state, 'ERR_VALIDATION');
     }
 
-    const [topCard, ...rest] = pile;
+    // Hand matches: the player may pick any card among the first `handSize` of their pile.
+    const handSize = state.config.handSize ?? 0;
+    let playedIndex = 0;
+    if (action.cardCode !== undefined && handSize > 0) {
+        playedIndex = pile.findIndex((card) => card.code === action.cardCode);
+        if (playedIndex < 0 || playedIndex >= handSize) {
+            return fail(state, 'ERR_VALIDATION');
+        }
+    }
+
+    const playedCard = pile[playedIndex]!;
+    const rest = pile.filter((_, index) => index !== playedIndex);
     const newRound: RoundState = {
         ...round,
-        playedCards: { ...round.playedCards, [action.playerId]: topCard! },
+        playedCards: { ...round.playedCards, [action.playerId]: playedCard },
     };
     const stateAfterPlay: MatchState = {
         ...state,

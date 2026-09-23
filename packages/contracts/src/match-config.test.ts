@@ -82,8 +82,8 @@ describe('matchConfigSchema', () => {
         expect(result.success).toBe(true);
     });
 
-    it('rejects an attributeCount outside 3..6', () => {
-        expect(matchConfigSchema.safeParse({ attributeCount: 2 }).success).toBe(false);
+    it('rejects an attributeCount outside 1..6 (1 = single-attribute decks)', () => {
+        expect(matchConfigSchema.safeParse({ attributeCount: 0 }).success).toBe(false);
         expect(matchConfigSchema.safeParse({ attributeCount: 7 }).success).toBe(false);
     });
 });
