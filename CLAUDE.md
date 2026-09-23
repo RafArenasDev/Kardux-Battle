@@ -17,11 +17,28 @@
 
 Nombre: **Kardux Battle**
 Tagline: "Elige el atributo. Gánate la mesa."
-Identidad visual: escudo heráldico con dos espadas cruzadas por detrás y un abanico de 3 cartas
-al frente. Estilo: line-art geométrico, 2px stroke, esquinas redondeadas.
-Paleta: obsidiana `#0B1020`, acero `#7C8AA5`, oro `#F2B441`, esmeralda victoria `#2DD4A7`,
-carmesí derrota `#EF4A5A`. Tipografía display: Cinzel o Orbitron; texto: Inter.
-Entregar el logo como SVG optimizado + favicon + icono PWA/desktop/mobile en todos los tamaños.
+
+### Identidad visual - revisión 2026-09-22 (`logo.png` real, reemplaza el diseño aspiracional)
+
+El logo real entregado (`logo.png`, raíz del repo) es un escudo heráldico con corona
+dorada/bronce, dos espadas cruzadas por detrás y un abanico de cartas ilustradas (no line-art
+geométrico plano como se planeó originalmente) en tonos joya sobre navy profundo. La paleta y
+el estilo de la UI se actualizaron para derivar de ese logo real en vez del boceto original:
+
+- **Base**: obsidiana más profunda que el boceto original - `#05070F` (fondo), `#0E1424`
+  (paneles sólidos), paneles traslúcidos `rgba(18,23,42,0.72)` con `backdrop-filter: blur(20px)
+saturate(160%)` (materiales tipo Apple, no paneles opacos planos).
+- **Oro/bronce** (acento primario, del marco/corona del logo): `#D9AC53` base, `#F4CF7E`
+  brillante, `#8A6F3A` opaco - reemplaza el oro plano `#F2B441` original.
+- **Tonos joya** (del abanico de cartas del logo, acentos por fuente de mazo/estado):
+  ámbar/fuego `#FF7D47`, hielo `#5EC8F2`, turquesa `#35D9C4`, amatista `#B579EA`, acero `#9AA4C0`.
+- **Estado de juego** (sin cambio): esmeralda victoria `#2DD4A7`, carmesí derrota `#EF4A5A`.
+- Tipografía: display **Cinzel** (se mantiene, calza con el carácter heráldico del logo real),
+  texto **Inter**. Tracking negativo en headings grandes, tracking neutro en cuerpo
+  (`apps/web/src/index.css`).
+
+El favicon/PWA/apple-touch-icon ya fueron generados a partir de este logo real (carpeta
+`favicon/`, todos los tamaños) y viven en `apps/web/public/`.
 
 ## EL JUEGO (reglas canónicas)
 
