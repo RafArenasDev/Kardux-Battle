@@ -2,13 +2,23 @@ import { attributeDefSchema, deckSourceIdSchema } from './card.js';
 import { z } from 'zod';
 
 /**
- * Catalog entry for one deck source: what `GET /decks/sources` returns. This is metadata
- * only - it never calls the source's external API. `ready` distinguishes the sources that
- * `packages/providers` (TASK-02, not built yet) can actually build a deck from today versus
- * the ones that are only valid `DeckSourceId`s reserved for later (CLAUDE.md's provider
- * table). Only `local` (the embedded seed deck used for dev/tests) is `ready: true` right
- * now; every external-API-backed source is still catalog/`ready: false` until its provider
- * ships.
+ * A tiny, real sample of a source's synced data - used by `GET /decks/sources` so a lobby UI
+ * (or Swagger) can show actual card names/art instead of trusting the `ready` flag blindly.
+ * Only present for sources `DeckService` pulled from the `tcg-github-sync` manifest.
+ */
+export const deckPreviewCardSchema = z.object({
+    name: z.string().min(1),
+    imageUrl: z.string().url(),
+});
+
+export type DeckPreviewCard = z.infer<typeof deckPreviewCardSchema>;
+
+/**
+ * Catalog entry for one deck source: what `GET /decks/sources` returns. `ready: true` means
+ * `DeckService` resolved this source against the live `tcg-github-sync` manifest and got back
+ * real, synced data (`cardCount`/`preview` reflect that fetch) - not that a full `DeckBuilder`
+ * exists yet (`packages/providers`/TASK-02, still not built). `ready: false` sources are pure
+ * catalog metadata from CLAUDE.md's original provider table: no sync job covers them.
  */
 export const deckSourceDescriptorSchema = z.object({
     id: deckSourceIdSchema,
@@ -18,8 +28,12 @@ export const deckSourceDescriptorSchema = z.object({
      *  provision (e.g. `marvel`'s free-tier key) - surfaced so the lobby UI can warn/hide
      *  the option instead of failing at match-create time. */
     requiresApiKey: z.boolean(),
-    /** True only for sources `packages/providers` can actually build a deck from today. */
+    /** True only for sources with real synced data available right now. */
     ready: z.boolean(),
+    /** Total cards/entities currently synced for this source. `0` when `ready` is `false`. */
+    cardCount: z.number().int().nonnegative(),
+    /** Up to 4 real sample cards pulled from the synced data. Empty when `ready` is `false`. */
+    preview: z.array(deckPreviewCardSchema).max(4),
 });
 
 export type DeckSourceDescriptor = z.infer<typeof deckSourceDescriptorSchema>;

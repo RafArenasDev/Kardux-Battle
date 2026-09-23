@@ -52,3 +52,19 @@ payload shape is defined, so any docs solution that requires re-declaring shapes
   instead of bare types — this is done as each endpoint is built, not retrofitted later.
 - `CREDITS.md` / the README's tooling section should mention Bruno so a new contributor knows
   what `apps/api/bruno/*.bru` files are for.
+
+## Reverted — HTTP client, 2026-09-21
+
+The **HTTP client** half of this decision is reverted. Bruno didn't work out in practice for
+the project owner during manual testing (setup/usability friction), who installed Postman
+with a free-tier account instead. `apps/api/bruno/` has been deleted; in its place,
+`apps/api/postman/` now holds a local, importable Postman collection
+(`kardux-api.postman_collection.json`, Collection Schema v2.1) and environment
+(`kardux-local.postman_environment.json`) — plain JSON files, git-committable, no Postman
+account or cloud/team sync required to use them, which keeps the spirit of the original
+"free and open source, no registration" rule even though the client itself changed. See
+`docs/PENDING-WORK.md`'s "Bruno replaced with a local Postman collection" entry for what
+shipped.
+
+The **API docs** half of this decision (`@nestjs/swagger` + `nestjs-zod`, OpenAPI generated
+from `@kardux/contracts`'s Zod schemas) is unaffected and still stands as originally decided.

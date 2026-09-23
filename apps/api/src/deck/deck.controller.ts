@@ -1,5 +1,6 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { DeckSourceListDto } from './deck.dto.js';
 // Value import required: Nest's DI resolves constructor params via `design:paramtypes`
 // reflection metadata, which `import type` erases at compile time.
@@ -12,18 +13,21 @@ export class DeckController {
     constructor(private readonly deckService: DeckService) {}
 
     @Get('sources')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
     @ApiOperation({
         summary: 'List available deck sources',
         description:
-            'Returns the static catalog of deck sources a match can be configured with ' +
-            "(CLAUDE.md's `MatchConfig.deckSources`), each with its label, comparable " +
-            'attributes, whether it needs an API key, and whether it can actually build a ' +
-            "deck today (`ready`). This is metadata only - it never calls a source's " +
-            'external API; only `local` is `ready: true` right now, the rest are reserved ' +
-            'identifiers for providers landing in a later phase. No authentication required.',
+            'Returns exactly the deck sources `tcg-github-sync` ' +
+            '(github.com/FlakoArenas26/tcg-github-sync) reports as synced right now - ' +
+            '`pokeapi`, `deckofcards`, `apitcg`, resolved live against its `manifest.json` ' +
+            'on every call (short in-memory cache), each with real `cardCount` and a 4-card ' +
+            '`preview` pulled from the actual synced JSON. No placeholder rows: a source with ' +
+            'no synced data (including `local`, not implemented yet) simply does not appear ' +
+            'in the response.',
     })
     @ApiOkResponse({ type: DeckSourceListDto })
-    listSources(): DeckSourceListDto {
+    async listSources(): Promise<DeckSourceListDto> {
         return this.deckService.listSources();
     }
 }

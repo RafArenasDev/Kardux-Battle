@@ -2,6 +2,20 @@
 
 > Requiere `CLAUDE.md` y las fases 1–2 terminadas.
 
+> **Nota (2026-09-22)**: el plan original de abajo (un provider por API externa, con
+> `p-limit`/`p-retry` pegándole en vivo a `pokeapi.co`, `dragonball-api.com`,
+> `dattebayo-api.onrender.com`, `digi-api.com`, etc.) quedó en gran parte superado, para las
+> fuentes que cubre, por el pivote a `tcg-github-sync` (repo hermano en
+> `github.com/FlakoArenas26/tcg-github-sync`) que ya sincroniza y cachea esos datos como JSON
+> versionado en git, servido gratis vía GitHub raw CDN - `apps/api/src/deck/
+github-sync.client.ts` ya lo consume en vivo para `GET /decks/sources` (ver
+> `docs/PENDING-WORK.md`, sesión 2026-09-22). Esto cubre `pokeapi`, `deckofcards` y `apitcg`
+> hoy. El resto de providers de la tabla de abajo (`dragonball`, `naruto`, `digimon`,
+> `rickmorty`, `swapi`, `superheroes`, `marvel`, `transformers`) no tiene ningún dato
+> sincronizado en `tcg-github-sync` todavía - el plan original de esta página sigue aplicando
+> para ellos si/cuando se retomen. El `DeckBuilder`/`CardPoolEntry`/normalización a `Card[]`
+> real (puntos 2-6 de abajo) tampoco está construido todavía para ninguna fuente.
+
 Implementa el paquete `@kardux/providers` con la interfaz `DeckProvider` definida en `CLAUDE.md`.
 
 1. Providers obligatorios: `local` (dataset embebido, offline, usado en tests), `pokeapi`,
