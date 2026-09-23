@@ -224,6 +224,22 @@ importers:
         specifier: ^7.4.1
         version: 7.4.1
 
+  packages/casino-engine:
+    dependencies:
+      '@kardux/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@kardux/engine':
+        specifier: workspace:*
+        version: link:../engine
+    devDependencies:
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@24.13.6)(terser@5.51.2)
+
   packages/content:
     dependencies:
       '@kardux/contracts':
