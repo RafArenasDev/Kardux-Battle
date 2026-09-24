@@ -162,8 +162,9 @@ curl http://localhost:3000/matches/ZZZZZZ
 
 ## 6. Global leaderboard — `GET /leaderboard`
 
-No auth required. The dev seed (`pnpm --filter @kardux/api prisma:seed` if you haven't run it)
-creates 4 guest users with `LeaderboardStat` rows, so this returns real data out of the box.
+Requires a bearer token. Lists the registered accounts that finished at least one ranked
+match, ordered by points (multiplayer Elo). There is no seed data: the table fills up as real
+matches between registered accounts finish.
 
 ```bash
 curl http://localhost:3000/leaderboard

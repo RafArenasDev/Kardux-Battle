@@ -4,87 +4,53 @@
 > one left off, without re-reading the whole git history. Update it whenever a unit of work
 > lands on `main`.
 
-## Next up (status at 2026-09-23)
+## Status at 2026-09-24 (v1.0 candidate)
 
-Everything below is committed on `main` except where noted. Start here.
+Everything below is on `main`.
+
+### Scope: Pokémon only
+
+The game plays a single deck, Pokémon from PokéAPI. Removed for good: the casino server and
+`packages/casino-engine`, the classic/poker deck (Deck of Cards API), the bundled mythic/fauna/
+vehicle decks, the hand-play mode (`handSize`), the countries pool, `players.coins` (migration
+`20260924160000_drop_player_coins`) and the dev seed (no seed data: real accounts only).
 
 ### Done in this round
 
-- **Casino server** (`apps/api/src/casino/`): `/casino` Socket.IO namespace with blackjack and
-  Texas Hold'em tables, poker bots, chips synced with `players.coins`, daily refill
-  (`POST /casino/wallet/refill`), Redis table snapshots, 60 s seat grace on disconnect.
-- **Stay signed in**: `remember: true` on login/register returns a 30-day `rememberToken`;
-  `POST /auth/resume` trades it for a tab session. Accounts only; sign-out forgets the device.
-- **API docs** (`/api/docs`): Spanish/English selector, plain-language texts centralized in
-  `apps/api/src/docs/api-docs.ts`, demo-login example, schema names without `Dto`.
-- **Classic deck**: the web now shows the hand face up; the player throws any card
-  (`round:playCard { cardCode }`), highest value wins, ties allowed. Playing cards render as
-  full faces with the gold frame. The countries deck was removed.
-- **Quick match**: deck picker (or random) + "Find a rival" / "Vs the machine" (the bot is
-  disabled for the classic deck).
-- Auth page (fixed desktop layout, form-only scroll, two-column feature cards, stay-signed-in
-  checkbox, classic eye icon), avatar picker (6 columns, unclipped rings/tooltips), toasts at
-  the top, uniform home cards with scrolling rooms/leaderboard panels, round banner in its own
-  slot above the cards, localized error messages.
-
-### Round 2 (same day)
-
-- Cards scale with width and height (smaller on big screens, readable on phones); classic
-  hand cards have their own size.
-- Removed lingering "ghost" cards: collected center slots now leave instantly.
-- Classic vs the machine: the bot throws a random card from its hand.
-- Own seat (name/avatar) shown next to the classic hand; HUD shows the game mode.
-- Home fully translated (ES/EN). Sign-up page back to natural page scroll.
-
-### Round 3 (same day)
-
-- Decks reduced to Pokémon, Mythic creatures and Classic (cars, bikes, planes removed: no
-  per-card images). Footer identical on every screen, no countries credits.
-- Round result / "your turn" banners float centered above everything.
-- Quick-match deck chips centered; "Paste code" and "Join" share one row.
+- **Rules of the SENASOFT 2022 brief**, checked one by one (see README "From the brief to the
+  game"): 2-7 players (`MAX_PLAYERS`), 32-card default deck, leftovers stay on the deck spot
+  (`undealtCount`), 1A starts, pot on ties, end by all cards or time.
+- **Leaving**: always final. Duel: the rival wins with every card. 3+ players: the leaver's
+  cards are dealt out to the others and the match goes on. A private host leaving the lobby
+  deletes the room; a match with no humans left is deleted. Dropped sockets keep the seat for
+  45 s; after an API restart the gateway releases seats nobody reclaimed.
+- **Ranking**: `RatingService` + pure `ratingChanges`/`placementsOf` (multiplayer Elo, K=32),
+  idempotent via `Match.ratedAt`; only matches where every seat is a registered account.
+  Home ranking: trophy podium, points, W-D-L, win %, streak, favorite attribute, auto refresh,
+  "How is it scored?" explainer.
+- **Table**: deck and pot spots fixed and labelled, deal animation from the deck (piles start
+  empty and count up), declarative card flights (no imperative animation controls), result
+  banner centered on the table over a blur, strict step order shared with the server through
+  `TABLE_TIMING` and `turnOpensAt`, measured stage layout (`fitCards`) so cards are as big as the
+  screen allows, my card chosen in the middle of the table on phones, gold turn timer.
+- **Practice rival**: always "Nova" with a fixed avatar; the person leads the first round
+  (`firstTurn: 'first_joined'`); 48 cards, 20 minutes.
+- **i18n**: i18next + react-i18next, catalogs in `apps/web/src/i18n/locales/{es,en}.json`, typed
+  keys, `pnpm --filter @kardux/web i18n:check` for catalog parity.
+- **Web**: unified waiting room card, compact create page (deck panel with the 6 attributes
+  explained), equal home cards, rules dialog, chat unread badge, footer credits PokéAPI only.
+- **Tooling**: `apps/api/scripts/smoke-table.mjs` (3 players, leaves, ranking), lint clean for
+  Node scripts, `scripts/dev.mjs` without DEP0190.
 
 ### Pending (in priority order)
 
-A. **Deal animation**: keep the deck pile visible on the table and deal from it; while
-dealing, every player's zone starts empty and cards appear one by one as they land. The
-pot pile must also sit on the table next to the deck.
-B. **Animation reliability**: after a few rounds the played cards (mine and the bot's) stop
-showing - audit `CenterStage`/`CenterSlot` timing (`REVEAL_RESULT_MS`, `COLLECT`, `HOLD`
-in `useMatchSession`) and make every transition interruptible; banners "Repartiendo" and
-"Tu turno" must not overlap (one central message at a time).
-C. **Classic modes** (user requirement): the classic deck must offer several modes from the
-rules the user shared - highest card (current), 21/blackjack, Texas Hold'em, five-card draw.
-Create page: choosing Classic swaps the rules panel to a mode picker with each mode's own
-options (not the attribute-battle options).
-D. Attribute lists on cards must never be cut off when choosing (check small screens).
-
-0. **Create page per mode** (user priority): choosing the classic deck must switch the rules
-   panel to the classic rules; poker (Texas Hold'em, 5-card draw) and 21 belong to the
-   **Casino** mode with their own rules/UI - they are not battle-deck rules. Chips/coins are a
-   casino concept (not shown in battle or classic matches).
-
-1. **Full ES/EN translation of the UI.** The locale provider (`apps/web/src/lib/i18n.tsx`)
-   detects the browser language and the switch works, but many screens still have hardcoded
-   Spanish copy. Wrap every remaining string with `t('es', 'en')` - pending files:
-   `HomePage.tsx` (resume banner, private room / join cards, panels), `CreateMatchPage.tsx`,
-   `JoinPage.tsx`, `WaitingRoom.tsx`, `MatchPage.tsx`, `SidePanel.tsx`, `FinishOverlay.tsx`,
-   `GameTable.tsx` (seats, spectator texts), `InstallPrompt.tsx`, `share.ts` messages.
-2. **Casino web UI** (server is ready): lobby with tiers + wallet + refill, blackjack table
-   (bet chips, hit/stand/double/split), hold'em table (fold/check/call/raise/all-in, board,
-   pot, side pots), deckofcards faces with the gold frame and `CLASSIC_CARD_BACK_URL` backs,
-   chip-win coin animation. Socket: namespace `/casino`, events in
-   `packages/contracts/src/casino.ts`. Add "Casino" to the quick-match options once it exists.
-3. **Create page per mode**: when "Clásica" is chosen, the rules panel must show classic
-   options (hand size, time) instead of the attribute-battle options; a "Casino" mode entry
-   that links to the casino lobby (blackjack / hold'em) instead of creating a battle room.
-4. **Five-card draw** (the rules the user shared) as a third casino game - design first.
-5. **Visual check** of every screen on phone/tablet/desktop (no page scroll on mobile tables).
-6. **Deploy**: Render start command `prisma migrate deploy && node dist/main.js`; env vars
-   `REDIS_URL` (Aiven, `rediss://`), `CORS_ORIGINS`, `VITE_API_BASE_URL`; two local
-   migrations (`20260923233000_rename_tables_players_coins`, `20260923234500_card_pool_name_en`)
-   are not in production yet. Ask before touching production.
-7. **Git history**: older commits still carry an attribution trailer that must be removed
-   (rewrite with a backup branch, then force-push to `main` - needs explicit go-ahead).
+1. **Deploy** (Render + Aiven): run the new migrations (`20260923233000_*`, `20260923234500_*`,
+   `20260924160000_drop_player_coins`) with `prisma migrate deploy`; env `REDIS_URL`,
+   `CORS_ORIGINS`, `VITE_API_BASE_URL`. Ask before touching production.
+2. **Git history**: older commits still carry an attribution trailer; rewriting needs an
+   explicit go-ahead (force-push to `main`).
+3. Password recovery stays deferred until a delivery channel is chosen.
+4. Playwright end-to-end run of a 7-player table.
 
 ## Session 2026-09-21 — Phase 0: monorepo scaffold
 

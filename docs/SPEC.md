@@ -111,13 +111,9 @@ Validar con Zod y rechazar combinaciones imposibles (`autoStartPlayers > maxPlay
 Implementar un patrón **DeckProvider** con una interfaz común. Cada provider descarga
 entidades de una API pública, las normaliza a `Card` y arma cuartetos coherentes.
 
-> **Estado real de los datos (2026-09-22)**: `pokeapi`, `deckofcards` y `apitcg` (sets de
-> Pokémon TCG) tienen datos reales sincronizados hoy vía el repo hermano
-> `github.com/FlakoArenas26/tcg-github-sync` (`GET /decks/sources` ya los consume en vivo
-> desde ese manifest, ver `docs/PENDING-WORK.md`). El resto de la tabla de abajo
-> (`dragonball`, `naruto`, `digimon`, `rickmorty`, `swapi`, `superheroes`, `marvel`,
-> `transformers`) sigue siendo solo el diseño aspiracional original - ningún dato sincronizado
-> todavía para ninguno de ellos.
+> **Estado actual**: el juego usa un único mazo, Pokémon, sincronizado desde PokéAPI a la
+> tabla `card_pool_entries` al arrancar la API (ADR 0006). La tabla de proveedores de abajo es el
+> diseño original y queda como referencia de cómo sumar otra fuente.
 
 ```ts
 interface Card {
@@ -315,7 +311,7 @@ winnerId) · `MatchPlayer` (matchId, userId, seat, joinOrder, finalCards, placem
 · `MatchEvent` (log append-only para replays).
 
 Índices: `Match.code` único parcial sobre partidas activas, `Round(matchId,index)`,
-`LeaderboardStat.elo desc`. Migraciones versionadas, seeds de desarrollo, y
+`LeaderboardStat.elo desc`. Migraciones versionadas (sin datos semilla: solo cuentas reales), y
 `DATABASE_PROVIDER` que permita conmutar entre `postgresql` y `sqlite` en dev.
 
 ## MULTIPLATAFORMA

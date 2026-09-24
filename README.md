@@ -1,292 +1,258 @@
 # Kardux Battle
 
-A real-time, multiplayer Top Trumps–style card battle game — pick the strongest attribute of
-your card, win the table. Play with **Pokémon** (official base stats via PokéAPI) or the classic
-**poker deck** (Deck of Cards API), plus two original decks, in the browser today (installable
-PWA) and later on desktop and mobile.
+A real-time, multiplayer card battle in the "Top Trumps" family, played with **Pokémon**: pick
+the strongest stat of your card, beat everyone at the table and take their cards. From 2 to 7
+players per table, quick 1-vs-1 matches, a practice rival, a real ranking, Spanish and English,
+and an installable PWA that plays on a phone as well as on a desktop.
 
-> This file is the single entry point for the project — setup, architecture, diagrams, and
-> current status all live here, updated as each phase lands, instead of being deferred to a
-> "final docs" phase. `docs/adr/` holds the reasoning behind each decision and `docs/tasks/`
-> the phase-by-phase build plan, for anyone who wants to go deeper than this file — but
-> everything you need to understand and run the project day to day is on this page.
+It started as the **SENASOFT 2022** programming challenge ("Siigo Match Battle") and grew into a
+portfolio project: a TypeScript monorepo with an authoritative NestJS game server, a pure and
+deterministic rules engine, and a React client built around the table choreography.
 
-## Status
+<p align="center">
+  <img src="docs/media/mobile-home.png" width="220" alt="Home screen on a phone" />
+  <img src="docs/media/mobile-choose.png" width="220" alt="Choosing an attribute at the table" />
+  <img src="docs/media/mobile-round-result.png" width="220" alt="Round result over the blurred table" />
+  <img src="docs/media/mobile-ranking.png" width="220" alt="Ranking with podium trophies" />
+</p>
 
-**Playable end to end (v0.9, 2026-09-23).**
+## Contents
 
-- **Decks**: Pokémon (1025 Pokémon, Spanish names, official base stats, one quartet per
-  elemental type) and the 52-card poker deck are fetched **once** when the API boots (one
-  PokéAPI GraphQL request, one Deck of Cards draw), stored in Postgres (`CardPoolEntry`) and
-  re-synced at most weekly — gameplay never waits on a third-party API. Two original,
-  copyright-free decks (Criaturas Míticas, Fauna Salvaje) ship bundled.
-- **Rooms**: private rooms (registered players) are only listed in the host's panel and are
-  shared by 6-char hex code or link (WhatsApp, Telegram, email, native share). Quick matches
-  (anyone, guests included) pair two players instantly and auto-start — no approvals.
-- **Real-time game**: shuffle + deal animation, your top card face-up and everyone else's
-  face-down, the leader taps an attribute (their card is laid down automatically), the others
-  drag their card up to throw it (or tap), 3D flip reveal, winner glow, tie pot, turn timers,
-  live standings, chat, victory screen.
-- **Persistence**: live match state is snapshotted to Redis after every move — reloading the
-  page, a dropped connection or an API restart drops you back into the exact same seat.
-- **Web**: responsive (phone / tablet / desktop hooks), installable PWA with offline shell,
-  dark obsidian + gold design, rounded game UI, self-hosted fonts.
+- [From the brief to the game](#from-the-brief-to-the-game)
+- [How to play](#how-to-play)
+- [Scoring and ranking](#scoring-and-ranking)
+- [Architecture](#architecture)
+- [Engineering highlights](#engineering-highlights)
+- [Tech stack](#tech-stack)
+- [Run it locally](#run-it-locally)
+- [Testing](#testing)
+- [Documentation map](#documentation-map)
+- [Credits and license](#credits-and-license)
 
-See [`docs/PENDING-WORK.md`](docs/PENDING-WORK.md) for the session-by-session log.
+## From the brief to the game
 
-## The game
+The original brief asked for a web game with 4 packs of 8 cards, 2 to 7 players and quartets
+coded `1A…4H`. Every rule is implemented, and each one lives in the pure engine
+(`packages/engine`) with its own tests.
 
-A quartet-comparison game in the "Top Trumps" family, played with `N` packs × `M` cards
-(4×8 = 32 by default). Every card is coded `<number><letter>` (`1A`, `2A`, … `4H`); the cards
-sharing a letter form a "quartet" from the same thematic family, and every card in the deck
-shares the exact same set of numeric attributes (3 to 6 of them).
+| SENASOFT 2022 rule                                                               | In Kardux Battle                                                                                                                                         |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4 packs of 8 cards, quartets `1A, 2A, 3A, 4A`…                                   | Default deck: 4 × 8 = 32 Pokémon. Every quartet (letter) is one Pokémon type; the host can change packs (1-6) and quartets (2-16).                       |
+| Cards with a picture and technical specs                                         | Official artwork and base stats (HP, Attack, Defense, Speed, Sp. Attack, Sp. Defense) from PokéAPI; 3 to 6 of them per match.                            |
+| 2 to 7 players                                                                   | Enforced by the shared Zod schema (`MAX_PLAYERS = 7`) on both client and server.                                                                         |
+| The creator gets a hexadecimal match code                                        | 6-character hex room code, plus a share link (WhatsApp, Telegram, email, native share).                                                                  |
+| The host may start once enough players join; the 7th player starts it on its own | Host "Start" once `minPlayers` is met; auto-start with a countdown when `autoStartPlayers` (7 by default) are seated. The host can cancel the countdown. |
+| Deal every possible card, leftovers chosen at random                             | The deck is shuffled with a seeded RNG, then dealt round-robin; the remainder stays on the **deck spot** at the table, marked "out of play".             |
+| Each player only sees the top card of their pile                                 | The server redacts the state per player (`redactFor`): nobody ever receives another player's cards.                                                      |
+| `1A` starts; otherwise `1B`, `1C`… then `2A`; then join order                    | `findFirstTurnPlayerId` + `buildTurnOrder`, with tests for the fallback order.                                                                           |
+| The player on turn picks a spec, everyone lays their top card, highest wins      | The leader taps an attribute; every card is laid down in turn order, flipped, compared; the winner collects them and leads the next round.               |
+| Tie: the cards stay on the table and a new round starts                          | A **pot** spot on the table collects tied cards; the winner of the next round takes it too.                                                              |
+| Ends when someone has every card, or after 1 hour (most cards wins, else a draw) | Both, with a configurable duration (10 min to 1 h, or no limit).                                                                                         |
 
-1. A host creates a match and gets a 6-character hex code; others join with it.
-2. The host starts manually once `minPlayers` is met, or the match auto-starts (5s countdown,
-   host-cancelable) once `autoStartPlayers` connect — both configurable per match, not fixed.
-3. The deck is dealt evenly; any remainder is discarded at random before dealing. Each player
-   sees only the top card of their own face-down pile.
-4. Whoever holds `1A` goes first (searching `1A, 1B … 1M, 2A, 2B, …` if `1A` wasn't dealt to
-   anyone); turn order after that follows join order.
-5. The player in turn picks one attribute; everyone plays their top card face-down, then all
-   flip at once. Highest value wins every card on the table.
-6. A tie leaves the cards on the table as an accumulating pot; the same player leads the
-   tie-breaking round, and whoever eventually wins claims the whole pot.
-7. A player with no cards left is eliminated (becomes a spectator).
-8. The match ends when one player holds every card, or when `matchDurationMs` elapses (most
-   cards wins; a tied card count is a draw). Both are configurable, not fixed at 7 players or
-   1 hour like the original brief.
+**Beyond the brief**
 
-Full canonical rules, including every configuration field and the socket event contract, live
-in [`docs/SPEC.md`](docs/SPEC.md).
+- **Quick match**: a 1-vs-1 queue that pairs two people who are searching, or a practice match
+  against the machine ("Nova").
+- **Accounts and a real ranking**: registered players get a multiplayer Elo rating, wins, draws,
+  losses, win rate, streak and favorite attribute. Guests can play right away without signing up.
+- **Leaving is a forfeit, never a pause**: in a duel the rival wins with every card; with three or
+  more players the leaver's cards are shared out and the match goes on.
+- **Resilience**: a reload or a brief network drop keeps your seat for 45 s; match state is
+  snapshotted to Redis after every move, so an API restart does not lose a game.
+- **Table choreography**: shuffle and deal from the deck spot (piles count up as cards land),
+  cards flying from each seat, 3D flips, a result banner centered on the table over a blur, cards
+  collected into the winner's pile or the pot.
+- **Chat** with unread badge, live standings, turn timer, rules dialog.
+- **Spanish and English** everywhere, installable **PWA**, responsive from small phones to desktop.
+
+## How to play
+
+1. Create a private room (registered players) or press **Find a rival** / **Vs the machine**.
+2. Share the room code or link; the match starts when the host presses **Start** or when the
+   room fills up.
+3. The cards are dealt. Whoever holds `1A` (or the next code in order) leads the first round.
+4. On your turn, your top card appears: tap its strongest attribute. Everyone's top card is laid
+   down, then flipped. Highest value wins every card on the table; a tie sends them to the pot.
+5. The winner leads the next round. You are out when you run out of cards.
+6. The match ends when one player holds every card or time runs out.
+
+## Scoring and ranking
+
+- **In a match** your score is the number of cards you hold; your final place is decided by it.
+  Leaving the match puts you last, with zero cards.
+- **In the ranking** every account starts at **1200 points**. After each match between registered
+  accounts, points move with a multiplayer **Elo** rating: the table is scored as every pair of
+  players facing each other once (1 for finishing above, ½ for the same place, 0 for below),
+  weighted by the rating gap and scaled by `K / (N - 1)` with `K = 32`. Beating stronger players is
+  worth more; losing to weaker ones costs more.
+- Matches against the machine or with guests are never ranked, and a match is only rated once
+  (`Match.ratedAt`), even if the job is retried.
+
+The math is a pure, tested module: [`packages/engine/src/rating.ts`](packages/engine/src/rating.ts).
 
 ## Architecture
 
 ```mermaid
 graph TD
-    subgraph Clients
-        WEB[apps/web<br/>React + Vite, PWA]
-        DESKTOP[apps/desktop<br/>Tauri 2]
-        MOBILE[apps/mobile<br/>Expo]
+    subgraph Client
+        WEB[apps/web<br/>React + Vite PWA]
     end
     subgraph Server
-        API[apps/api<br/>NestJS: REST + Socket.IO gateway]
-        ENGINE[packages/engine<br/>pure rules engine]
-        CONTRACTS[packages/contracts<br/>Zod types + socket contract]
-        PROVIDERS[packages/providers<br/>deck adapters]
+        API[apps/api<br/>NestJS · REST + Socket.IO]
+        RUNTIME[MatchRuntimeService<br/>locks · timers · persistence]
     end
-    DB[(PostgreSQL)]
-    CACHE[(Redis)]
-    EXT[External card APIs<br/>PokéAPI, Dragon Ball API, ...]
+    subgraph Shared packages
+        ENGINE[packages/engine<br/>pure rules engine + Elo]
+        CONTRACTS[packages/contracts<br/>Zod schemas · socket contract]
+        CONTENT[packages/content<br/>deck metadata · avatars · icons]
+    end
+    DB[(PostgreSQL<br/>Prisma)]
+    CACHE[(Redis<br/>state snapshots · locks)]
+    POKEAPI[PokéAPI<br/>GraphQL]
 
-    WEB -->|Socket.IO + REST| API
-    DESKTOP -->|Socket.IO + REST| API
-    MOBILE -->|Socket.IO + REST| API
-    API --> ENGINE
-    API --> PROVIDERS
-    WEB -.->|imports for optimistic UI| ENGINE
+    WEB -->|REST + WebSocket| API
+    API --> RUNTIME
+    RUNTIME -->|reduce| ENGINE
     WEB -.-> CONTRACTS
+    WEB -.-> CONTENT
     API -.-> CONTRACTS
     ENGINE -.-> CONTRACTS
-    API --> DB
-    API --> CACHE
-    PROVIDERS -->|sync job, not per-match| EXT
-    PROVIDERS --> DB
+    RUNTIME --> DB
+    RUNTIME --> CACHE
+    API -->|sync once at boot, weekly refresh| POKEAPI
+    API -->|card pool mirror| DB
 ```
 
-Non-negotiable principle: the server is authoritative. No client ever decides a round's
-outcome or sees another player's cards — every socket receives a state redacted down to what
-that specific player is allowed to see (`@kardux/engine`'s `redactFor`).
-
-### Monorepo layout
-
-```
-kardux-battle/
-├─ apps/
-│  ├─ api/          NestJS: REST + Socket.IO gateway              (bootstrap only)
-│  ├─ web/          React + Vite, PWA                              (not started)
-│  ├─ desktop/      Tauri 2, wraps the web build                   (not started)
-│  └─ mobile/       Expo / React Native                            (not started)
-├─ packages/
-│  ├─ contracts/    types + Zod schemas + socket event contract    (done)
-│  ├─ engine/       pure, deterministic rules engine                (done)
-│  ├─ providers/    deck adapters for each card API                 (not started)
-│  └─ ui/           shared design tokens/components                 (not started)
-├─ docker/          compose: postgres, redis, api, web              (not started)
-├─ docs/
-│  ├─ adr/          architecture decision records
-│  ├─ tasks/        the phase-by-phase build plan this project follows
-│  └─ PENDING-WORK.md   running session log
-└─ docs/SPEC.md        canonical game rules and full technical spec
-```
+- **The server is authoritative.** The client never decides anything: it sends intents
+  (`round:selectAttribute`, `match:leave`) and renders the redacted state the server pushes back.
+- **The engine is a pure reducer**: `(state, action, { now }) -> { state, events }`, with no I/O,
+  no `Date.now()` and no `Math.random()`. The API owns time, sockets and persistence around it.
+- **Cards come from our own database.** PokéAPI is queried once at boot (a single GraphQL request
+  for 1025 Pokémon, Spanish and English names) and mirrored into `card_pool_entries`; matches never
+  wait on, or break because of, a third-party API.
 
 ### Match state machine
 
 ```mermaid
 stateDiagram-v2
     [*] --> LOBBY
-    LOBBY --> COUNTDOWN: autoStartPlayers reached
-    COUNTDOWN --> LOBBY: host cancels
-    COUNTDOWN --> AWAITING_ATTRIBUTE: countdown elapses (deals the deck)
-    LOBBY --> AWAITING_ATTRIBUTE: host starts manually (deals the deck)
+    LOBBY --> COUNTDOWN: room reaches autoStartPlayers
+    COUNTDOWN --> LOBBY: host cancels / someone leaves
+    COUNTDOWN --> AWAITING_ATTRIBUTE: countdown ends (deal)
+    LOBBY --> AWAITING_ATTRIBUTE: host starts (deal)
     AWAITING_ATTRIBUTE --> AWAITING_CARDS: leader picks an attribute
-    AWAITING_CARDS --> AWAITING_ATTRIBUTE: clear winner (winner leads next round)
-    AWAITING_CARDS --> AWAITING_ATTRIBUTE: tie (same leader, pot carries over)
-    AWAITING_ATTRIBUTE --> FINISHED: only one active player remains
-    AWAITING_CARDS --> FINISHED: matchDurationMs elapsed, or one player holds every card
+    AWAITING_CARDS --> AWAITING_ATTRIBUTE: round resolved (winner leads) or tie (pot)
+    AWAITING_CARDS --> FINISHED: one player holds every card
+    AWAITING_ATTRIBUTE --> FINISHED: time is up, or a duel rival leaves
     FINISHED --> [*]
 ```
 
-`DEALING`, `REVEAL`, `RESOLVE`, and `TIE_POT` from the spec's state machine are real steps
-the engine walks through and reports via its event stream (so the client can animate each one:
-the deal, the flip, the comparison, the pot banner) but aren't states the server sits in
-between player actions — there's no decision to make during them, so they resolve within the
-same `reduce()` call as the action that triggered them. The diagram above shows the states
-that actually persist and wait for the next action.
+### Monorepo layout
+
+```
+kardux-battle/
+├─ apps/
+│  ├─ api/        NestJS: auth, rooms, Socket.IO gateway, match runtime, ranking, card pool
+│  └─ web/        React + Vite PWA: home, lobby, table, ranking, i18n (es/en)
+├─ packages/
+│  ├─ contracts/  Zod schemas, socket event contract, error codes, table timing
+│  ├─ engine/     pure rules engine (reduce, deal, turn order, redaction) and Elo rating
+│  └─ content/    Pokémon deck metadata, avatars, game-icons.net glyphs
+├─ scripts/dev.mjs   one command for the whole local stack
+└─ docs/          ADRs, spec, build plan, session log, screenshots
+```
+
+## Engineering highlights
+
+- **Deterministic, replayable matches.** A seeded sfc32 RNG lives inside the match state, so the
+  same seed and actions always produce the same match (there is a byte-for-byte replay test).
+- **Hidden information by construction.** `redactFor(viewer, state)` is the only way state leaves
+  the server; played cards only appear in the `round:revealed` event.
+- **One timing contract for server and client.** `TABLE_TIMING` (deal and reveal lengths) lives in
+  `@kardux/contracts`. The engine opens each turn only after the table has finished animating
+  (`turnOpensAt`), and the practice rival waits for it too, so a new round can never start while
+  the previous one is still on screen.
+- **Concurrency.** Every action for a match runs through an in-process mutex plus a best-effort
+  Redis lock; the state is snapshotted to Redis after each accepted action.
+- **Forfeits and reconnection.** A dropped socket keeps its seat for 45 s; after an API restart the
+  gateway releases the seats of whoever did not come back.
+- **Measured, declarative animations.** Cards fly from the real position of each seat's pile to
+  the table and back to the winner, measured from the DOM on every screen size. The table layout
+  computes the biggest card size that fits the players in play (a duel on a phone stacks the two
+  cards vertically).
+- **Typed i18n.** Every string lives in `apps/web/src/i18n/locales/{es,en}.json`; keys are
+  type-checked against the Spanish catalog and `pnpm --filter @kardux/web i18n:check` fails if the
+  two catalogs drift apart.
+- **Zero-trust payloads.** Every REST body and socket payload is validated with the same Zod
+  schemas on both ends; OpenAPI docs are generated from them (`/api/docs`).
 
 ## Tech stack
 
-| Layer                   | Choice                                                                                                                            | Why (ADR)                                                   |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Monorepo                | pnpm workspaces + Turborepo                                                                                                       | [ADR 0001](docs/adr/0001-monorepo-pnpm-turborepo.md)        |
-| API                     | NestJS 11 + Socket.IO                                                                                                             | [ADR 0002](docs/adr/0002-nestjs-over-alternatives.md)       |
-| Rules engine            | Pure TypeScript, zero I/O, seeded RNG                                                                                             | [ADR 0003](docs/adr/0003-pure-rules-engine.md)              |
-| Database                | PostgreSQL + Prisma                                                                                                               | [ADR 0004](docs/adr/0004-postgres-redis-swappable-cache.md) |
-| Cache / locks / pub-sub | Redis                                                                                                                             | [ADR 0004](docs/adr/0004-postgres-redis-swappable-cache.md) |
-| API docs                | `@nestjs/swagger` + `nestjs-zod` (generated from the same Zod schemas used for validation — never duplicated)                     | [ADR 0005](docs/adr/0005-api-docs-and-http-client.md)       |
-| Manual API testing      | Local Postman collection (`apps/api/postman/`, importable JSON files, no cloud sync)                                              | [ADR 0005](docs/adr/0005-api-docs-and-http-client.md)       |
-| Deck data reliability   | Local `CardPoolEntry` mirror per source, synced on a schedule; decks are built from our own database, not a live third-party call | [ADR 0006](docs/adr/0006-local-card-pool-mirror.md)         |
-| Web                     | React 19 + Vite + Tailwind + Zustand + Framer Motion                                                                              | `docs/SPEC.md`                                                 |
-| Desktop                 | Tauri 2                                                                                                                           | `docs/SPEC.md`                                                 |
-| Mobile                  | Expo / React Native                                                                                                               | `docs/SPEC.md`                                                 |
-| Validation              | Zod everywhere, both ends of every socket/REST payload                                                                            | `docs/SPEC.md`                                                 |
-| Testing                 | Vitest, Supertest, `socket.io-client`, Playwright                                                                                 | `docs/SPEC.md`                                                 |
+| Layer        | Choice                                                                   | Why                                                         |
+| ------------ | ------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| Monorepo     | pnpm workspaces + Turborepo                                              | [ADR 0001](docs/adr/0001-monorepo-pnpm-turborepo.md)        |
+| API          | NestJS 11, Socket.IO, Pino logging, rate limiting, Helmet                | [ADR 0002](docs/adr/0002-nestjs-over-alternatives.md)       |
+| Rules engine | Pure TypeScript, seeded RNG, no I/O                                      | [ADR 0003](docs/adr/0003-pure-rules-engine.md)              |
+| Data         | PostgreSQL + Prisma, Redis (ioredis)                                     | [ADR 0004](docs/adr/0004-postgres-redis-swappable-cache.md) |
+| API docs     | Swagger generated from Zod (`nestjs-zod`), bilingual                     | [ADR 0005](docs/adr/0005-api-docs-and-http-client.md)       |
+| Card data    | PokéAPI GraphQL mirrored into `card_pool_entries`                        | [ADR 0006](docs/adr/0006-local-card-pool-mirror.md)         |
+| Web          | React 18, Vite, Framer Motion, React Router, i18next, vite-plugin-pwa    | [`docs/SPEC.md`](docs/SPEC.md)                              |
+| Auth         | JWT per browser tab, bcrypt passwords, optional 30-day "stay signed in"  | [`docs/SPEC.md`](docs/SPEC.md)                              |
+| Quality      | Vitest, Supertest, socket.io-client, ESLint, Prettier, Husky, commitlint | [`docs/SPEC.md`](docs/SPEC.md)                              |
 
-## Getting started
+## Run it locally
 
-### Prerequisites
-
-- Node.js 24+ (`.nvmrc` pins the exact version this repo was built against)
-- [pnpm](https://pnpm.io/) 10+ (`corepack enable` will pick up the version pinned in
-  `package.json`'s `packageManager` field)
-- PostgreSQL 14+ reachable locally (native install or Docker — see below)
-- Redis 7+ reachable locally (native install or Docker)
-
-Everything above is free and open source; no paid tier, license key, or account is required
-for any of it.
-
-### Clone and install
+Requirements: Node.js 24+, pnpm 10+, PostgreSQL 14+ and Redis 7+ (all free and open source).
 
 ```bash
-git clone https://github.com/FlakoArenas26/Kardux-Battle.git
+git clone https://github.com/RafArenasDev/Kardux-Battle.git
 cd Kardux-Battle
 pnpm install
-```
-
-### Configure the API
-
-```bash
-cp apps/api/.env.example apps/api/.env
-```
-
-Edit `apps/api/.env` and fill in real values — `DATABASE_URL` (or the individual `DB_*`
-fields it's assembled from), `REDIS_URL`, and a `JWT_SECRET` (generate one with
-`node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`). **Never commit
-`.env`** — it's git-ignored on purpose; `.env.example` is the template that _does_ get
-committed, with placeholder values only.
-
-### Database and cache
-
-Either run them via Docker:
-
-```bash
-docker compose up -d postgres redis
-```
-
-...or point `apps/api/.env` at native local installs of both (this is what this project's own
-dev machine currently does — see [ADR 0004](docs/adr/0004-postgres-redis-swappable-cache.md)
-for why). Either way, create the database once:
-
-```bash
+cp apps/api/.env.example apps/api/.env   # database URL, Redis URL, JWT secret
 psql -U postgres -h localhost -c "CREATE DATABASE kardux_dev;"
+pnpm dev
 ```
 
-### Run it — one command
+`pnpm dev` (`scripts/dev.mjs`) starts Redis if it is not running, applies the Prisma migrations,
+builds the shared packages and runs the API (**http://localhost:3000**, Swagger at `/api/docs`)
+and the web app (**http://localhost:5173**) together. `Ctrl+C` stops everything it started.
 
-Local path on the author's machine: `C:\Users\usuario\Documents\RAFA\DEV\kardux-battle`.
-
-```powershell
-cd C:\Users\usuario\Documents\RAFA\DEV\kardux-battle
-pnpm install        # first time / after pulling
-pnpm dev            # Redis + migrations + shared packages + API + web, all together
-```
-
-`pnpm dev` (`scripts/dev.mjs`) does, in order:
-
-1. Starts **Redis** on `:6379` if nothing is listening there (data in `./.redis`, git-ignored).
-2. Checks **PostgreSQL** on `:5432`, runs `prisma migrate deploy` + `prisma generate`.
-3. Builds `@kardux/contracts`, `@kardux/content`, `@kardux/engine`.
-4. Runs every watcher: API on **http://localhost:3000** (Swagger at `/api/docs`) and web on
-   **http://localhost:5173**. `Ctrl+C` stops everything it started.
-
-Prefer separate terminals? Each piece on its own, from the repo root:
-
-```powershell
-pnpm redis                              # Redis on :6379 (or run your own)
-pnpm build:packages                     # once, before the API/web
-pnpm dev:api                            # apps/api -> http://localhost:3000
-pnpm dev:web                            # apps/web -> http://localhost:5173
-```
-
-Requirements: `apps/api/.env` filled in from `apps/api/.env.example` (Postgres credentials,
-`JWT_SECRET`), PostgreSQL running, and `redis-server` on the PATH (`winget install Redis.Redis`
-on Windows). Redis is what keeps matches alive across reloads and restarts; without it the API
-still runs, memory-only.
-
-**Try a match**: open `http://localhost:5173` in two tabs (each tab is its own player). Either
-play as guest in both and press **Buscar rival**, or register, create a private room and join it
-from the other tab with the code.
-
-- `GET /health` — liveness check.
-- `GET /api/docs` — Swagger UI generated from the same Zod schemas used for validation.
-- `node apps/api/scripts/smoke-duel.mjs` / `smoke-private.mjs` — scripted two-player matches
-  against the running API (quick match; registered accounts + private room).
-
-```bash
-pnpm --filter @kardux/contracts test
-pnpm --filter @kardux/engine test
-pnpm --filter @kardux/api test            # unit + game-loop integration tests
-pnpm --filter @kardux/web build           # typecheck + production PWA build
-```
+There is no seed data: create your account from the sign-up screen. To try a match alone, open
+two browser windows (each tab is its own player) or play **Vs the machine**.
 
 ## Testing
 
-- `packages/engine`: Vitest, coverage thresholds enforced at 90% lines/functions/statements,
-  85% branches (`packages/engine/vitest.config.ts`) — covering chained ties, mid-round
-  elimination, all three turn-timeout policies, a non-divisible deck, a match ending by clock
-  with a tied card count, and a full reproducible match given a fixed seed.
-- `apps/api`: Supertest for REST (one passing test so far, the health check); once the gateway
-  exists, `socket.io-client` for integration tests (including a client that tries to act out
-  of turn and gets `ERR_NOT_YOUR_TURN`). Nest's DI needs a real `emitDecoratorMetadata`-aware
-  transform for services with constructor-injected dependencies - not needed yet (nothing has
-  one), noted in `apps/api/vitest.config.ts` for when it is.
-- `apps/web` (once it exists): Vitest + Testing Library for components, Playwright with real
-  multi-browser-context sessions for a full 7-player match end to end.
-- Every package runs its own `pnpm --filter <name> test`; `pnpm test` at the root runs all of
-  them via Turborepo.
+```bash
+pnpm lint        # ESLint across the monorepo (zero warnings)
+pnpm typecheck
+pnpm test        # contracts, engine (coverage thresholds) and API (unit + socket integration)
+pnpm build       # production build, including the PWA
+pnpm --filter @kardux/web i18n:check
+```
+
+- `packages/engine`: the rules of the brief, chained ties, eliminations, every leave scenario
+  (duel forfeit, shared-out cards, countdown cancel), turn timeouts, the deal remainder, the Elo
+  math, and a full reproducible match from a fixed seed.
+- `apps/api`: services with mocked Prisma, plus a real game loop over Socket.IO against the local
+  database.
+- `apps/api/scripts/smoke-table.mjs`: a scripted 3-player private match against a running API
+  (auto-start, rounds, two players leaving, ranking update), using existing accounts from
+  `SMOKE_ACCOUNTS`.
 
 ## Documentation map
 
-- [`docs/SPEC.md`](docs/SPEC.md) — the canonical, complete game/technical spec.
-- [`docs/adr/`](docs/adr/) — why each non-obvious technical decision was made, and what the
-  alternatives were.
-- [`docs/tasks/`](docs/tasks/) — the phase-by-phase plan this project is built in order.
-- [`docs/PENDING-WORK.md`](docs/PENDING-WORK.md) — running log of what shipped each session
-  and what's next, so no session has to re-derive context from git history alone.
+- [`docs/SPEC.md`](docs/SPEC.md): the full game and technical spec.
+- [`docs/adr/`](docs/adr/): why each non-obvious technical decision was made.
+- [`docs/tasks/`](docs/tasks/): the phase-by-phase build plan.
+- [`docs/PENDING-WORK.md`](docs/PENDING-WORK.md): session-by-session log and what comes next.
+- [`API-TESTING.md`](API-TESTING.md): exercising the REST API by hand.
 
-## License
+## Credits and license
 
-MIT — see [`LICENSE`](./LICENSE). Non-commercial fan project. Pokémon data and images via
-[PokéAPI](https://pokeapi.co) — Pokémon © Nintendo, Game Freak and The Pokémon Company. Card
-images via [Deck of Cards API](https://deckofcardsapi.com). Icons by Lorc, Delapouite and
-contributors at [game-icons.net](https://game-icons.net) (CC BY 3.0).
+MIT, see [`LICENSE`](./LICENSE). A free, non-commercial fan project with no payments or
+purchases.
+
+- Pokémon data and artwork via [PokéAPI](https://pokeapi.co). Pokémon © Nintendo, Game Freak and
+  The Pokémon Company; this project is not affiliated with them.
+- Interface icons by Lorc, Delapouite and contributors at
+  [game-icons.net](https://game-icons.net), licensed under CC BY 3.0.
