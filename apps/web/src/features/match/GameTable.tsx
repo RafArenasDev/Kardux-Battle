@@ -313,7 +313,8 @@ function CenterStage({
             <div className="center__board">
                 <PotPile potSize={state.potSize} />
                 <div className="center__cards">
-                    <AnimatePresence>
+                    {/* Slots leave instantly once collected: no lingering exit ghosts. */}
+                    <>
                         {slotIds.map((playerId, index) => {
                             const player = playersById.get(playerId);
                             const revealed = reveal?.cards[playerId];
@@ -381,7 +382,7 @@ function CenterStage({
                                 </CenterSlot>
                             );
                         })}
-                    </AnimatePresence>
+                    </>
                     {slotIds.length === 0 && state.potSize === 0 ? (
                         <div className="center__empty" aria-hidden>
                             <Icon name="sword-clash" />
@@ -438,7 +439,7 @@ function CenterSlot({
             y: to.top + to.height / 2 - (from.top + from.height / 2),
             scale: 0.28,
             rotate: 0,
-            opacity: 0.15,
+            opacity: 0,
             transition: { duration: 0.95, delay: index * 0.12, ease: [0.5, 0, 0.2, 1] },
         });
     }, [collectTo, controls, index, tableRef]);
@@ -449,7 +450,6 @@ function CenterSlot({
             className="center__slot"
             initial={{ opacity: 0, y: fromMe ? 180 : -180, rotate: tilt * 3, scale: 0.9 }}
             animate={controls}
-            exit={{ opacity: 0, transition: { duration: 0.2 } }}
             transition={cardTravel}
         >
             {children}
@@ -574,6 +574,7 @@ function MyZone({
                 aria-label={t('Tu mano', 'Your hand')}
             >
                 <TurnTimer state={state} active={canThrow} />
+                <Seat state={state} player={me} isLeader={false} you />
                 <div className="hand" role="list">
                     <AnimatePresence initial={false}>
                         {state.yourHand.map((handCard, index) => (

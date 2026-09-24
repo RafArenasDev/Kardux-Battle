@@ -233,6 +233,12 @@ function MatchHud({
                     <Icon name="card-play" /> {t('Ronda', 'Round')} {state.round.index + 1}
                 </span>
             ) : null}
+            <span className="hud__item hud__mode">
+                <Icon name={state.config.handSize > 0 ? 'card-ace-spades' : 'crossed-swords'} />{' '}
+                {state.config.handSize > 0
+                    ? t('Clásica · gana la carta más alta', 'Classic · highest card wins')
+                    : t('Batalla de atributos', 'Attribute battle')}
+            </span>
             <span
                 className="hud__item tabular"
                 data-tip={t('Tiempo restante', 'Time left')}

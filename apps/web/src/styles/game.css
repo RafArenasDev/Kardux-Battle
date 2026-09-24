@@ -274,8 +274,10 @@
 
 /* ---------- Table ---------- */
 .table {
-    --card-center: clamp(84px, min(15vw, 19dvh), 176px);
-    --card-hand: clamp(118px, min(22vw, 27dvh), 250px);
+    /* Scales with both width and height, so big screens do not blow cards up. */
+    --card-center: clamp(70px, min(11vw, 16dvh), 140px);
+    --card-hand: clamp(96px, min(15vw, 22dvh), 190px);
+    --card-in-hand: clamp(62px, min(11vw, 17dvh), 128px);
     position: relative;
     flex: 1;
     min-height: 0;
@@ -296,6 +298,10 @@
 .table .my-zone .pcard--lg,
 .table .my-zone .pcard--md {
     --w: var(--card-hand);
+}
+
+.table .hand .pcard {
+    --w: var(--card-in-hand);
 }
 
 .table__felt {

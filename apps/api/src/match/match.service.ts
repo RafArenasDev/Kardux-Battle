@@ -55,10 +55,7 @@ export class MatchService {
         options: { deck?: DeckSourceId | undefined; vsBot?: boolean } = {},
     ): Promise<MatchSummary> {
         const disabled = disabledDeckIds();
-        // The bot plays attribute battles only; the classic deck is always player vs player.
-        const pool = DECK_CATALOG.filter(
-            (deck) => !disabled.has(deck.id) && !(options.vsBot && deck.autoCompare),
-        );
+        const pool = DECK_CATALOG.filter((deck) => !disabled.has(deck.id));
         const deck =
             pool.find((candidate) => candidate.id === options.deck) ??
             pool[randomInt(pool.length)]!;

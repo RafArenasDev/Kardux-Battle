@@ -21,10 +21,10 @@ import { useI18n } from '../../lib/i18n';
 
 const CODE_PATTERN = /^[0-9A-F]{6}$/;
 
-const STATUS_LABEL: Record<MatchSummary['status'], string> = {
-    LOBBY: 'En sala',
-    IN_PROGRESS: 'Jugando',
-    FINISHED: 'Terminada',
+const STATUS_LABEL: Record<MatchSummary['status'], [string, string]> = {
+    LOBBY: ['En sala', 'In lobby'],
+    IN_PROGRESS: ['Jugando', 'Playing'],
+    FINISHED: ['Terminada', 'Finished'],
 };
 
 const cardMotion = {
@@ -47,8 +47,6 @@ export default function HomePage(): JSX.Element {
     const [code, setCode] = useState('');
     const [quickBusy, setQuickBusy] = useState<'rival' | 'bot' | null>(null);
     const [quickDeck, setQuickDeck] = useState<DeckSourceId | 'random'>('random');
-    // The classic deck is played hand-to-hand between people; the bot only plays attribute decks.
-    const botAvailable = quickDeck === 'random' || !getDeckInfo(quickDeck)?.autoCompare;
 
     useEffect(() => {
         let cancelled = false;
@@ -101,7 +99,12 @@ export default function HomePage(): JSX.Element {
             await deleteMatch(active.matchId);
             setActive(null);
             setRooms((current) => current.filter((room) => room.matchId !== active.matchId));
-            toast.show(isHost ? 'Partida eliminada' : 'Saliste de la partida', 'success');
+            toast.show(
+                isHost
+                    ? t('Partida eliminada', 'Match deleted')
+                    : t('Saliste de la partida', 'You left the match'),
+                'success',
+            );
         } catch (error) {
             toast.show(errorMessage(error), 'error');
         }
@@ -112,7 +115,13 @@ export default function HomePage(): JSX.Element {
         if (pasted) {
             setCode(pasted);
         } else {
-            toast.show('No encontramos un código en el portapapeles', 'error');
+            toast.show(
+                t(
+                    'No encontramos un código en el portapapeles',
+                    'No room code found in the clipboard',
+                ),
+                'error',
+            );
         }
     }
 
@@ -133,8 +142,15 @@ export default function HomePage(): JSX.Element {
                 <section className="home__hero">
                     {user ? <Avatar seed={user.avatarSeed} size={64} /> : null}
                     <div className="home__hero-text">
-                        <span className="eyebrow">Tu mesa te espera</span>
-                        <h1>Hola, {user?.nickname ?? 'jugador'}</h1>
+                        <span className="eyebrow">
+                            {t('Tu mesa te espera', 'Your table awaits')}
+                        </span>
+                        <h1>
+                            {t(
+                                `Hola, ${user?.nickname ?? 'jugador'}`,
+                                `Hi, ${user?.nickname ?? 'player'}`,
+                            )}
+                        </h1>
                     </div>
                 </section>
 
@@ -142,12 +158,14 @@ export default function HomePage(): JSX.Element {
                     <motion.div className="resume-banner" {...cardMotion}>
                         <Icon name="card-play" size={30} style={{ color: 'var(--win)' }} />
                         <div className="resume-banner__text">
-                            <strong>Tienes una partida en curso</strong>
+                            <strong>
+                                {t('Tienes una partida en curso', 'You have a match in progress')}
+                            </strong>
                             <span className="text-2">
                                 {active.config.visibility === 'public'
-                                    ? 'Partida rápida'
-                                    : `Sala ${active.code}`}{' '}
-                                · {STATUS_LABEL[active.status]} ·{' '}
+                                    ? t('Partida rápida', 'Quick match')
+                                    : t(`Sala ${active.code}`, `Room ${active.code}`)}{' '}
+                                · {t(...STATUS_LABEL[active.status])} ·{' '}
                                 {l(getDeckInfo(active.config.deckSources[0] ?? 'pokeapi')?.label)}
                             </span>
                         </div>
@@ -157,16 +175,18 @@ export default function HomePage(): JSX.Element {
                                 icon="crossed-swords"
                                 onClick={() => navigate(`/match/${active.matchId}`)}
                             >
-                                Continuar
+                                {t('Continuar', 'Continue')}
                             </Button>
                             <Button variant="ghost" icon="cancel" onClick={removeActive}>
-                                {active.hostId === user?.id ? 'Eliminar' : 'Salir'}
+                                {active.hostId === user?.id
+                                    ? t('Eliminar', 'Delete')
+                                    : t('Salir', 'Leave')}
                             </Button>
                         </div>
                     </motion.div>
                 ) : null}
 
-                <section className="home__actions" aria-label="Jugar">
+                <section className="home__actions" aria-label={t('Jugar', 'Play')}>
                     <motion.article
                         className="panel action-card action-card--quick"
                         {...cardMotion}
@@ -209,7 +229,7 @@ export default function HomePage(): JSX.Element {
                                 variant="ghost"
                                 icon="robot-golem"
                                 loading={quickBusy === 'bot'}
-                                disabled={quickBusy !== null || !botAvailable}
+                                disabled={quickBusy !== null}
                                 onClick={() => void quickMatch(true)}
                             >
                                 {t('Contra la máquina', 'Vs the machine')}
@@ -227,15 +247,17 @@ export default function HomePage(): JSX.Element {
                             <Icon name="card-draw" />
                         </span>
                         <div className="action-card__body">
-                            <h2>Sala privada</h2>
+                            <h2>{t('Sala privada', 'Private room')}</h2>
                             <p className="text-2">
-                                Tú eliges mazo, jugadores y tiempos. Comparte el código con quien
-                                quieras.
+                                {t(
+                                    'Tú eliges mazo, jugadores y tiempos. Comparte el código con quien quieras.',
+                                    'You choose deck, players and timing. Share the code with anyone.',
+                                )}
                             </p>
                         </div>
                         {guest ? (
                             <Button variant="ghost" icon="visored-helm" onClick={goRegister}>
-                                Crea una cuenta
+                                {t('Crea una cuenta', 'Create an account')}
                             </Button>
                         ) : (
                             <Button
@@ -243,7 +265,7 @@ export default function HomePage(): JSX.Element {
                                 icon="card-draw"
                                 onClick={() => navigate('/create')}
                             >
-                                Crear sala
+                                {t('Crear sala', 'Create room')}
                             </Button>
                         )}
                     </motion.article>
@@ -257,8 +279,10 @@ export default function HomePage(): JSX.Element {
                             <Icon name="linked-rings" />
                         </span>
                         <div className="action-card__body">
-                            <h2>Tengo un código</h2>
-                            <p className="text-2">Entra a la sala de un amigo.</p>
+                            <h2>{t('Tengo un código', 'I have a code')}</h2>
+                            <p className="text-2">
+                                {t('Entra a la sala de un amigo.', "Join a friend's room.")}
+                            </p>
                         </div>
                         <form
                             className="stack"
@@ -266,7 +290,7 @@ export default function HomePage(): JSX.Element {
                             onSubmit={joinByCode}
                         >
                             <label className="sr-only" htmlFor="join-code">
-                                Código de sala
+                                {t('Código de sala', 'Room code')}
                             </label>
                             <input
                                 id="join-code"
@@ -295,14 +319,14 @@ export default function HomePage(): JSX.Element {
                                 icon="card-pickup"
                                 onClick={pasteCode}
                             >
-                                Pegar código
+                                {t('Pegar código', 'Paste code')}
                             </Button>
                             <Button
                                 type="submit"
                                 disabled={!CODE_PATTERN.test(code)}
                                 icon="magic-portal"
                             >
-                                Entrar
+                                {t('Entrar', 'Join')}
                             </Button>
                         </form>
                     </motion.article>
@@ -311,7 +335,7 @@ export default function HomePage(): JSX.Element {
                 <section className="home__grid">
                     <div className="panel panel--pad stack home__panel">
                         <div className="row row--between">
-                            <h3>Mis salas privadas</h3>
+                            <h3>{t('Mis salas privadas', 'My private rooms')}</h3>
                             {!guest ? (
                                 <Button
                                     size="sm"
@@ -319,7 +343,7 @@ export default function HomePage(): JSX.Element {
                                     icon="card-draw"
                                     onClick={() => navigate('/create')}
                                 >
-                                    Nueva
+                                    {t('Nueva', 'New')}
                                 </Button>
                             ) : null}
                         </div>
@@ -327,15 +351,20 @@ export default function HomePage(): JSX.Element {
                             <div className="empty-state">
                                 <Icon name="hooded-figure" />
                                 <p>
-                                    Como invitado juegas partidas rápidas. Crea una cuenta para
-                                    tener tus propias salas.
+                                    {t(
+                                        'Como invitado juegas partidas rápidas. Crea una cuenta para tener tus propias salas.',
+                                        'As a guest you play quick matches. Create an account to have your own rooms.',
+                                    )}
                                 </p>
                             </div>
                         ) : rooms.length === 0 ? (
                             <div className="empty-state">
                                 <Icon name="card-draw" />
                                 <p>
-                                    Aún no has creado salas. ¡Arma la primera y reta a tus amigos!
+                                    {t(
+                                        'Aún no has creado salas. ¡Arma la primera y reta a tus amigos!',
+                                        'No rooms yet. Build your first one and challenge your friends!',
+                                    )}
                                 </p>
                             </div>
                         ) : (
@@ -353,7 +382,8 @@ export default function HomePage(): JSX.Element {
                                             </strong>
                                             <span className="text-3">
                                                 {room.playerCount}/{room.config.maxPlayers}{' '}
-                                                jugadores · {STATUS_LABEL[room.status]}
+                                                {t('jugadores', 'players')} ·{' '}
+                                                {t(...STATUS_LABEL[room.status])}
                                             </span>
                                         </span>
                                         {room.status !== 'FINISHED' ? (
@@ -362,10 +392,12 @@ export default function HomePage(): JSX.Element {
                                                 variant="gold"
                                                 onClick={() => navigate(`/join/${room.code}`)}
                                             >
-                                                Abrir
+                                                {t('Abrir', 'Open')}
                                             </Button>
                                         ) : (
-                                            <span className="badge badge--muted">Cerrada</span>
+                                            <span className="badge badge--muted">
+                                                {t('Cerrada', 'Closed')}
+                                            </span>
                                         )}
                                     </li>
                                 ))}
@@ -374,11 +406,16 @@ export default function HomePage(): JSX.Element {
                     </div>
 
                     <div className="panel panel--pad stack home__panel">
-                        <h3>Mejores jugadores</h3>
+                        <h3>{t('Mejores jugadores', 'Top players')}</h3>
                         {leaders.length === 0 ? (
                             <div className="empty-state">
                                 <Icon name="podium-winner" />
-                                <p>El ranking se llena con las partidas terminadas.</p>
+                                <p>
+                                    {t(
+                                        'El ranking se llena con las partidas terminadas.',
+                                        'The ranking fills up with finished matches.',
+                                    )}
+                                </p>
                             </div>
                         ) : (
                             <ol className="room-list home__scroll">

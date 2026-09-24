@@ -27,7 +27,21 @@ Everything below is committed on `main` except where noted. Start here.
   the top, uniform home cards with scrolling rooms/leaderboard panels, round banner in its own
   slot above the cards, localized error messages.
 
+### Round 2 (same day)
+
+- Cards scale with width and height (smaller on big screens, readable on phones); classic
+  hand cards have their own size.
+- Removed lingering "ghost" cards: collected center slots now leave instantly.
+- Classic vs the machine: the bot throws a random card from its hand.
+- Own seat (name/avatar) shown next to the classic hand; HUD shows the game mode.
+- Home fully translated (ES/EN). Sign-up page back to natural page scroll.
+
 ### Pending (in priority order)
+
+0. **Create page per mode** (user priority): choosing the classic deck must switch the rules
+   panel to the classic rules; poker (Texas Hold'em, 5-card draw) and 21 belong to the
+   **Casino** mode with their own rules/UI - they are not battle-deck rules. Chips/coins are a
+   casino concept (not shown in battle or classic matches).
 
 1. **Full ES/EN translation of the UI.** The locale provider (`apps/web/src/lib/i18n.tsx`)
    detects the browser language and the switch works, but many screens still have hardcoded

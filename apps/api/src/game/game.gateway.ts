@@ -197,7 +197,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
             }
 
             // Against the machine: a fresh lobby, the bot takes the other seat and it starts.
-            if (options.vsBot && options.deck !== 'deckofcards') {
+            if (options.vsBot) {
                 if (current) await this.abandonLobby(client, auth, current.id);
                 const created = await this.matchService.createQuickMatch(auth.userId, {
                     deck: options.deck,

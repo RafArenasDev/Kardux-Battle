@@ -320,19 +320,25 @@ export class MatchRuntimeService implements OnModuleDestroy {
      */
     private autoPlayNext(matchId: string, state: MatchState): void {
         const round = state.round;
-        // Hand matches: every player chooses their own card, nothing is played for them.
-        if (state.phase !== 'AWAITING_CARDS' || !round || (state.config.handSize ?? 0) > 0) return;
+        if (state.phase !== 'AWAITING_CARDS' || !round) return;
 
-        const nextPlayerId = round.playOrder.find((id) => !round.playedCards[id]);
+        // Hand matches: people choose their own card; only the bot is played for.
+        const handSize = state.config.handSize ?? 0;
+        const nextPlayerId = round.playOrder.find(
+            (id) => !round.playedCards[id] && (handSize === 0 || id.startsWith(BOT_PREFIX)),
+        );
         if (!nextPlayerId || this.autoPlays.has(matchId)) return;
 
         const delay =
             nextPlayerId === round.leaderId ? LEADER_PLAY_DELAY_MS : FOLLOWER_PLAY_DELAY_MS;
         const timer = setTimeout(() => {
             this.autoPlays.delete(matchId);
+            const hand = handSize > 0 ? (state.piles[nextPlayerId] ?? []).slice(0, handSize) : [];
+            const pick = hand[Math.floor(Math.random() * hand.length)];
             void this.dispatchAction(matchId, {
                 type: 'round.playCard',
                 playerId: nextPlayerId,
+                ...(pick ? { cardCode: pick.code } : {}),
             }).catch((error: unknown) =>
                 this.logger.error(
                     `Auto-play failed for match ${matchId}: ${(error as Error).message}`,
