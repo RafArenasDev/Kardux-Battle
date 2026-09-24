@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { crestUrl } from '../brand/Brand';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
@@ -44,6 +45,7 @@ function recentlyDismissed(): boolean {
  * running installed, and after a dismissal for a few days (a per-device convenience only).
  */
 export function InstallPrompt(): JSX.Element | null {
+    const { t } = useTranslation();
     const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
     const [platform, setPlatform] = useState<Platform>(null);
 
@@ -95,7 +97,7 @@ export function InstallPrompt(): JSX.Element | null {
                 <motion.aside
                     className="install panel"
                     role="dialog"
-                    aria-label="Instalar Kardux Battle"
+                    aria-label={t('install.title')}
                     initial={{ opacity: 0, y: 40, scale: 0.96 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 40, scale: 0.96 }}
@@ -103,16 +105,15 @@ export function InstallPrompt(): JSX.Element | null {
                 >
                     <img src={crestUrl} alt="" className="install__icon" width={56} height={58} />
                     <div className="install__text">
-                        <strong>Instala Kardux Battle</strong>
+                        <strong>{t('install.title')}</strong>
                         {platform === 'native' ? (
-                            <span className="text-2">
-                                Juega a pantalla completa, desde tu escritorio o tu pantalla de
-                                inicio.
-                            </span>
+                            <span className="text-2">{t('install.native')}</span>
                         ) : (
                             <span className="text-2">
-                                Toca <Icon name="share" /> <b>Compartir</b> y luego{' '}
-                                <b>Agregar a inicio</b>.
+                                <Trans
+                                    i18nKey="install.ios"
+                                    components={{ icon: <Icon name="share" />, b: <b /> }}
+                                />
                             </span>
                         )}
                     </div>
@@ -124,11 +125,11 @@ export function InstallPrompt(): JSX.Element | null {
                                 icon="card-pickup"
                                 onClick={() => void install()}
                             >
-                                Instalar
+                                {t('install.install')}
                             </Button>
                         ) : null}
                         <Button size="sm" variant="ghost" onClick={dismiss}>
-                            Ahora no
+                            {t('common.notNow')}
                         </Button>
                     </div>
                 </motion.aside>

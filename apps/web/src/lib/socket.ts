@@ -37,7 +37,7 @@ export function whenConnected(timeoutMs = 8_000): Promise<GameSocket> {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
             gameSocket.off('connect', onConnect);
-            reject(new Error('No se pudo conectar con el servidor de juego.'));
+            reject(new TypeError('Could not connect to the game server.'));
         }, timeoutMs);
         function onConnect(): void {
             clearTimeout(timer);

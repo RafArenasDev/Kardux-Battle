@@ -2,31 +2,43 @@ import type { ChatMessagePayload, RedactedMatchState } from '@kardux/contracts';
 import { motion } from 'framer-motion';
 import type { FormEvent, JSX } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
-import { Segmented } from '../../components/ui/Segmented';
+import type { FrozenCounts } from './useMatchSession';
+
+export type PanelTab = 'standings' | 'chat';
 
 interface SidePanelProps {
     state: RedactedMatchState;
     chat: ChatMessagePayload[];
+    tab: PanelTab;
+    onTab: (tab: PanelTab) => void;
+    unread: number;
+    /** While the deal plays the counts are still landing; during a reveal they lag behind. */
+    dealing: boolean;
+    frozen: FrozenCounts | null;
     onSend: (text: string) => void;
 }
 
-type Tab = 'standings' | 'chat';
-
-export function SidePanel({ state, chat, onSend }: SidePanelProps): JSX.Element {
-    const [tab, setTab] = useState<Tab>('standings');
+/** Live standings (cards held right now) and the table chat. */
+export function SidePanel({
+    state,
+    chat,
+    tab,
+    onTab,
+    unread,
+    dealing,
+    frozen,
+    onSend,
+}: SidePanelProps): JSX.Element {
+    const { t } = useTranslation();
     const [text, setText] = useState('');
-    const [seen, setSeen] = useState(0);
     const listRef = useRef<HTMLOListElement>(null);
-    const nicknames = new Map(state.players.map((player) => [player.id, player]));
-    const unread = tab === 'chat' ? 0 : Math.max(0, chat.length - seen);
+    const players = new Map(state.players.map((player) => [player.id, player]));
 
     useEffect(() => {
-        if (tab === 'chat') {
-            setSeen(chat.length);
-            listRef.current?.lastElementChild?.scrollIntoView({ block: 'end' });
-        }
+        if (tab === 'chat') listRef.current?.lastElementChild?.scrollIntoView({ block: 'end' });
     }, [tab, chat.length]);
 
     function submit(event: FormEvent): void {
@@ -39,49 +51,80 @@ export function SidePanel({ state, chat, onSend }: SidePanelProps): JSX.Element 
 
     const standings = [...state.players]
         .filter((player) => !player.isSpectator || player.isEliminated)
-        .sort((a, b) => b.cardCount - a.cardCount);
+        .sort((a, b) => Number(a.hasLeft) - Number(b.hasLeft) || b.cardCount - a.cardCount);
 
     return (
         <aside className="side-panel panel">
-            <Segmented
-                label="Panel"
-                value={tab}
-                onChange={setTab}
-                options={[
-                    { value: 'standings', label: 'Posiciones' },
-                    { value: 'chat', label: unread > 0 ? `Chat (${unread})` : 'Chat' },
-                ]}
-            />
+            <div className="segmented" role="tablist" aria-label={t('panel.label')}>
+                {(['standings', 'chat'] as const).map((option) => (
+                    <button
+                        key={option}
+                        type="button"
+                        role="tab"
+                        className="segmented__item"
+                        aria-selected={tab === option}
+                        onClick={() => onTab(option)}
+                    >
+                        {tab === option ? (
+                            <motion.span
+                                layoutId="side-panel-thumb"
+                                className="segmented__thumb"
+                                transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
+                            />
+                        ) : null}
+                        {t(`panel.${option}`)}
+                        {option === 'chat' && unread > 0 ? (
+                            <span
+                                className="unread-dot"
+                                aria-label={t('panel.unread', { count: unread })}
+                            >
+                                {unread}
+                            </span>
+                        ) : null}
+                    </button>
+                ))}
+            </div>
 
             {tab === 'standings' ? (
                 <ol className="standings">
+                    <li className="standings__legend text-3">{t('panel.legend')}</li>
                     {standings.map((player, index) => (
-                        <motion.li
+                        <li
                             key={player.id}
-                            layout
-                            transition={{ type: 'spring', bounce: 0, duration: 0.45 }}
-                            className={`standings__row ${player.id === state.yourId ? 'is-you' : ''} ${player.isEliminated ? 'is-out' : ''}`}
+                            className={[
+                                'standings__row',
+                                player.id === state.yourId && 'is-you',
+                                player.isEliminated && 'is-out',
+                            ]
+                                .filter(Boolean)
+                                .join(' ')}
                         >
                             <span className="standings__rank">{index + 1}</span>
                             <Avatar seed={player.avatarSeed} size={32} />
                             <span className="standings__name">
-                                {player.nickname}
-                                {player.id === state.yourId ? (
-                                    <span className="text-3"> (tú)</span>
+                                {player.id === state.yourId
+                                    ? t('common.youSuffix', { name: player.nickname })
+                                    : player.nickname}
+                                {player.hasLeft ? (
+                                    <span className="badge badge--lose">
+                                        {t('table.status.left')}
+                                    </span>
                                 ) : null}
                             </span>
-                            <span className="standings__count tabular">{player.cardCount}</span>
-                        </motion.li>
+                            <span className="standings__count tabular">
+                                {dealing ? '…' : (frozen?.cards[player.id] ?? player.cardCount)}
+                            </span>
+                        </li>
                     ))}
                 </ol>
             ) : (
                 <div className="chat">
                     <ol className="chat__list" ref={listRef}>
                         {chat.length === 0 ? (
-                            <li className="text-3 chat__empty">Saluda a la mesa 👋</li>
+                            <li className="text-3 chat__empty">{t('panel.chatEmpty')}</li>
                         ) : (
                             chat.map((message) => {
-                                const author = nicknames.get(message.playerId);
+                                const author = players.get(message.playerId);
                                 const mine = message.playerId === state.yourId;
                                 return (
                                     <li
@@ -93,7 +136,9 @@ export function SidePanel({ state, chat, onSend }: SidePanelProps): JSX.Element 
                                         ) : null}
                                         <span className="chat__bubble">
                                             {!mine ? (
-                                                <strong>{author?.nickname ?? 'Jugador'}</strong>
+                                                <strong>
+                                                    {author?.nickname ?? t('common.player')}
+                                                </strong>
                                             ) : null}
                                             {/* Rendered as text - never as HTML. */}
                                             <span>{message.text}</span>
@@ -105,12 +150,12 @@ export function SidePanel({ state, chat, onSend }: SidePanelProps): JSX.Element 
                     </ol>
                     <form className="chat__form" onSubmit={submit}>
                         <label className="sr-only" htmlFor="chat-input">
-                            Mensaje
+                            {t('panel.message')}
                         </label>
                         <input
                             id="chat-input"
                             className="input"
-                            placeholder="Escribe un mensaje…"
+                            placeholder={t('panel.placeholder')}
                             maxLength={280}
                             autoComplete="off"
                             value={text}
@@ -120,7 +165,7 @@ export function SidePanel({ state, chat, onSend }: SidePanelProps): JSX.Element 
                             type="submit"
                             variant="gold"
                             icon="chat-bubble"
-                            aria-label="Enviar"
+                            aria-label={t('panel.send')}
                             disabled={!text.trim()}
                         />
                     </form>

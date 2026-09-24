@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import type { JSX } from 'react';
 import { Avatar } from '../../components/ui/Avatar';
 import { Icon } from '../../components/ui/Icon';
-import { useI18n } from '../../lib/i18n';
+import { useTranslation } from 'react-i18next';
+import { useLocale } from '../../lib/i18n';
 
 interface AvatarPickerProps {
     value: string;
@@ -13,11 +14,12 @@ interface AvatarPickerProps {
 /** Pick a character and a color - the player decides how they're represented. */
 export function AvatarPicker({ value, onChange }: AvatarPickerProps): JSX.Element {
     const { icon, color } = resolveAvatar(value);
-    const { t, l } = useI18n();
+    const { t } = useTranslation();
+    const { l } = useLocale();
 
     return (
         <fieldset className="avatar-picker">
-            <legend className="field__label">{t('Tu avatar', 'Your avatar')}</legend>
+            <legend className="field__label">{t('auth.avatar')}</legend>
 
             <div className="avatar-picker__preview">
                 <motion.div
@@ -37,7 +39,7 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps): JSX.Elemen
             <div
                 className="avatar-picker__colors"
                 role="radiogroup"
-                aria-label={t('Color', 'Color')}
+                aria-label={t('auth.avatarColor')}
             >
                 {AVATAR_COLORS.map((option) => {
                     const selected = option.id === color.id;
@@ -61,7 +63,7 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps): JSX.Elemen
             <div
                 className="avatar-picker__icons"
                 role="radiogroup"
-                aria-label={t('Personaje', 'Character')}
+                aria-label={t('auth.avatarCharacter')}
             >
                 {AVATAR_ICONS.map((option) => {
                     const selected = option.id === icon.id;

@@ -1,0 +1,395 @@
+{
+    "auth": {
+        "welcome": "Welcome, {{name}}!",
+        "wrongCredentials": "Wrong username or password.",
+        "usernameRule": "3 to 24 characters: letters, numbers or _",
+        "checking": "Checking…",
+        "available": "Available!",
+        "taken": "Taken. Try: {{suggestions}}",
+        "hidePassword": "Hide password",
+        "showPassword": "Show password",
+        "tagline": "Pick the attribute. Own the table.",
+        "loginTitle": "Welcome back",
+        "registerTitle": "Create your account",
+        "loginIntro": "Sign in to open private rooms and challenge your friends.",
+        "registerIntro": "Pick your name, password and avatar.",
+        "accessType": "Access type",
+        "signIn": "Sign in",
+        "signUp": "Sign up",
+        "username": "Username",
+        "usernamePlaceholder": "Your player name",
+        "password": "Password",
+        "passwordPlaceholder": "Your password",
+        "passwordMin": "At least 8 characters",
+        "passwordMinHint": "At least 8 characters.",
+        "confirm": "Confirm password",
+        "confirmPlaceholder": "Repeat the password",
+        "mismatch": "Passwords do not match.",
+        "remember": "Stay signed in",
+        "rememberHint": "Only on this device, for 30 days or until you sign out. Your browser can also save the password.",
+        "loginSubmit": "Enter the battle",
+        "registerSubmit": "Sign up and play",
+        "guest": "Play as guest",
+        "guestNote": "Guests play quick matches and the session only lasts in this tab. Create an account to open private rooms.",
+        "features": {
+            "battle": {
+                "title": "Pokémon battles",
+                "text": "Over a thousand Pokémon with their real stats. Pick the strongest attribute and win the round."
+            },
+            "ranking": {
+                "title": "A real ranking",
+                "text": "Every ranked match adds or takes points based on your final place and your rivals’ level."
+            },
+            "friends": {
+                "title": "Private rooms",
+                "text": "From 2 to 7 players with a room code or a link to share."
+            },
+            "bot": {
+                "title": "Quick match",
+                "text": "Find a rival right away or practice against the machine."
+            }
+        },
+        "avatar": "Your avatar",
+        "avatarColor": "Color",
+        "avatarCharacter": "Character"
+    },
+    "common": {
+        "or": "or",
+        "language": "Language",
+        "guest": "Guest",
+        "player": "Player",
+        "signOut": "Sign out",
+        "notNow": "Not now",
+        "decrease": "Fewer {{label}}",
+        "increase": "More {{label}}",
+        "homeLink": "Kardux Battle - home",
+        "loading": "Loading…",
+        "back": "Back",
+        "backHome": "Back to home",
+        "you": "You",
+        "youSuffix": "{{name}} (you)",
+        "cards_one": "{{count}} card",
+        "cards_other": "{{count}} cards",
+        "players_one": "{{count}} player",
+        "players_other": "{{count}} players",
+        "close": "Close",
+        "copied": "{{what}} copied",
+        "copyFailed": "Could not copy"
+    },
+    "footer": {
+        "notice": "Free, non-profit game with no payments or purchases. Fan project not affiliated with Nintendo, Game Freak or The Pokémon Company; trademarks belong to their owners.",
+        "source": "Data and images:"
+    },
+    "install": {
+        "title": "Install Kardux Battle",
+        "native": "Play full screen, from your desktop or your home screen.",
+        "ios": "Tap <icon/> <b>Share</b> and then <b>Add to Home Screen</b>.",
+        "install": "Install"
+    },
+    "crash": {
+        "title": "We could not show this screen",
+        "body": "Reload to try again or go back home.",
+        "home": "Go home",
+        "reload": "Reload"
+    },
+    "format": {
+        "noLimit": "No limit",
+        "minutes": "{{count}} min",
+        "hours": "{{count}} h",
+        "seconds": "{{count}} s"
+    },
+    "share": {
+        "subject": "I challenge you in Kardux Battle",
+        "message": "I challenge you in Kardux Battle! Join my room with the code {{code}}: {{url}}"
+    },
+    "errors": {
+        "offline": "Cannot reach the server. Check your internet or try again in a few seconds.",
+        "unexpected": "That could not be completed. Please try again.",
+        "serverDown": "The server had a problem. Try again in a moment.",
+        "reconnecting": "No connection to the server. Reconnecting…",
+        "codes": {
+            "ERR_VALIDATION": "Check the details and try again.",
+            "ERR_UNAUTHORIZED": "Your session expired. Sign in again.",
+            "ERR_MATCH_NOT_FOUND": "That match no longer exists. Check the code.",
+            "ERR_MATCH_FULL": "The room is full.",
+            "ERR_MATCH_ALREADY_STARTED": "The match already started.",
+            "ERR_NOT_HOST": "Only the host can do that.",
+            "ERR_NOT_YOUR_TURN": "It is not your turn yet.",
+            "ERR_NOT_ENOUGH_PLAYERS": "More players are needed to start.",
+            "ERR_INVALID_CONFIG": "That setup is not valid.",
+            "ERR_INVALID_ATTRIBUTE": "That attribute is not on your card.",
+            "ERR_ALREADY_PLAYED": "You already played this round.",
+            "ERR_SPECTATOR_CANNOT_ACT": "You are watching as a spectator.",
+            "ERR_RATE_LIMITED": "Too fast, wait a moment.",
+            "ERR_GUEST_CANNOT_HOST": "Create an account to open private rooms."
+        }
+    },
+    "home": {
+        "eyebrow": "Your table awaits",
+        "greeting": "Hi, {{name}}",
+        "play": "Play",
+        "quick": {
+            "title": "Quick match",
+            "text": "A 1-on-1 duel with the Pokémon deck: find a rival right away or practice against the machine.",
+            "rival": "Find a rival",
+            "bot": "Vs the machine"
+        },
+        "private": {
+            "title": "Private room",
+            "text": "From 2 to 7 players. You set the rules and share the code with anyone.",
+            "create": "Create room",
+            "register": "Create an account"
+        },
+        "join": {
+            "title": "I have a code",
+            "text": "Join a friend's room.",
+            "code": "Room code",
+            "paste": "Paste",
+            "submit": "Join",
+            "noClipboard": "No room code found in the clipboard"
+        },
+        "rooms": {
+            "title": "My private rooms",
+            "new": "New",
+            "guest": "As a guest you play quick matches. Create an account to have your own rooms and appear in the ranking.",
+            "empty": "No open rooms yet. Build one and challenge your friends!",
+            "open": "Open",
+            "status": {
+                "LOBBY": "Waiting for players",
+                "IN_PROGRESS": "In play",
+                "FINISHED": "Finished"
+            }
+        }
+    },
+    "ranking": {
+        "title": "Ranking",
+        "howItWorks": "How is it scored?",
+        "empty": "The ranking fills up with finished matches between registered accounts.",
+        "player": "Player",
+        "points": "Points",
+        "record": "W-D-L",
+        "recordHint": "Wins - draws - losses",
+        "winRate": "Win %",
+        "streak": "Streak",
+        "games_one": "{{count}} match",
+        "games_other": "{{count}} matches",
+        "favorite": "favors {{attribute}}",
+        "explain": {
+            "start": "Every account starts with 1200 points.",
+            "placement": "In each match your final place comes from your cards: whoever ends with the most cards finishes first.",
+            "rivals": "You gain points for every rival below you and lose points for every rival above you. Beating someone with more points than you is worth more (Elo system).",
+            "leave": "Leaving counts as a loss: you finish last with 0 cards. In a duel, your rival wins the match and takes your cards.",
+            "unranked": "Only matches between registered accounts are ranked; games against the machine or with guests do not change the ranking."
+        },
+        "medal": {
+            "gold": "Gold · 1st place",
+            "silver": "Silver · 2nd place",
+            "bronze": "Bronze · 3rd place"
+        }
+    },
+    "rules": {
+        "open": "How to play",
+        "title": "How to play",
+        "items": {
+            "goal": {
+                "title": "Goal",
+                "text": "Win every card by comparing your Pokémon stats."
+            },
+            "deal": {
+                "title": "The deal",
+                "text": "The deck is made of quartet packs (1A, 2A, 3A, 4A…); each quartet is one Pokémon type. Every possible card is dealt and the leftovers stay out of play. You only see the top card of your pile."
+            },
+            "first": {
+                "title": "Who starts",
+                "text": "Whoever holds card 1A starts; if nobody has it, 1B, 1C… then 2A. After that, play follows the joining order."
+            },
+            "round": {
+                "title": "Each round",
+                "text": "The player on turn picks an attribute of their card and everyone lays down their top card. The highest value wins, takes every card on the table and picks the next attribute."
+            },
+            "tie": {
+                "title": "Ties and the pot",
+                "text": "On a tie the cards stay in the pot and another round is played; whoever wins the next one takes the pot as well."
+            },
+            "leave": {
+                "title": "Leaving",
+                "text": "Leaving a match is final and counts as a loss. In a duel your rival wins with all your cards; with more players your cards are shared out among the rest and the match goes on."
+            },
+            "end": {
+                "title": "End of the match",
+                "text": "It ends when someone holds every card or time runs out: whoever has the most cards wins, and equal counts are a draw."
+            }
+        }
+    },
+    "create": {
+        "title": "Set up your table",
+        "created": "Room {{code}} created",
+        "deck": "The deck",
+        "pool_one": "{{count}} Pokémon available",
+        "pool_other": "{{count}} Pokémon available",
+        "syncing": "Downloading from PokéAPI…",
+        "attributesAvailable_one": "{{count}} attribute",
+        "attributesAvailable_other": "{{count}} attributes",
+        "facts": {
+            "total": "Cards in the deck",
+            "perPlayer_one": "Per player (with {{count}})",
+            "perPlayer_other": "Per player (with {{count}})",
+            "leftover": "Leftovers out of play",
+            "duration": "Duration"
+        },
+        "rules": "Rules",
+        "maxPlayers": "Max players",
+        "minPlayers": "Minimum to start",
+        "minPlayersHint": "the host starts it",
+        "autoStart": "Auto start",
+        "autoStartHint": "when this many join",
+        "attributes": "Attributes per card",
+        "packs": "Packs",
+        "packsHint": "cards per quartet",
+        "families": "Quartets",
+        "familiesHint": "Pokémon types",
+        "duration": "Duration",
+        "turnTime": "Time per turn",
+        "free": "Unlimited",
+        "attrTitle": "The 6 attributes",
+        "attrInPlay": "{{count}} of {{total}} in play",
+        "attrIntro": "They are each Pokémon’s official base stats. On your turn you pick one and the highest value wins. Fewer attributes make a quicker match; all 6 make it more strategic.",
+        "attrOn": "In play",
+        "attrOff": "Off",
+        "attr": {
+            "hp": "Hit points: how much damage it takes before fainting.",
+            "attack": "Strength of its physical attacks.",
+            "defense": "Resistance to physical attacks.",
+            "speed": "Quickness: decides who acts first in battle.",
+            "special-attack": "Power of its special (elemental) attacks.",
+            "special-defense": "Resistance to special attacks."
+        }
+    },
+    "join": {
+        "room": "Room {{code}}",
+        "invite": "Room invitation",
+        "invites": "invites you to play",
+        "seats": "{{count}}/{{max}} players",
+        "spectator": "In play: you will join as a spectator",
+        "enter": "Join the room"
+    },
+    "lobby": {
+        "searching": "Finding a rival…",
+        "found": "Rival found!",
+        "searchingSeat": "Searching…",
+        "inviteTitle": "Invite your rivals",
+        "code": "Code",
+        "link": "Link",
+        "copyCode": "Code {{code}}, tap to copy",
+        "codeHint": "Tap the code to copy it or share the link.",
+        "email": "Email",
+        "copyLink": "Copy link",
+        "share": "Share",
+        "players": "Players",
+        "host": "Host",
+        "ready": "Ready",
+        "free": "Open",
+        "autoStart": "Starts on its own at {{count}}",
+        "startsIn": "The match starts in",
+        "cancel": "Cancel",
+        "start": "Start match",
+        "missing_one": "{{count}} more player needed",
+        "missing_other": "{{count}} more players needed",
+        "waitHost": "Waiting for the host to start the match…",
+        "stopSearching": "Stop searching",
+        "closeRoom": "Close the room",
+        "leave": "Leave the room"
+    },
+    "table": {
+        "attributes": "Attributes",
+        "playWith": "Play {{attribute}}: {{value}}",
+        "otherRoom": "You are already playing in another room.",
+        "closed": "The match ended or the host closed the room.",
+        "entering": "Joining the table…",
+        "reconnecting": "Reconnecting…",
+        "hud": "Match status",
+        "round": "Round",
+        "roundNumber": "Round {{count}}",
+        "timeLeft": "Time left",
+        "rivals": "Rivals",
+        "myZone": "Your area",
+        "deck": "Deck",
+        "deckHint": "The match deck. After the deal the leftover cards stay here.",
+        "outOfPlay": "out of play",
+        "pot": "Pot",
+        "potHint": "Cards from tied rounds: the winner of the next round takes them.",
+        "status": {
+            "left": "Left",
+            "out": "Out of cards",
+            "choosing": "Choosing an attribute…",
+            "played": "Card on the table",
+            "playing": "Playing…",
+            "leader": "Leader"
+        },
+        "line": {
+            "dealing": "Shuffling and dealing…",
+            "comparing": "Comparing {{attribute}}…",
+            "yourTurn": "Your turn! Pick your card’s strongest attribute",
+            "choosing": "{{name}} is choosing an attribute…",
+            "playing": "Playing",
+            "setting": "Setting the table…"
+        },
+        "result": {
+            "youWin": "You win the round!",
+            "theyWin": "{{name}} wins",
+            "tie": "Tie!",
+            "winDetail_one": "Takes {{count}} card",
+            "winDetail_other": "Takes {{count}} cards",
+            "tieDetail_one": "{{count}} card goes to the pot",
+            "tieDetail_other": "{{count}} cards go to the pot"
+        },
+        "hint": {
+            "choose": "Tap the attribute you want to play.",
+            "playing": "Cards are laid down in turn…",
+            "watch": "Watch the round resolve.",
+            "getReady": "Get ready: you choose.",
+            "wait": "Wait for your turn."
+        },
+        "spectator": {
+            "out": "You ran out of cards. You keep watching the match.",
+            "watching": "You are watching as a spectator."
+        },
+        "timer_one": "{{count}} second to choose",
+        "timer_other": "{{count}} seconds to choose",
+        "noTurn": "No active turn",
+        "leave": {
+            "button": "Leave",
+            "confirm": "Confirm leaving",
+            "duel": "Leave? Your rival wins and takes your cards.",
+            "table": "Leave? You lose and your cards are shared among the others.",
+            "yes": "Leave",
+            "no": "Keep playing"
+        }
+    },
+    "panel": {
+        "label": "Table panel",
+        "open": "Standings and chat",
+        "standings": "Standings",
+        "chat": "Chat",
+        "unread_one": "{{count}} new message",
+        "unread_other": "{{count}} new messages",
+        "legend": "Cards held by each player",
+        "chatEmpty": "Say hi to the table 👋",
+        "message": "Message",
+        "placeholder": "Write a message…",
+        "send": "Send"
+    },
+    "finish": {
+        "draw": "Draw!",
+        "victory": "Victory!",
+        "winner": "{{name}} wins",
+        "drawText": "Nobody took the table this time.",
+        "victoryText": "You took the table. Well played!",
+        "rivalLeft": "Your rival left: the win and their cards are yours.",
+        "youLeft": "You left the match.",
+        "defeatText": "Good game. A rematch awaits.",
+        "rankingNote": "If every player has an account, the result already counts in the ranking.",
+        "practiceNote": "Practice match against the machine: the ranking does not change.",
+        "again": "Another quick match"
+    }
+}

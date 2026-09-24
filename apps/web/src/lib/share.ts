@@ -1,10 +1,12 @@
+import i18n from '../i18n';
+
 /** Absolute invite link for a room code. */
 export function inviteUrl(code: string): string {
     return `${window.location.origin}/join/${code}`;
 }
 
 export function inviteText(code: string): string {
-    return `¡Te reto en Kardux Battle! Entra a mi sala con el código ${code}: ${inviteUrl(code)}`;
+    return i18n.t('share.message', { code, url: inviteUrl(code) });
 }
 
 export function whatsappUrl(code: string): string {
@@ -12,12 +14,12 @@ export function whatsappUrl(code: string): string {
 }
 
 export function emailUrl(code: string): string {
-    const subject = encodeURIComponent('Te reto en Kardux Battle');
+    const subject = encodeURIComponent(i18n.t('share.subject'));
     return `mailto:?subject=${subject}&body=${encodeURIComponent(inviteText(code))}`;
 }
 
 export function telegramUrl(code: string): string {
-    return `https://t.me/share/url?url=${encodeURIComponent(inviteUrl(code))}&text=${encodeURIComponent('¡Te reto en Kardux Battle!')}`;
+    return `https://t.me/share/url?url=${encodeURIComponent(inviteUrl(code))}&text=${encodeURIComponent(i18n.t('share.subject'))}`;
 }
 
 /** Pulls a room code out of anything pasted: the bare code or a full invite link. */
@@ -51,7 +53,7 @@ export async function nativeShare(code: string): Promise<void> {
     try {
         await navigator.share({
             title: 'Kardux Battle',
-            text: `¡Te reto en Kardux Battle! Código ${code}`,
+            text: inviteText(code),
             url: inviteUrl(code),
         });
     } catch {

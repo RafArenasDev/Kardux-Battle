@@ -1,0 +1,395 @@
+{
+    "auth": {
+        "welcome": "¡Bienvenido, {{name}}!",
+        "wrongCredentials": "Usuario o contraseña incorrectos.",
+        "usernameRule": "3 a 24 caracteres: letras, números o _",
+        "checking": "Comprobando…",
+        "available": "¡Disponible!",
+        "taken": "Ocupado. Prueba: {{suggestions}}",
+        "hidePassword": "Ocultar contraseña",
+        "showPassword": "Mostrar contraseña",
+        "tagline": "Elige el atributo. Gánate la mesa.",
+        "loginTitle": "Bienvenido de vuelta",
+        "registerTitle": "Crea tu cuenta",
+        "loginIntro": "Entra para crear salas privadas y retar a tus amigos.",
+        "registerIntro": "Elige tu nombre, tu contraseña y tu avatar.",
+        "accessType": "Tipo de acceso",
+        "signIn": "Iniciar sesión",
+        "signUp": "Crear cuenta",
+        "username": "Usuario",
+        "usernamePlaceholder": "Tu nombre de jugador",
+        "password": "Contraseña",
+        "passwordPlaceholder": "Tu contraseña",
+        "passwordMin": "Mínimo 8 caracteres",
+        "passwordMinHint": "Mínimo 8 caracteres.",
+        "confirm": "Confirmar contraseña",
+        "confirmPlaceholder": "Repite la contraseña",
+        "mismatch": "Las contraseñas no coinciden.",
+        "remember": "Mantener sesión iniciada",
+        "rememberHint": "Solo en este dispositivo, por 30 días o hasta que cierres sesión. Tu navegador puede además guardar la contraseña.",
+        "loginSubmit": "Entrar a la batalla",
+        "registerSubmit": "Crear cuenta y jugar",
+        "guest": "Jugar como invitado",
+        "guestNote": "Los invitados juegan partidas rápidas y la sesión dura solo en esta pestaña. Para crear salas privadas, crea una cuenta.",
+        "features": {
+            "battle": {
+                "title": "Batallas Pokémon",
+                "text": "Más de mil Pokémon con sus estadísticas reales. Elige el atributo más fuerte y gana la ronda."
+            },
+            "ranking": {
+                "title": "Ranking de verdad",
+                "text": "Cada partida con cuenta suma o resta puntos según tu posición final y el nivel de tus rivales."
+            },
+            "friends": {
+                "title": "Salas privadas",
+                "text": "De 2 a 7 jugadores con un código de sala o un enlace para compartir."
+            },
+            "bot": {
+                "title": "Partida rápida",
+                "text": "Encuentra un rival al instante o practica contra la máquina."
+            }
+        },
+        "avatar": "Tu avatar",
+        "avatarColor": "Color",
+        "avatarCharacter": "Personaje"
+    },
+    "common": {
+        "or": "o",
+        "language": "Idioma",
+        "guest": "Invitado",
+        "player": "Jugador",
+        "signOut": "Cerrar sesión",
+        "notNow": "Ahora no",
+        "decrease": "Menos {{label}}",
+        "increase": "Más {{label}}",
+        "homeLink": "Kardux Battle - inicio",
+        "loading": "Cargando…",
+        "back": "Volver",
+        "backHome": "Volver al inicio",
+        "you": "Tú",
+        "youSuffix": "{{name}} (tú)",
+        "cards_one": "{{count}} carta",
+        "cards_other": "{{count}} cartas",
+        "players_one": "{{count}} jugador",
+        "players_other": "{{count}} jugadores",
+        "close": "Cerrar",
+        "copied": "{{what}} copiado",
+        "copyFailed": "No se pudo copiar"
+    },
+    "footer": {
+        "notice": "Juego gratuito y sin fines de lucro, sin pagos ni compras. Proyecto de fans no afiliado a Nintendo, Game Freak ni The Pokémon Company; las marcas pertenecen a sus dueños.",
+        "source": "Datos e imágenes:"
+    },
+    "install": {
+        "title": "Instala Kardux Battle",
+        "native": "Juega a pantalla completa, desde tu escritorio o tu pantalla de inicio.",
+        "ios": "Toca <icon/> <b>Compartir</b> y luego <b>Agregar a inicio</b>.",
+        "install": "Instalar"
+    },
+    "crash": {
+        "title": "No pudimos mostrar esta pantalla",
+        "body": "Recarga para intentarlo de nuevo o vuelve al inicio.",
+        "home": "Ir al inicio",
+        "reload": "Recargar"
+    },
+    "format": {
+        "noLimit": "Sin límite",
+        "minutes": "{{count}} min",
+        "hours": "{{count}} h",
+        "seconds": "{{count}} s"
+    },
+    "share": {
+        "subject": "Te reto en Kardux Battle",
+        "message": "¡Te reto en Kardux Battle! Entra a mi sala con el código {{code}}: {{url}}"
+    },
+    "errors": {
+        "offline": "Sin conexión con el servidor. Revisa tu internet o inténtalo en unos segundos.",
+        "unexpected": "No se pudo completar la acción. Inténtalo de nuevo.",
+        "serverDown": "El servidor tuvo un problema. Inténtalo de nuevo en un momento.",
+        "reconnecting": "Sin conexión con el servidor. Reconectando…",
+        "codes": {
+            "ERR_VALIDATION": "Revisa los datos e inténtalo de nuevo.",
+            "ERR_UNAUTHORIZED": "Tu sesión expiró. Vuelve a entrar.",
+            "ERR_MATCH_NOT_FOUND": "Esa partida ya no existe. Revisa el código.",
+            "ERR_MATCH_FULL": "La sala está llena.",
+            "ERR_MATCH_ALREADY_STARTED": "La partida ya comenzó.",
+            "ERR_NOT_HOST": "Solo el anfitrión puede hacer eso.",
+            "ERR_NOT_YOUR_TURN": "Todavía no es tu turno.",
+            "ERR_NOT_ENOUGH_PLAYERS": "Faltan jugadores para empezar.",
+            "ERR_INVALID_CONFIG": "Esa configuración no es válida.",
+            "ERR_INVALID_ATTRIBUTE": "Ese atributo no existe en tu carta.",
+            "ERR_ALREADY_PLAYED": "Ya jugaste tu carta en esta ronda.",
+            "ERR_SPECTATOR_CANNOT_ACT": "Estás mirando como espectador.",
+            "ERR_RATE_LIMITED": "Vas muy rápido, espera un momento.",
+            "ERR_GUEST_CANNOT_HOST": "Crea una cuenta para abrir salas privadas."
+        }
+    },
+    "home": {
+        "eyebrow": "Tu mesa te espera",
+        "greeting": "Hola, {{name}}",
+        "play": "Jugar",
+        "quick": {
+            "title": "Partida rápida",
+            "text": "Un duelo 1 contra 1 con el mazo Pokémon: encuentra un rival al instante o practica contra la máquina.",
+            "rival": "Buscar rival",
+            "bot": "Contra la máquina"
+        },
+        "private": {
+            "title": "Sala privada",
+            "text": "De 2 a 7 jugadores. Tú eliges las reglas y compartes el código con quien quieras.",
+            "create": "Crear sala",
+            "register": "Crea una cuenta"
+        },
+        "join": {
+            "title": "Tengo un código",
+            "text": "Entra a la sala de un amigo.",
+            "code": "Código de sala",
+            "paste": "Pegar",
+            "submit": "Entrar",
+            "noClipboard": "No encontramos un código en el portapapeles"
+        },
+        "rooms": {
+            "title": "Mis salas privadas",
+            "new": "Nueva",
+            "guest": "Como invitado juegas partidas rápidas. Crea una cuenta para tener tus propias salas y aparecer en el ranking.",
+            "empty": "Aún no tienes salas abiertas. ¡Arma una y reta a tus amigos!",
+            "open": "Abrir",
+            "status": {
+                "LOBBY": "Esperando jugadores",
+                "IN_PROGRESS": "En juego",
+                "FINISHED": "Terminada"
+            }
+        }
+    },
+    "ranking": {
+        "title": "Ranking",
+        "howItWorks": "¿Cómo se puntúa?",
+        "empty": "El ranking se llena con partidas terminadas entre cuentas registradas.",
+        "player": "Jugador",
+        "points": "Puntos",
+        "record": "V-E-D",
+        "recordHint": "Victorias - empates - derrotas",
+        "winRate": "% Vic.",
+        "streak": "Racha",
+        "games_one": "{{count}} partida",
+        "games_other": "{{count}} partidas",
+        "favorite": "prefiere {{attribute}}",
+        "explain": {
+            "start": "Toda cuenta empieza con 1200 puntos.",
+            "placement": "En cada partida tu posición final la deciden tus cartas: quien termina con más cartas queda primero.",
+            "rivals": "Ganas puntos por cada rival que queda por debajo de ti y pierdes por cada uno que queda por encima. Vencer a alguien con más puntos que tú vale más (sistema Elo).",
+            "leave": "Abandonar cuenta como derrota: quedas último con 0 cartas. En un duelo, el rival gana la partida y se lleva tus cartas.",
+            "unranked": "Solo puntúan las partidas entre cuentas registradas; las partidas contra la máquina o con invitados no cambian el ranking."
+        },
+        "medal": {
+            "gold": "Oro · 1.er puesto",
+            "silver": "Plata · 2.º puesto",
+            "bronze": "Bronce · 3.er puesto"
+        }
+    },
+    "rules": {
+        "open": "Cómo se juega",
+        "title": "Cómo se juega",
+        "items": {
+            "goal": {
+                "title": "Objetivo",
+                "text": "Quedarte con todas las cartas comparando las estadísticas de tus Pokémon."
+            },
+            "deal": {
+                "title": "El reparto",
+                "text": "El mazo tiene paquetes de cuartetos (1A, 2A, 3A, 4A…); cada cuarteto es un tipo de Pokémon. Se reparten todas las cartas posibles y las sobrantes quedan fuera del juego. Solo ves la carta de arriba de tu pila."
+            },
+            "first": {
+                "title": "Quién empieza",
+                "text": "Empieza quien tenga la carta 1A; si nadie la tiene, 1B, 1C… y luego 2A. Después se sigue el orden de llegada."
+            },
+            "round": {
+                "title": "Cada ronda",
+                "text": "El jugador de turno elige un atributo de su carta y todos ponen su carta de arriba. Gana el valor más alto y se lleva todas las cartas de la mesa, y elige el atributo de la siguiente ronda."
+            },
+            "tie": {
+                "title": "Empates y pozo",
+                "text": "Si hay empate, las cartas se quedan en el pozo y se juega otra ronda; quien gane la siguiente se lleva también el pozo."
+            },
+            "leave": {
+                "title": "Abandonar",
+                "text": "Salir de una partida es definitivo y cuenta como derrota. En un duelo el rival gana con todas tus cartas; con más jugadores tus cartas se reparten entre los demás y la partida sigue."
+            },
+            "end": {
+                "title": "Fin de la partida",
+                "text": "Termina cuando alguien reúne todas las cartas o se acaba el tiempo: gana quien tenga más cartas, y si hay igualdad es empate."
+            }
+        }
+    },
+    "create": {
+        "title": "Arma tu mesa",
+        "created": "Sala {{code}} creada",
+        "deck": "El mazo",
+        "pool_one": "{{count}} Pokémon disponible",
+        "pool_other": "{{count}} Pokémon disponibles",
+        "syncing": "Descargando de PokéAPI…",
+        "attributesAvailable_one": "{{count}} atributo",
+        "attributesAvailable_other": "{{count}} atributos",
+        "facts": {
+            "total": "Cartas en el mazo",
+            "perPlayer_one": "Por jugador (con {{count}})",
+            "perPlayer_other": "Por jugador (con {{count}})",
+            "leftover": "Sobrantes fuera de juego",
+            "duration": "Duración"
+        },
+        "rules": "Reglas",
+        "maxPlayers": "Jugadores máximos",
+        "minPlayers": "Mínimo para iniciar",
+        "minPlayersHint": "el anfitrión da inicio",
+        "autoStart": "Inicio automático",
+        "autoStartHint": "al llegar a este número",
+        "attributes": "Atributos por carta",
+        "packs": "Paquetes",
+        "packsHint": "cartas por cuarteto",
+        "families": "Cuartetos",
+        "familiesHint": "tipos de Pokémon",
+        "duration": "Duración",
+        "turnTime": "Tiempo por turno",
+        "free": "Libre",
+        "attrTitle": "Los 6 atributos",
+        "attrInPlay": "{{count}} de {{total}} en juego",
+        "attrIntro": "Son las estadísticas base oficiales de cada Pokémon. En tu turno eliges una y gana el valor más alto. Con menos atributos la partida es más directa; con los 6, más estratégica.",
+        "attrOn": "En juego",
+        "attrOff": "Fuera",
+        "attr": {
+            "hp": "Puntos de salud: cuánto daño aguanta antes de debilitarse.",
+            "attack": "Fuerza de sus ataques físicos.",
+            "defense": "Resistencia frente a ataques físicos.",
+            "speed": "Rapidez: decide quién actúa primero en combate.",
+            "special-attack": "Poder de sus ataques especiales (elementales).",
+            "special-defense": "Resistencia frente a ataques especiales."
+        }
+    },
+    "join": {
+        "room": "Sala {{code}}",
+        "invite": "Invitación a la sala",
+        "invites": "te invita a jugar",
+        "seats": "{{count}}/{{max}} jugadores",
+        "spectator": "En juego: entrarás como espectador",
+        "enter": "Entrar a la sala"
+    },
+    "lobby": {
+        "searching": "Buscando rival…",
+        "found": "¡Rival encontrado!",
+        "searchingSeat": "Buscando…",
+        "inviteTitle": "Invita a tus rivales",
+        "code": "Código",
+        "link": "Enlace",
+        "copyCode": "Código {{code}}, toca para copiar",
+        "codeHint": "Toca el código para copiarlo o comparte el enlace.",
+        "email": "Correo",
+        "copyLink": "Copiar enlace",
+        "share": "Compartir",
+        "players": "Jugadores",
+        "host": "Anfitrión",
+        "ready": "Listo",
+        "free": "Libre",
+        "autoStart": "Empieza sola con {{count}}",
+        "startsIn": "La partida empieza en",
+        "cancel": "Cancelar",
+        "start": "Iniciar partida",
+        "missing_one": "Falta {{count}} jugador",
+        "missing_other": "Faltan {{count}} jugadores",
+        "waitHost": "Esperando a que el anfitrión inicie la partida…",
+        "stopSearching": "Dejar de buscar",
+        "closeRoom": "Cerrar la sala",
+        "leave": "Salir de la sala"
+    },
+    "table": {
+        "attributes": "Atributos",
+        "playWith": "Jugar con {{attribute}}: {{value}}",
+        "otherRoom": "Ya estás jugando en otra sala.",
+        "closed": "La partida terminó o el anfitrión cerró la sala.",
+        "entering": "Entrando a la mesa…",
+        "reconnecting": "Reconectando…",
+        "hud": "Estado de la partida",
+        "round": "Ronda",
+        "roundNumber": "Ronda {{count}}",
+        "timeLeft": "Tiempo restante",
+        "rivals": "Rivales",
+        "myZone": "Tu zona",
+        "deck": "Mazo",
+        "deckHint": "Mazo de la partida. Tras el reparto quedan aquí las cartas sobrantes.",
+        "outOfPlay": "fuera de juego",
+        "pot": "Pozo",
+        "potHint": "Cartas de las rondas empatadas: se las lleva el ganador de la siguiente.",
+        "status": {
+            "left": "Abandonó",
+            "out": "Sin cartas",
+            "choosing": "Eligiendo atributo…",
+            "played": "Carta en mesa",
+            "playing": "Lanzando…",
+            "leader": "Líder"
+        },
+        "line": {
+            "dealing": "Barajando y repartiendo…",
+            "comparing": "Comparando {{attribute}}…",
+            "yourTurn": "¡Tu turno! Elige el atributo más fuerte de tu carta",
+            "choosing": "{{name}} está eligiendo atributo…",
+            "playing": "Se juega",
+            "setting": "Preparando la mesa…"
+        },
+        "result": {
+            "youWin": "¡Ganas la ronda!",
+            "theyWin": "Gana {{name}}",
+            "tie": "¡Empate!",
+            "winDetail_one": "Se lleva {{count}} carta",
+            "winDetail_other": "Se lleva {{count}} cartas",
+            "tieDetail_one": "{{count}} carta va al pozo",
+            "tieDetail_other": "{{count}} cartas van al pozo"
+        },
+        "hint": {
+            "choose": "Toca el atributo con el que quieres jugar.",
+            "playing": "Las cartas se lanzan en orden…",
+            "watch": "Mira cómo se resuelve la ronda.",
+            "getReady": "Prepárate: eliges tú.",
+            "wait": "Espera tu turno."
+        },
+        "spectator": {
+            "out": "Te quedaste sin cartas. Sigues mirando la partida.",
+            "watching": "Estás mirando como espectador."
+        },
+        "timer_one": "{{count}} segundo para elegir",
+        "timer_other": "{{count}} segundos para elegir",
+        "noTurn": "Sin turno activo",
+        "leave": {
+            "button": "Abandonar",
+            "confirm": "Confirmar abandono",
+            "duel": "¿Abandonar? Tu rival gana y se lleva tus cartas.",
+            "table": "¿Abandonar? Pierdes y tus cartas se reparten entre los demás.",
+            "yes": "Abandonar",
+            "no": "Seguir jugando"
+        }
+    },
+    "panel": {
+        "label": "Panel de la mesa",
+        "open": "Posiciones y chat",
+        "standings": "Posiciones",
+        "chat": "Chat",
+        "unread_one": "{{count}} mensaje nuevo",
+        "unread_other": "{{count}} mensajes nuevos",
+        "legend": "Cartas en poder de cada jugador",
+        "chatEmpty": "Saluda a la mesa 👋",
+        "message": "Mensaje",
+        "placeholder": "Escribe un mensaje…",
+        "send": "Enviar"
+    },
+    "finish": {
+        "draw": "¡Empate!",
+        "victory": "¡Victoria!",
+        "winner": "Gana {{name}}",
+        "drawText": "Nadie se llevó la mesa esta vez.",
+        "victoryText": "Te llevaste la mesa. ¡Bien jugado!",
+        "rivalLeft": "Tu rival abandonó: la victoria y sus cartas son tuyas.",
+        "youLeft": "Abandonaste la partida.",
+        "defeatText": "Buena partida. La revancha te espera.",
+        "rankingNote": "Si todos los jugadores tienen cuenta, el resultado ya cuenta en el ranking.",
+        "practiceNote": "Partida de práctica contra la máquina: no cambia el ranking.",
+        "again": "Otra partida rápida"
+    }
+}

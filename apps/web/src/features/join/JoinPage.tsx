@@ -1,7 +1,7 @@
 import type { MatchSummary } from '@kardux/contracts';
-import { getDeckInfo } from '@kardux/content';
 import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
 import { Button } from '../../components/ui/Button';
@@ -13,15 +13,14 @@ import { errorMessage, isErrorPayload } from '../../lib/errors';
 import { formatDuration } from '../../lib/format';
 import { getUser, isAuthenticated, setPostAuthRedirect } from '../../lib/session';
 import { whenConnected } from '../../lib/socket';
-import { useI18n } from '../../lib/i18n';
 
 const CODE_PATTERN = /^[0-9A-F]{6}$/;
 
 export default function JoinPage(): JSX.Element {
-    const { l } = useI18n();
+    const { t } = useTranslation();
     const params = useParams();
     const code = (params.code ?? '').toUpperCase();
-    useDocumentTitle(`Sala ${code}`);
+    useDocumentTitle(t('join.room', { code }));
     const navigate = useNavigate();
     const toast = useToast();
     const [match, setMatch] = useState<MatchSummary | null>(null);
@@ -65,20 +64,18 @@ export default function JoinPage(): JSX.Element {
         }
     }
 
-    const deck = match ? getDeckInfo(match.config.deckSources[0] ?? 'pokeapi') : undefined;
-
     return (
         <AppShell>
             <div className="join">
                 <div className="panel panel--pad join__panel">
-                    <span className="eyebrow">Invitación a la sala</span>
+                    <span className="eyebrow">{t('join.invite')}</span>
                     <span className="join__code">{code}</span>
 
                     {error ? (
                         <>
                             <p className="form-error">{error}</p>
                             <Button icon="return-arrow" onClick={() => navigate('/home')}>
-                                Volver al inicio
+                                {t('common.backHome')}
                             </Button>
                         </>
                     ) : !match ? (
@@ -89,25 +86,24 @@ export default function JoinPage(): JSX.Element {
                                 <img src={match.hostAvatarUrl} alt="" width={48} height={48} />
                                 <div style={{ textAlign: 'left' }}>
                                     <strong>{match.hostNickname}</strong>
-                                    <div className="text-3">te invita a jugar</div>
+                                    <div className="text-3">{t('join.invites')}</div>
                                 </div>
                             </div>
                             <div className="config-summary" style={{ justifyContent: 'center' }}>
-                                {deck ? (
-                                    <span className="badge">
-                                        <Icon name={deck.coverIcon} /> {l(deck.label)}
-                                    </span>
-                                ) : null}
+                                <span className="badge">
+                                    <Icon name="lightning-helix" /> Pokémon
+                                </span>
                                 <span className="badge badge--muted">
-                                    {match.playerCount}/{match.config.maxPlayers} jugadores
+                                    {t('join.seats', {
+                                        count: match.playerCount,
+                                        max: match.config.maxPlayers,
+                                    })}
                                 </span>
                                 <span className="badge badge--muted">
                                     {formatDuration(match.config.matchDurationMs)}
                                 </span>
                                 {match.status === 'IN_PROGRESS' ? (
-                                    <span className="badge badge--lose">
-                                        En juego - entrarás como espectador
-                                    </span>
+                                    <span className="badge badge--lose">{t('join.spectator')}</span>
                                 ) : null}
                             </div>
                             <Button
@@ -118,10 +114,10 @@ export default function JoinPage(): JSX.Element {
                                 loading={joining}
                                 onClick={join}
                             >
-                                Entrar a la sala
+                                {t('join.enter')}
                             </Button>
                             <Button variant="ghost" block onClick={() => navigate('/home')}>
-                                Ahora no
+                                {t('common.notNow')}
                             </Button>
                         </>
                     )}

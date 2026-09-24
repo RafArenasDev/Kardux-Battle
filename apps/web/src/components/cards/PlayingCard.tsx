@@ -4,7 +4,8 @@ import type { CSSProperties, JSX } from 'react';
 import { attributeMeta, deckOf, formatStat } from '../../lib/deck-meta';
 import { Icon } from '../ui/Icon';
 import { crestUrl } from '../brand/Brand';
-import { useI18n } from '../../lib/i18n';
+import { useTranslation } from 'react-i18next';
+import { useLocale } from '../../lib/i18n';
 
 export type CardSize = 'xs' | 'sm' | 'md' | 'lg';
 export type CardOutcome = 'win' | 'lose' | 'tie' | null;
@@ -30,33 +31,12 @@ export function PlayingCard({
     className,
     style,
 }: PlayingCardProps): JSX.Element {
-    const { l } = useI18n();
+    const { t } = useTranslation();
+    const { l, locale } = useLocale();
     const deck = deckOf(card.source);
-    const isPlayingCard = card.source === 'deckofcards';
     const interactive = Boolean(onSelectAttribute);
     const accent = deck?.accent ?? 'var(--gold-400)';
-
-    // A real playing card has no stats: the face fills the whole card, framed in gold.
-    if (isPlayingCard) {
-        return (
-            <div
-                className={[
-                    'pcard',
-                    'pcard-face',
-                    `pcard--${size}`,
-                    outcome && `pcard--${outcome}`,
-                    className,
-                ]
-                    .filter(Boolean)
-                    .join(' ')}
-                style={style}
-                role="img"
-                aria-label={card.name}
-            >
-                <img src={card.imageUrl} alt="" loading="lazy" draggable={false} />
-            </div>
-        );
-    }
+    const name = locale === 'en' && card.nameEn ? card.nameEn : card.name;
 
     return (
         <div
@@ -67,18 +47,18 @@ export function PlayingCard({
         >
             <div className="pcard__head">
                 <span className="pcard__code">{card.code}</span>
-                <span className="pcard__name">{card.name}</span>
+                <span className="pcard__name">{name}</span>
                 {deck ? <Icon name={deck.coverIcon} className="pcard__deck-icon" /> : null}
             </div>
 
             <div className="pcard__art">
-                <img src={card.imageUrl} alt="" loading="lazy" draggable={false} />
+                <img src={card.imageUrl} alt={name} loading="lazy" draggable={false} />
             </div>
 
             <ul
                 className="pcard__stats"
                 role={interactive ? 'listbox' : undefined}
-                aria-label="Atributos"
+                aria-label={t('table.attributes')}
             >
                 {Object.entries(card.stats).map(([key, value]) => {
                     const meta = attributeMeta(card.source, key);
@@ -111,7 +91,10 @@ export function PlayingCard({
                                     className="pcard__stat-btn"
                                     whileTap={{ scale: 0.97 }}
                                     onClick={() => onSelectAttribute?.(key)}
-                                    aria-label={`Jugar con ${meta.label}: ${formatStat(value, meta.unit)}`}
+                                    aria-label={t('table.playWith', {
+                                        attribute: l(meta.label),
+                                        value: formatStat(value, meta.unit),
+                                    })}
                                 >
                                     {content}
                                 </motion.button>
@@ -135,6 +118,7 @@ interface CardBackProps {
 
 /** The Kardux card back: obsidian weave, gold frame and the crest. */
 export function CardBack({ size = 'md', className, style, count }: CardBackProps): JSX.Element {
+    const { t } = useTranslation();
     return (
         <div
             className={['pcard-back', `pcard--${size}`, className].filter(Boolean).join(' ')}
@@ -145,7 +129,10 @@ export function CardBack({ size = 'md', className, style, count }: CardBackProps
                 <img src={crestUrl} alt="" draggable={false} />
             </div>
             {count !== undefined ? (
-                <span className="pcard-back__count tabular" aria-label={`${count} cartas`}>
+                <span
+                    className="pcard-back__count tabular"
+                    aria-label={t('common.cards', { count })}
+                >
                     {count}
                 </span>
             ) : null}

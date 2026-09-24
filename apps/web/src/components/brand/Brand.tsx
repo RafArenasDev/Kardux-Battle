@@ -1,4 +1,5 @@
 import type { JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import crestUrl from '../../assets/brand/crest.webp';
 import logoUrl from '../../assets/brand/logo.webp';
@@ -20,8 +21,9 @@ export function BrandLogo({ className }: { className?: string }): JSX.Element {
 
 /** Compact crest + wordmark lockup for headers. */
 export function BrandLockup({ to = '/' }: { to?: string }): JSX.Element {
+    const { t } = useTranslation();
     return (
-        <Link to={to} className="brand-lockup" aria-label="Kardux Battle - inicio">
+        <Link to={to} className="brand-lockup" aria-label={t('common.homeLink')}>
             <img src={crestUrl} alt="" width={256} height={265} className="brand-lockup__crest" />
             <img
                 src={wordmarkUrl}

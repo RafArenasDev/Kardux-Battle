@@ -3,6 +3,7 @@ import { randomAvatarSeed } from '@kardux/content';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { FormEvent, JSX } from 'react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BrandLogo } from '../../components/brand/Brand';
 import { AppFooter } from '../../components/layout/AppFooter';
@@ -16,7 +17,6 @@ import { useToast } from '../../components/ui/Toast';
 import { useDocumentTitle } from '../../hooks/useNow';
 import { ApiError, checkUsername, createGuest, login, register } from '../../lib/api';
 import { errorMessage } from '../../lib/errors';
-import { useI18n } from '../../lib/i18n';
 import type { AuthMethod } from '../../lib/session';
 import { getTabId, saveSession, takePostAuthRedirect } from '../../lib/session';
 import { disconnectGameSocket } from '../../lib/socket';
@@ -26,55 +26,20 @@ type Mode = 'login' | 'register';
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,24}$/;
 
-interface Feature {
-    icon: IconName;
-    title: [string, string];
-    text: [string, string];
-}
-
-/** The three ways to play, as the landing pitch. */
-const FEATURES: Feature[] = [
-    {
-        icon: 'crossed-swords',
-        title: ['Batallas de atributos', 'Attribute battles'],
-        text: [
-            'Pokémon y criaturas míticas. Elige el atributo y gana la ronda.',
-            'Pokémon and mythic creatures. Pick the stat, win the round.',
-        ],
-    },
-    {
-        icon: 'card-ace-spades',
-        title: ['Clásica', 'Classic'],
-        text: [
-            'Naipes de verdad: eliges carta de tu mano y la más alta gana. Puede haber empate.',
-            'Real playing cards: pick one from your hand and the highest wins. Ties can happen.',
-        ],
-    },
-    {
-        icon: 'poker-hand',
-        title: ['Casino', 'Casino'],
-        text: [
-            "Blackjack y Texas Hold'em con fichas virtuales. Sin dinero real.",
-            "Blackjack and Texas Hold'em with virtual chips. No real money.",
-        ],
-    },
-    {
-        icon: 'share',
-        title: ['Con amigos o contra la máquina', 'With friends or the machine'],
-        text: [
-            'Salas privadas con código, partidas rápidas o duelos contra el bot.',
-            'Private rooms with a code, quick matches or duels against the bot.',
-        ],
-    },
-];
+/** The landing pitch: what Kardux is, in four lines. */
+const FEATURES = [
+    { icon: 'crossed-swords', key: 'battle' },
+    { icon: 'podium-winner', key: 'ranking' },
+    { icon: 'share', key: 'friends' },
+    { icon: 'lightning-helix', key: 'bot' },
+] as const satisfies readonly { icon: IconName; key: string }[];
 
 export default function AuthPage(): JSX.Element {
     useDocumentTitle('');
     const navigate = useNavigate();
     const location = useLocation();
     const toast = useToast();
-    const { t, locale } = useI18n();
-    const pickText = (pair: [string, string]): string => (locale === 'es' ? pair[0] : pair[1]);
+    const { t } = useTranslation();
 
     const [mode, setMode] = useState<Mode>('login');
     const [username, setUsername] = useState('');
@@ -107,10 +72,7 @@ export default function AuthPage(): JSX.Element {
         saveSession(auth, method);
         const from = (location.state as { from?: string } | null)?.from;
         navigate(takePostAuthRedirect() ?? from ?? '/home', { replace: true });
-        toast.show(
-            t(`¡Bienvenido, ${auth.user.nickname}!`, `Welcome, ${auth.user.nickname}!`),
-            'success',
-        );
+        toast.show(t('auth.welcome', { name: auth.user.nickname }), 'success');
     }
 
     const usernameValid = USERNAME_PATTERN.test(username);
@@ -137,7 +99,7 @@ export default function AuthPage(): JSX.Element {
         } catch (error) {
             const message =
                 error instanceof ApiError && error.payload.code === 'ERR_UNAUTHORIZED'
-                    ? t('Usuario o contraseña incorrectos.', 'Wrong username or password.')
+                    ? t('auth.wrongCredentials')
                     : errorMessage(error);
             setFormError(message);
         } finally {
@@ -162,21 +124,17 @@ export default function AuthPage(): JSX.Element {
             ? !usernameValid
                 ? {
                       tone: 'error' as const,
-                      text: t(
-                          '3 a 24 caracteres: letras, números o _',
-                          '3 to 24 characters: letters, numbers or _',
-                      ),
+                      text: t('auth.usernameRule'),
                   }
                 : availability === null
-                  ? { tone: 'default' as const, text: t('Comprobando…', 'Checking…') }
+                  ? { tone: 'default' as const, text: t('auth.checking') }
                   : availability.available
-                    ? { tone: 'ok' as const, text: t('¡Disponible!', 'Available!') }
+                    ? { tone: 'ok' as const, text: t('auth.available') }
                     : {
                           tone: 'error' as const,
-                          text: t(
-                              `Ocupado. Prueba: ${availability.suggestions.join(', ')}`,
-                              `Taken. Try: ${availability.suggestions.join(', ')}`,
-                          ),
+                          text: t('auth.taken', {
+                              suggestions: availability.suggestions.join(', '),
+                          }),
                       }
             : undefined;
 
@@ -185,11 +143,7 @@ export default function AuthPage(): JSX.Element {
             type="button"
             className="field__toggle"
             onClick={() => setShowPassword((value) => !value)}
-            aria-label={
-                showPassword
-                    ? t('Ocultar contraseña', 'Hide password')
-                    : t('Mostrar contraseña', 'Show password')
-            }
+            aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
             aria-pressed={showPassword}
         >
             <EyeIcon crossed={showPassword} />
@@ -209,9 +163,7 @@ export default function AuthPage(): JSX.Element {
                 >
                     <BrandLogo className="auth__logo" />
                 </motion.div>
-                <p className="auth__tagline">
-                    {t('Elige tu juego. Gánate la mesa.', 'Pick your game. Own the table.')}
-                </p>
+                <p className="auth__tagline">{t('auth.tagline')}</p>
                 <ul className="auth__features">
                     {FEATURES.map((feature, index) => (
                         <motion.li
@@ -229,8 +181,10 @@ export default function AuthPage(): JSX.Element {
                                 <Icon name={feature.icon} />
                             </span>
                             <span>
-                                <strong>{pickText(feature.title)}</strong>
-                                <span className="text-2">{pickText(feature.text)}</span>
+                                <strong>{t(`auth.features.${feature.key}.title`)}</strong>
+                                <span className="text-2">
+                                    {t(`auth.features.${feature.key}.text`)}
+                                </span>
                             </span>
                         </motion.li>
                     ))}
@@ -242,46 +196,36 @@ export default function AuthPage(): JSX.Element {
                     <div className="panel panel--pad auth__panel">
                         <div className="stack auth__heading" style={{ ['--gap' as string]: '6px' }}>
                             <h1 className="auth__title">
-                                {mode === 'login'
-                                    ? t('Bienvenido de vuelta', 'Welcome back')
-                                    : t('Crea tu cuenta', 'Create your account')}
+                                {mode === 'login' ? t('auth.loginTitle') : t('auth.registerTitle')}
                             </h1>
                             <p className="text-2">
-                                {mode === 'login'
-                                    ? t(
-                                          'Entra para crear salas privadas y retar a tus amigos.',
-                                          'Sign in to open private rooms and challenge your friends.',
-                                      )
-                                    : t(
-                                          'Elige tu nombre, tu contraseña y tu avatar.',
-                                          'Pick your name, password and avatar.',
-                                      )}
+                                {mode === 'login' ? t('auth.loginIntro') : t('auth.registerIntro')}
                             </p>
                         </div>
 
                         <Segmented
-                            label={t('Tipo de acceso', 'Access type')}
+                            label={t('auth.accessType')}
                             value={mode}
                             onChange={(next) => {
                                 setMode(next);
                                 setFormError(null);
                             }}
                             options={[
-                                { value: 'login', label: t('Iniciar sesión', 'Sign in') },
-                                { value: 'register', label: t('Crear cuenta', 'Sign up') },
+                                { value: 'login', label: t('auth.signIn') },
+                                { value: 'register', label: t('auth.signUp') },
                             ]}
                         />
 
                         <form className="stack" onSubmit={submit} noValidate>
                             <TextField
-                                label={t('Usuario', 'Username')}
+                                label={t('auth.username')}
                                 icon="visored-helm"
                                 name="username"
                                 autoComplete="username"
                                 autoCapitalize="off"
                                 spellCheck={false}
                                 maxLength={24}
-                                placeholder={t('Tu nombre de jugador', 'Your player name')}
+                                placeholder={t('auth.usernamePlaceholder')}
                                 value={username}
                                 onChange={(event) => setUsername(event.target.value.trim())}
                                 hint={usernameHint?.text}
@@ -289,7 +233,7 @@ export default function AuthPage(): JSX.Element {
                                 required
                             />
                             <TextField
-                                label={t('Contraseña', 'Password')}
+                                label={t('auth.password')}
                                 icon="checked-shield"
                                 name="password"
                                 type={showPassword ? 'text' : 'password'}
@@ -298,15 +242,15 @@ export default function AuthPage(): JSX.Element {
                                 }
                                 placeholder={
                                     mode === 'login'
-                                        ? t('Tu contraseña', 'Your password')
-                                        : t('Mínimo 8 caracteres', 'At least 8 characters')
+                                        ? t('auth.passwordPlaceholder')
+                                        : t('auth.passwordMin')
                                 }
                                 value={password}
                                 maxLength={128}
                                 onChange={(event) => setPassword(event.target.value)}
                                 hint={
                                     mode === 'register' && password.length > 0 && !passwordValid
-                                        ? t('Mínimo 8 caracteres.', 'At least 8 characters.')
+                                        ? t('auth.passwordMinHint')
                                         : undefined
                                 }
                                 hintTone="error"
@@ -331,24 +275,18 @@ export default function AuthPage(): JSX.Element {
                                         transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
                                     >
                                         <TextField
-                                            label={t('Confirmar contraseña', 'Confirm password')}
+                                            label={t('auth.confirm')}
                                             icon="checked-shield"
                                             name="confirm"
                                             type={showPassword ? 'text' : 'password'}
                                             autoComplete="new-password"
-                                            placeholder={t(
-                                                'Repite la contraseña',
-                                                'Repeat the password',
-                                            )}
+                                            placeholder={t('auth.confirmPlaceholder')}
                                             value={confirm}
                                             maxLength={128}
                                             onChange={(event) => setConfirm(event.target.value)}
                                             hint={
                                                 confirm.length > 0 && !confirmValid
-                                                    ? t(
-                                                          'Las contraseñas no coinciden.',
-                                                          'Passwords do not match.',
-                                                      )
+                                                    ? t('auth.mismatch')
                                                     : undefined
                                             }
                                             hintTone="error"
@@ -366,15 +304,8 @@ export default function AuthPage(): JSX.Element {
                                 />
                                 <span className="check__box" aria-hidden />
                                 <span className="check__text">
-                                    <strong>
-                                        {t('Mantener sesión iniciada', 'Stay signed in')}
-                                    </strong>
-                                    <span className="text-3">
-                                        {t(
-                                            'Solo en este dispositivo, por 30 días o hasta que cierres sesión. Tu navegador puede además guardar la contraseña.',
-                                            'Only on this device, for 30 days or until you sign out. Your browser can also save the password.',
-                                        )}
-                                    </span>
+                                    <strong>{t('auth.remember')}</strong>
+                                    <span className="text-3">{t('auth.rememberHint')}</span>
                                 </span>
                             </label>
 
@@ -394,12 +325,12 @@ export default function AuthPage(): JSX.Element {
                                 disabled={!canSubmit || busy !== null}
                             >
                                 {mode === 'login'
-                                    ? t('Entrar a la batalla', 'Enter the battle')
-                                    : t('Crear cuenta y jugar', 'Sign up and play')}
+                                    ? t('auth.loginSubmit')
+                                    : t('auth.registerSubmit')}
                             </Button>
                         </form>
 
-                        <div className="divider">{t('o', 'or')}</div>
+                        <div className="divider">{t('common.or')}</div>
 
                         <Button
                             variant="ghost"
@@ -409,14 +340,9 @@ export default function AuthPage(): JSX.Element {
                             disabled={busy !== null}
                             onClick={playAsGuest}
                         >
-                            {t('Jugar como invitado', 'Play as guest')}
+                            {t('auth.guest')}
                         </Button>
-                        <p className="auth__guest-note text-3">
-                            {t(
-                                'Los invitados juegan partidas rápidas y la sesión dura solo en esta pestaña. Para crear salas privadas, crea una cuenta.',
-                                'Guests play quick matches and the session only lasts in this tab. Create an account to open private rooms.',
-                            )}
-                        </p>
+                        <p className="auth__guest-note text-3">{t('auth.guestNote')}</p>
                     </div>
                 </div>
                 <AppFooter compact />

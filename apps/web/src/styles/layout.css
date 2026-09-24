@@ -32,6 +32,15 @@
     padding: 0;
     display: flex;
     flex-direction: column;
+    min-height: 0;
+}
+
+/* The table is exactly one screen tall: the header takes what it needs, the match the rest. */
+.shell--immersive {
+    flex: none;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
 }
 
 /* ---------- Header: translucent material, content scrolls under it ---------- */
@@ -126,6 +135,13 @@
         width: 118px;
     }
     .shell--immersive .brand-lockup__wordmark {
+        display: none;
+    }
+}
+
+/* Narrow phones: the crest alone keeps room for the language switch and the account menu. */
+@media (max-width: 419px) {
+    .brand-lockup__wordmark {
         display: none;
     }
 }
@@ -559,7 +575,7 @@
 /* ---------- Home ---------- */
 .home {
     display: grid;
-    gap: 28px;
+    gap: 24px;
 }
 
 .home__hero {
@@ -573,63 +589,34 @@
     display: grid;
     gap: 6px;
     flex: 1;
-    min-width: 240px;
+    min-width: 220px;
 }
 
-.resume-banner {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-    padding: 16px 20px;
-    border-radius: var(--r-lg);
-    background: linear-gradient(90deg, rgba(63, 214, 164, 0.14), rgba(63, 214, 164, 0.04));
-    border: 1px solid rgba(63, 214, 164, 0.35);
-}
-
-.resume-banner__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.resume-banner__text {
-    flex: 1;
-    min-width: 200px;
-    display: grid;
-}
-
+/* Three actions, always the same size. */
 .home__actions {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
     gap: 18px;
-}
-
-.action-card__buttons {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 10px;
-    position: relative;
-    z-index: 1;
 }
 
 .action-card {
     position: relative;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
     gap: 14px;
-    padding: 24px;
-    min-height: 240px;
+    padding: 22px;
+    min-height: 250px;
     overflow: hidden;
 }
 
 .action-card__icon {
     display: grid;
     place-items: center;
-    width: 60px;
-    height: 60px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
-    font-size: 32px;
+    font-size: 30px;
     color: var(--text-on-gold);
     background: linear-gradient(180deg, #ffe3a0, #c9953a);
     box-shadow:
@@ -645,10 +632,17 @@
 }
 
 .action-card__body {
-    flex: 1;
     display: grid;
     align-content: start;
     gap: 6px;
+}
+
+.action-card__buttons,
+.action-card__form {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 10px;
 }
 
 .action-card__watermark {
@@ -656,22 +650,32 @@
     right: -24px;
     bottom: -24px;
     font-size: 150px;
-    color: rgba(240, 201, 107, 0.06);
+    color: rgba(240, 201, 107, 0.05);
     pointer-events: none;
+}
+
+.join-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
 }
 
 .home__grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
     gap: 18px;
     align-items: stretch;
 }
 
 /* Both panels share one height; long lists scroll inside instead of stretching the page. */
 .home__panel {
-    height: clamp(280px, 42dvh, 420px);
+    height: clamp(320px, 48dvh, 480px);
     grid-template-rows: auto minmax(0, 1fr);
     align-content: stretch;
+}
+
+.home__panel.leaderboard {
+    grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .home__scroll {
@@ -718,6 +722,7 @@
 .empty-state {
     display: grid;
     justify-items: center;
+    align-content: center;
     gap: 10px;
     padding: 28px 12px;
     text-align: center;
@@ -729,107 +734,234 @@
     color: var(--gold-700);
 }
 
-.leader-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 4px;
+/* Ranking */
+.leaderboard {
+    container-type: inline-size;
 }
 
-.leader-row__rank {
-    width: 28px;
-    text-align: center;
+.leaderboard__explain {
+    overflow: hidden;
+}
+
+.leaderboard__explain ul {
+    margin: 0;
+    padding: 12px 14px 12px 30px;
+    display: grid;
+    gap: 6px;
+    border-radius: var(--r-md);
+    background: rgba(240, 201, 107, 0.07);
+    border: 1px solid var(--hairline);
+    font-size: 0.86rem;
+    color: var(--text-2);
+}
+
+/* One card per player: rank, face and name, points, then the record. On wide panels the
+   record sits on the same line; on phones it drops to a second line, never truncated. */
+.ranking {
+    list-style: none;
+    margin: 0;
+    padding: 0 4px 0 0;
+    display: grid;
+    gap: 8px;
+}
+
+.ranking__row {
+    display: grid;
+    grid-template-columns: 34px 36px minmax(0, 1fr) auto auto;
+    grid-template-areas: 'rank avatar who points stats';
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 8px;
+    padding: 10px 14px 10px 10px;
+    border-radius: var(--r-md);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--hairline);
+}
+
+.ranking__row.is-you {
+    background: rgba(240, 201, 107, 0.1);
+    border-color: var(--hairline-strong);
+}
+
+.ranking__rank {
+    grid-area: rank;
+    display: grid;
+    place-items: center;
     font-family: var(--font-display);
+    font-size: 1.05rem;
     color: var(--gold-300);
 }
 
-@media (max-width: 1099px) {
-    .home__actions {
-        grid-template-columns: 1fr 1fr;
+.ranking__avatar {
+    grid-area: avatar;
+    border-radius: 50%;
+}
+
+.ranking__who {
+    grid-area: who;
+    display: grid;
+    min-width: 0;
+    line-height: 1.25;
+}
+
+.ranking__who strong,
+.ranking__who .text-3 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ranking__who .text-3 {
+    font-size: 0.76rem;
+}
+
+.ranking__points {
+    grid-area: points;
+    display: grid;
+    justify-items: end;
+    line-height: 1.1;
+}
+
+.ranking__points b {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.3rem;
+    color: var(--gold-200);
+}
+
+.ranking__points span {
+    font-size: 0.66rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+}
+
+.ranking__stats {
+    grid-area: stats;
+    display: flex;
+    gap: 14px;
+}
+
+.ranking__stats > span {
+    display: grid;
+    justify-items: center;
+    min-width: 44px;
+    line-height: 1.2;
+}
+
+.ranking__label {
+    font-size: 0.62rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    white-space: nowrap;
+}
+
+.ranking__stats b {
+    font-weight: 900;
+}
+
+.ranking__streak {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--warn);
+}
+
+/* Narrow panels (phones, and the half-width panel on tablets): record on its own line. */
+@container (max-width: 560px) {
+    .ranking__row {
+        grid-template-columns: 30px 36px minmax(0, 1fr) auto;
+        grid-template-areas:
+            'rank avatar who points'
+            'rank stats stats stats';
     }
-    .action-card--quick {
-        grid-column: 1 / -1;
+
+    .ranking__stats {
+        justify-content: space-between;
+        padding-top: 8px;
+        border-top: 1px solid var(--hairline);
+    }
+}
+
+@media (max-width: 899px) {
+    .home__actions {
+        grid-template-columns: 1fr;
+        grid-auto-rows: auto;
+    }
+    .action-card {
+        min-height: 0;
     }
     .home__grid {
         grid-template-columns: 1fr;
     }
 }
 
-@media (max-width: 767px) {
-    .home__actions {
-        grid-template-columns: 1fr;
-    }
-    .action-card {
-        min-height: 0;
+@media (max-width: 560px) {
+    .home__panel {
+        height: auto;
+        max-height: 72dvh;
     }
 }
 
 /* ---------- Create ---------- */
 .create {
     display: grid;
-    gap: 24px;
+    gap: 20px;
 }
 
+/* Deck and rules side by side, always the same height. */
 .create__layout {
     display: grid;
-    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
     gap: 18px;
-    align-items: start;
+    align-items: stretch;
 }
 
-.deck-grid {
+.create__deck,
+.create__rules {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 14px;
+    align-content: start;
+    gap: 16px;
 }
 
-.deck-tile {
-    position: relative;
+.create__rules {
+    grid-template-rows: auto 1fr auto auto;
+}
+
+.deck-hero {
     display: grid;
-    gap: 12px;
-    padding: 16px;
+    grid-template-columns: 150px minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+    padding: 14px;
     border-radius: var(--r-lg);
-    border: 1.5px solid var(--hairline);
-    background: rgba(8, 7, 12, 0.6);
-    text-align: left;
-    cursor: pointer;
-    transition:
-        border-color var(--dur) var(--ease-out),
-        transform var(--dur-fast) var(--ease-out);
-}
-
-.deck-tile:active {
-    transform: scale(0.98);
-}
-
-.deck-tile[aria-checked='true'] {
-    border-color: var(--gold-300);
+    border: 1.5px solid var(--gold-300);
     box-shadow: var(--glow-gold);
     background:
         radial-gradient(
-            100% 70% at 50% 0%,
-            color-mix(in srgb, var(--accent) 22%, transparent),
+            100% 70% at 30% 0%,
+            color-mix(in srgb, var(--accent) 20%, transparent),
             transparent 70%
         ),
         rgba(8, 7, 12, 0.6);
 }
 
-.deck-tile[aria-disabled='true'] {
-    opacity: 0.55;
-    cursor: progress;
-}
-
-.deck-tile__fan {
+.deck-hero__fan {
     position: relative;
-    height: 116px;
+    display: grid;
+    place-items: center;
+    height: 124px;
 }
 
-.deck-tile__fan img {
+.deck-hero__fan img {
     position: absolute;
     top: 6px;
     left: 50%;
-    width: 78px;
-    height: 104px;
+    width: 82px;
+    height: 110px;
     object-fit: contain;
     border-radius: 12px;
     background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.18), rgba(0, 0, 0, 0.5));
@@ -838,40 +970,86 @@
     transform-origin: 50% 120%;
 }
 
-.deck-tile__head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.deck-tile__head svg {
-    font-size: 26px;
-    color: var(--accent);
-}
-
-.deck-tile__desc {
-    font-size: 0.85rem;
-    color: var(--text-2);
-}
-
-.config-grid {
-    display: grid;
-    gap: 18px;
-}
-
-.config-row {
+.deck-hero__text {
     display: grid;
     gap: 8px;
 }
 
-.config-row__label {
+.deck-hero__text h3 {
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    padding-inline: 8px;
+    align-items: center;
+    gap: 8px;
+}
+
+.deck-hero__text h3 svg {
+    color: var(--accent);
+}
+
+.create__facts {
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.create__facts div {
+    display: grid;
+    gap: 2px;
+    padding: 10px 14px;
+    border-radius: var(--r-md);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--hairline);
+}
+
+.create__facts dt {
+    font-size: 0.78rem;
+    color: var(--text-3);
+    font-weight: 700;
+}
+
+.create__facts dd {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    color: var(--gold-200);
+}
+
+.create__credit {
+    font-size: 0.8rem;
+}
+
+/* Rules in a compact two-column grid: no long scroll. */
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 18px;
+    align-content: start;
+}
+
+.config-row {
+    display: grid;
+    gap: 6px;
+    align-content: start;
+}
+
+.config-row--wide {
+    grid-column: 1 / -1;
+}
+
+.config-row__label {
+    display: grid;
+    align-content: end;
+    min-height: 2.6em;
+    padding-inline: 6px;
     font-weight: 800;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     color: var(--text-2);
+    line-height: 1.25;
+}
+
+.config-row__label .text-3 {
+    font-size: 0.74rem;
+    font-weight: 700;
 }
 
 .config-summary {
@@ -882,6 +1060,15 @@
 
 @media (max-width: 1099px) {
     .create__layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 520px) {
+    .config-grid {
+        grid-template-columns: 1fr;
+    }
+    .deck-hero {
         grid-template-columns: 1fr;
     }
 }
@@ -908,12 +1095,80 @@
     color: var(--gold-200);
 }
 
-.action-card--quick .chips {
-    justify-content: center;
+/* The six Pokémon attributes, with the ones in play highlighted. */
+.attr-list {
+    display: grid;
+    gap: 10px;
 }
 
-.join-row {
+.attr-list ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.attr-list__item {
+    display: flex;
+    align-items: center;
     gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--r-md);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--hairline);
+    opacity: 0.55;
+    transition:
+        opacity var(--dur) var(--ease-out),
+        border-color var(--dur) var(--ease-out);
+}
+
+.attr-list__item.is-on {
+    opacity: 1;
+    border-color: var(--hairline-strong);
+    background: rgba(240, 201, 107, 0.07);
+}
+
+.attr-list__icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: rgba(240, 201, 107, 0.14);
+    color: var(--gold-300);
+    font-size: 22px;
+}
+
+.attr-list__text {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+    line-height: 1.25;
+}
+
+.attr-list__text .text-3 {
+    font-size: 0.76rem;
+}
+
+.attr-list__state {
+    flex: none;
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--gold-300);
+}
+
+.attr-list__item:not(.is-on) .attr-list__state {
+    color: var(--text-3);
+}
+
+@media (max-width: 640px) {
+    .attr-list ul {
+        grid-template-columns: 1fr;
+    }
 }

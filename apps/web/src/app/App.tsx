@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import type { JSX, ReactNode } from 'react';
 import { Suspense, lazy, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { InstallPrompt } from '../components/layout/InstallPrompt';
 import { resumeRememberedSession } from '../lib/api';
@@ -41,10 +42,11 @@ function Page({ children }: { children: ReactNode }): JSX.Element {
 }
 
 function Loading(): JSX.Element {
+    const { t } = useTranslation();
     return (
         <div className="page-loading" role="status">
             <span className="spinner" style={{ ['--size' as string]: '36px' }} />
-            <span className="sr-only">Cargando…</span>
+            <span className="sr-only">{t('common.loading')}</span>
         </div>
     );
 }

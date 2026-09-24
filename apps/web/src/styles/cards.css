@@ -44,11 +44,10 @@
     background:
         linear-gradient(160deg, rgba(255, 255, 255, 0.08), transparent 40%),
         linear-gradient(180deg, #221c2c, #120f18);
-    border: calc(var(--w) * 0.018) solid transparent;
-    background-clip: padding-box;
+    /* The gold frame sits flush against the face: no gap for the table to show through. */
     box-shadow:
-        0 0 0 calc(var(--w) * 0.012) var(--gold-500),
-        0 0 0 calc(var(--w) * 0.024) #3a2a0f,
+        inset 0 0 0 calc(var(--w) * 0.014) var(--gold-500),
+        0 0 0 calc(var(--w) * 0.012) #3a2a0f,
         var(--shadow-2);
     font-size: calc(var(--w) * 0.068);
     line-height: 1.2;
@@ -113,8 +112,6 @@
     object-fit: contain;
     filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.55));
 }
-
-/* Real playing-card images are portrait faces - show them bigger, on felt. */
 
 .pcard__stats {
     list-style: none;
@@ -209,6 +206,15 @@ button.pcard__stat-btn:hover {
     }
 }
 
+/* The hand card is the one read closely: bigger type, a slightly shorter art window. */
+.pcard--lg {
+    font-size: calc(var(--w) * 0.074);
+}
+
+.pcard--lg .pcard__art {
+    height: 36%;
+}
+
 /* Tiny cards (opponent reveals on phones): hide the stat labels. */
 .pcard--xs .pcard__stats,
 .pcard--xs .pcard__deck-icon {
@@ -290,54 +296,4 @@ button.pcard__stat-btn:hover {
     font-family: var(--font-display);
     font-size: 1rem;
     box-shadow: var(--shadow-1);
-}
-
-/* ---------- Real playing card: the face fills the card, framed in gold ---------- */
-.pcard-face {
-    padding: calc(var(--w) * 0.03);
-    gap: 0;
-    background: linear-gradient(160deg, #ffe3a0, #c9953a 60%, #8a6424);
-}
-
-.pcard-face img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: calc(var(--w) * 0.06);
-    background: #fff;
-}
-
-/* ---------- Classic hand ---------- */
-.hand {
-    display: flex;
-    justify-content: center;
-    padding: 8px 0 4px;
-}
-
-.hand__card {
-    padding: 0;
-    border: 0;
-    background: none;
-    cursor: pointer;
-    margin-inline: calc(var(--hand-overlap, -22px) / 2);
-    transform-origin: 50% 120%;
-    filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.55));
-}
-
-.hand__card:disabled {
-    cursor: default;
-    filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.55)) saturate(0.85) brightness(0.9);
-}
-
-.my-zone--hand {
-    display: grid;
-    justify-items: center;
-    gap: 6px;
-}
-
-@media (max-width: 767px) {
-    .hand {
-        --hand-overlap: -40px;
-    }
 }

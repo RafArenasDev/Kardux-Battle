@@ -3,6 +3,7 @@ import type { IconName } from '@kardux/content';
 import type { JSX } from 'react';
 import { Icon } from './Icon';
 import { useId } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface SegmentedProps<T extends string | number> {
     value: T;
@@ -57,12 +58,13 @@ interface StepperProps {
 }
 
 export function Stepper({ value, min, max, onChange, label, format }: StepperProps): JSX.Element {
+    const { t } = useTranslation();
     return (
         <div className="stepper" role="group" aria-label={label}>
             <button
                 type="button"
                 className="btn btn--icon"
-                aria-label={`Menos ${label}`}
+                aria-label={t('common.decrease', { label })}
                 disabled={value <= min}
                 onClick={() => onChange(Math.max(min, value - 1))}
             >
@@ -74,7 +76,7 @@ export function Stepper({ value, min, max, onChange, label, format }: StepperPro
             <button
                 type="button"
                 className="btn btn--icon"
-                aria-label={`Más ${label}`}
+                aria-label={t('common.increase', { label })}
                 disabled={value >= max}
                 onClick={() => onChange(Math.min(max, value + 1))}
             >

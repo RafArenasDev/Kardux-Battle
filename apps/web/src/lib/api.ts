@@ -84,10 +84,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
             body: body === undefined ? undefined : JSON.stringify(body),
         });
     } catch {
-        throw new ApiError(
-            { code: 'ERR_VALIDATION', message: 'No hay conexión con el servidor.' },
-            0,
-        );
+        throw new ApiError({ code: 'ERR_VALIDATION', message: 'Cannot reach the server.' }, 0);
     }
 
     const isJson = response.headers.get('content-type')?.includes('application/json');
@@ -140,12 +137,8 @@ export function createMatch(payload: CreateMatchRequest): Promise<MatchSummary> 
     return request('/matches', { method: 'POST', body: payload });
 }
 
-export function getActiveMatch(): Promise<MatchSummary | null> {
-    return request('/matches/active');
-}
-
-export function getLeaderboard(): Promise<LeaderboardResponse> {
-    return request('/leaderboard', { query: { limit: '8' } });
+export function getLeaderboard(limit = 20): Promise<LeaderboardResponse> {
+    return request('/leaderboard', { query: { limit: String(limit) } });
 }
 
 export function listMyMatches(): Promise<MatchSummaryWithRole[]> {

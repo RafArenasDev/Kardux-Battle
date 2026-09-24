@@ -1,4 +1,5 @@
 import type { JSX, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { clearSession, getUser, isGuest } from '../../lib/session';
 import { disconnectGameSocket } from '../../lib/socket';
@@ -7,7 +8,6 @@ import { BrandLockup } from '../brand/Brand';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { LanguageSwitch } from '../ui/LanguageSwitch';
-import { useI18n } from '../../lib/i18n';
 import { AppFooter } from './AppFooter';
 
 interface AppShellProps {
@@ -22,7 +22,7 @@ export function AppShell({ children, immersive = false, headerExtra }: AppShellP
     const breakpoint = useBreakpoint();
     const user = getUser();
     const guest = isGuest();
-    const { t } = useI18n();
+    const { t } = useTranslation();
 
     function logout(): void {
         disconnectGameSocket();
@@ -47,7 +47,7 @@ export function AppShell({ children, immersive = false, headerExtra }: AppShellP
                                 <div className="app-header__who">
                                     <strong>{user.nickname}</strong>
                                     <span className="text-3">
-                                        {guest ? t('Invitado', 'Guest') : t('Jugador', 'Player')}
+                                        {guest ? t('common.guest') : t('common.player')}
                                     </span>
                                 </div>
                             ) : null}
@@ -56,8 +56,8 @@ export function AppShell({ children, immersive = false, headerExtra }: AppShellP
                                 size="sm"
                                 icon="exit-door"
                                 onClick={logout}
-                                aria-label={t('Cerrar sesión', 'Sign out')}
-                                data-tip={t('Cerrar sesión', 'Sign out')}
+                                aria-label={t('common.signOut')}
+                                data-tip={t('common.signOut')}
                                 data-tip-pos="bottom"
                             />
                         </div>
