@@ -903,7 +903,9 @@ function RoundResultBanner({
           : t('table.result.theyWin', { name: winner?.nickname ?? '' });
     const detail = result.isTie
         ? t('table.result.tieDetail', { count: Object.keys(result.cards).length })
-        : t('table.result.winDetail', { count: result.potSize });
+        : tone === 'win'
+          ? t('table.result.youTake', { count: result.potSize })
+          : t('table.result.winDetail', { name: winner?.nickname ?? '', count: result.potSize });
 
     return (
         <motion.div

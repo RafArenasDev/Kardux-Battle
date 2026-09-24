@@ -338,10 +338,12 @@
             "youWin": "You win the round!",
             "theyWin": "{{name}} wins",
             "tie": "Tie!",
-            "winDetail_one": "Takes {{count}} card",
-            "winDetail_other": "Takes {{count}} cards",
+            "winDetail_one": "{{name}} takes {{count}} card",
+            "winDetail_other": "{{name}} takes {{count}} cards",
             "tieDetail_one": "{{count}} card goes to the pot",
-            "tieDetail_other": "{{count}} cards go to the pot"
+            "tieDetail_other": "{{count}} cards go to the pot",
+            "youTake_one": "You take {{count}} card",
+            "youTake_other": "You take {{count}} cards"
         },
         "hint": {
             "choose": "Tap the attribute you want to play.",

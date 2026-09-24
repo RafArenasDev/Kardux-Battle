@@ -338,10 +338,12 @@
             "youWin": "¡Ganas la ronda!",
             "theyWin": "Gana {{name}}",
             "tie": "¡Empate!",
-            "winDetail_one": "Se lleva {{count}} carta",
-            "winDetail_other": "Se lleva {{count}} cartas",
+            "winDetail_one": "{{name}} se lleva {{count}} carta",
+            "winDetail_other": "{{name}} se lleva {{count}} cartas",
             "tieDetail_one": "{{count}} carta va al pozo",
-            "tieDetail_other": "{{count}} cartas van al pozo"
+            "tieDetail_other": "{{count}} cartas van al pozo",
+            "youTake_one": "Te llevas {{count}} carta",
+            "youTake_other": "Te llevas {{count}} cartas"
         },
         "hint": {
             "choose": "Toca el atributo con el que quieres jugar.",
