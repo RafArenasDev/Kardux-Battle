@@ -9,8 +9,6 @@ import { KarduxError } from '../common/kardux-error.js';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { PrismaService } from '../prisma/prisma.service.js';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { GameService } from './game.service.js';
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { MatchRuntimeService } from './match-runtime.service.js';
 
 /** Lives in `GameModule` (not `MatchModule`) because ending a match has to reach the live
@@ -22,7 +20,6 @@ import { MatchRuntimeService } from './match-runtime.service.js';
 export class MatchLifecycleController {
     constructor(
         private readonly prisma: PrismaService,
-        private readonly gameService: GameService,
         private readonly runtime: MatchRuntimeService,
     ) {}
 
@@ -38,9 +35,7 @@ export class MatchLifecycleController {
         if (!match) throw new KarduxError('ERR_MATCH_NOT_FOUND');
 
         if (match.hostId === user.sub) {
-            this.runtime.closeRoom(matchId);
-            await this.runtime.dispose(matchId);
-            await this.prisma.match.delete({ where: { id: matchId } });
+            await this.runtime.deleteMatch(matchId);
             return;
         }
 
@@ -49,7 +44,6 @@ export class MatchLifecycleController {
         });
         if (!seated) throw new KarduxError('ERR_MATCH_NOT_FOUND');
 
-        await this.runtime.playerLeave(matchId, `${user.sub}:${user.tabId}`);
-        await this.gameService.leave(matchId, user.sub);
+        await this.runtime.abandon(matchId, `${user.sub}:${user.tabId}`);
     }
 }

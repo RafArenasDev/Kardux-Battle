@@ -35,18 +35,18 @@ export class LeaderboardService {
         const cursor = query.cursor ? this.decodeCursor(query.cursor) : null;
 
         const rows = await this.prisma.leaderboardStat.findMany({
-            // `exactOptionalPropertyTypes` forbids an explicit `where: undefined` - spread in
-            // the key only when there's actually a cursor to filter after.
-            ...(cursor
-                ? {
-                      where: {
+            where: {
+                // Only accounts that finished at least one ranked match appear.
+                gamesPlayed: { gt: 0 },
+                ...(cursor
+                    ? {
                           OR: [
                               { elo: { lt: cursor.elo } },
                               { elo: cursor.elo, id: { lt: cursor.id } },
                           ],
-                      },
-                  }
-                : {}),
+                      }
+                    : {}),
+            },
             orderBy: [{ elo: 'desc' }, { id: 'desc' }],
             // One extra row: if it comes back, there's a next page.
             take: query.limit + 1,

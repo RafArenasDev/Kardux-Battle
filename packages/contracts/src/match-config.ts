@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { deckSourceIdSchema } from './card.js';
 
 /** What happens when a player lets their turn clock run out. */
+/** The original brief: from 2 up to 7 players per table. */
+export const MAX_PLAYERS = 7;
+
 export const TURN_TIMEOUT_POLICIES = ['random_attr', 'highest_attr', 'skip'] as const;
 export type TurnTimeoutPolicy = (typeof TURN_TIMEOUT_POLICIES)[number];
 
@@ -12,9 +15,9 @@ export type TurnTimeoutPolicy = (typeof TURN_TIMEOUT_POLICIES)[number];
  * enforced by `.superRefine` below so every rejection carries a specific, addressable path.
  */
 export const matchConfigShape = {
-    minPlayers: z.number().int().min(2).max(12).default(2),
-    maxPlayers: z.number().int().min(2).max(12).default(7),
-    autoStartPlayers: z.number().int().min(2).max(12).default(7),
+    minPlayers: z.number().int().min(2).max(MAX_PLAYERS).default(2),
+    maxPlayers: z.number().int().min(2).max(MAX_PLAYERS).default(MAX_PLAYERS),
+    autoStartPlayers: z.number().int().min(2).max(MAX_PLAYERS).default(MAX_PLAYERS),
     autoStartCountdownMs: z.number().int().min(0).default(5_000),
     matchDurationMs: z.number().int().min(0).default(3_600_000),
     turnTimeoutMs: z.number().int().min(0).default(30_000),
@@ -22,11 +25,11 @@ export const matchConfigShape = {
     packs: z.number().int().min(1).default(4),
     cardsPerPack: z.number().int().min(1).max(26).default(8),
     attributeCount: z.number().int().min(1).max(6).default(4),
-    /** 0 = every player plays the top card of their pile (the original rule). Above 0 = players
-     *  see that many cards from the top of their pile and choose which one to play (the classic
-     *  deck: highest rank wins, equal ranks tie). */
-    handSize: z.number().int().min(0).max(7).default(0),
-    deckSources: z.array(deckSourceIdSchema).min(1).default(['mythic']),
+    /** Who leads the first round: whoever holds the lowest card code (the original rule:
+     *  1A, then 1B…) or the first player who joined (practice matches: the person, never the
+     *  machine). */
+    firstTurn: z.enum(['lowest_card', 'first_joined']).default('lowest_card'),
+    deckSources: z.array(deckSourceIdSchema).min(1).default(['pokeapi']),
     mixSources: z.boolean().default(false),
     allowSpectators: z.boolean().default(true),
     fillWithBots: z.boolean().default(false),

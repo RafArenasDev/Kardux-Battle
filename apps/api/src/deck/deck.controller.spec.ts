@@ -5,17 +5,11 @@ import { DeckService } from './deck.service.js';
 const emptyPool = { getFamilies: async () => [] } as unknown as CardPoolService;
 
 describe('DeckService', () => {
-    it('lists every battle deck in lobby order', async () => {
+    it('lists the Pokémon deck, not ready until its pool is synced', async () => {
         const sources = await new DeckService(emptyPool).listSources();
 
-        expect(sources.map((source) => source.id)).toEqual(['pokeapi', 'mythic', 'deckofcards']);
-        // API decks are not ready until their pool syncs (the classic deck falls back to bundled art).
+        expect(sources.map((source) => source.id)).toEqual(['pokeapi']);
         expect(sources[0]?.ready).toBe(false);
-        for (const source of sources.slice(1)) {
-            expect(source.ready).toBe(true);
-            expect(source.preview.length).toBeGreaterThan(0);
-            expect(source.maxPacks).toBeGreaterThanOrEqual(4);
-            expect(source.cardCount).toBeGreaterThanOrEqual(32);
-        }
+        expect(sources[0]?.attributes.map((attribute) => attribute.key)).toContain('hp');
     });
 });

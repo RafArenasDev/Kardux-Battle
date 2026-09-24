@@ -1,4 +1,4 @@
-import { ERROR_MESSAGES, matchConfigSchema } from '@kardux/contracts';
+import { ERROR_MESSAGES, TABLE_TIMING, matchConfigSchema } from '@kardux/contracts';
 import type { Card, ErrorCode, MatchState, Player, RoundState } from '@kardux/contracts';
 import type { EngineAction, EngineContext } from './actions.js';
 import { dealDeck } from './deal.js';
@@ -89,6 +89,7 @@ function applyPlayerJoin(
         isEliminated: false,
         eliminatedAt: null,
         cardCount: 0,
+        hasLeft: false,
     };
 
     const nextState: MatchState = {
@@ -102,14 +103,9 @@ function applyPlayerJoin(
 }
 
 /**
- * In `LOBBY`, leaving removes the player outright (and hands the host role to the
- * next-earliest joiner, if the host left). Once a match is underway, a voluntary leave is
- * treated the same as running out of cards (docs/SPEC.md only defines elimination for the
- * "ran out of cards" case; it's silent on a deliberate mid-match leave) - they become a
- * spectator and drop out of the turn order. Their pile at that moment is removed from
- * circulation rather than redistributed: docs/SPEC.md has no rule for "who inherits a
- * voluntary leaver's cards," and inventing a redistribution rule would be a bigger, unasked-
- * for design decision than simply not awarding cards nobody currently played for.
+ * Before the deal (`LOBBY`/`COUNTDOWN`), leaving removes the player outright, hands the host
+ * role to the next-earliest joiner and stops a countdown the room no longer qualifies for.
+ * Once a match is underway, leaving is a forfeit that ends the match (see `forfeit`).
  */
 function applyPlayerLeave(
     state: MatchState,
@@ -122,7 +118,7 @@ function applyPlayerLeave(
         return fail(state, 'ERR_VALIDATION');
     }
 
-    if (state.phase === 'LOBBY') {
+    if (state.phase === 'LOBBY' || state.phase === 'COUNTDOWN') {
         const remainingPlayers = state.players.filter(
             (candidate) => candidate.id !== action.playerId,
         );
@@ -130,12 +126,19 @@ function applyPlayerLeave(
             state.hostId === action.playerId
                 ? (remainingPlayers.find((candidate) => !candidate.isSpectator)?.id ?? null)
                 : state.hostId;
+        const remainingActive = remainingPlayers.filter((candidate) => !candidate.isSpectator);
+        // A countdown only runs while the room is full enough to auto-start.
+        const stopCountdown =
+            state.phase === 'COUNTDOWN' && remainingActive.length < state.config.autoStartPlayers;
 
         const nextState: MatchState = {
             ...state,
             version: state.version + 1,
             players: remainingPlayers,
             hostId: nextHostId,
+            ...(stopCountdown
+                ? { phase: 'LOBBY' as const, countdownEndsAt: null, pendingDeck: null }
+                : {}),
         };
 
         return { state: nextState, events: [{ type: 'player.left', playerId: action.playerId }] };
@@ -147,72 +150,152 @@ function applyPlayerLeave(
         return { state: nextState, events: [{ type: 'player.left', playerId: action.playerId }] };
     }
 
-    const { piles, players, turnOrder } = eliminate(state, [action.playerId], ctx.now);
-    const remainingActive = turnOrder;
+    return forfeit(state, action.playerId, ctx.now);
+}
 
-    if (remainingActive.length <= 1) {
-        return finishByTimeout({
-            ...state,
-            piles,
-            players,
-            turnOrder: remainingActive,
-            round: null,
-        });
+/**
+ * Leaving a match in progress is a forfeit - there is no way to pause or resume. The leaver
+ * finishes last with zero cards.
+ * - In a duel the match ends on the spot: the rival keeps their cards plus the leaver's pile,
+ *   the card the leaver had on the table and the tie pot, and wins.
+ * - With three or more players the match goes on: the leaver's pile is dealt out evenly among
+ *   the others (one card each in turn order, starting after the leaver), a card they had
+ *   already laid down joins the pot, and the turn moves on if it was theirs.
+ */
+function forfeit(state: MatchState, leaverId: string, now: number): ReduceResult {
+    const remaining = state.turnOrder.filter((id) => id !== leaverId);
+    return remaining.length <= 1
+        ? forfeitDuel(state, leaverId, remaining, now)
+        : forfeitTable(state, leaverId, remaining, now);
+}
+
+function markLeaver(player: Player, now: number): Player {
+    return {
+        ...player,
+        cardCount: 0,
+        isEliminated: true,
+        isSpectator: true,
+        eliminatedAt: now,
+        hasLeft: true,
+    };
+}
+
+function forfeitDuel(
+    state: MatchState,
+    leaverId: string,
+    remaining: readonly string[],
+    now: number,
+): ReduceResult {
+    const piles: Record<string, Card[]> = { ...state.piles };
+    const played = state.round?.playedCards ?? {};
+    const rivalId = remaining[0];
+
+    if (rivalId) {
+        piles[rivalId] = [
+            ...(piles[rivalId] ?? []),
+            ...(played[rivalId] ? [played[rivalId]] : []),
+            ...(piles[leaverId] ?? []),
+            ...(played[leaverId] ? [played[leaverId]] : []),
+            ...state.pot,
+        ];
     }
+    piles[leaverId] = [];
 
-    const wasLeader =
-        state.round?.leaderId === action.playerId ||
-        (!state.round && state.turnOrder[state.currentTurnIndex] === action.playerId);
-    const newCurrentTurnIndex = wasLeader
-        ? remainingActive.indexOf(remainingActive[0]!)
-        : Math.min(state.currentTurnIndex, remainingActive.length - 1);
+    const players = state.players.map((player) =>
+        player.id === leaverId
+            ? markLeaver(player, now)
+            : player.id === rivalId
+              ? { ...player, cardCount: piles[player.id]?.length ?? 0 }
+              : player,
+    );
+
+    const finished = finishByTimeout({
+        ...state,
+        piles,
+        players,
+        pot: [],
+        turnOrder: [...remaining],
+        round: null,
+    });
+
+    return {
+        state: finished.state,
+        events: [{ type: 'player.left', playerId: leaverId }, ...finished.events],
+    };
+}
+
+function forfeitTable(
+    state: MatchState,
+    leaverId: string,
+    remaining: readonly string[],
+    now: number,
+): ReduceResult {
+    const piles: Record<string, Card[]> = { ...state.piles };
+    const leaverIndex = state.turnOrder.indexOf(leaverId);
+    // Deal the leaver's pile starting with the player right after them.
+    const dealOrder = [
+        ...state.turnOrder.slice(leaverIndex + 1),
+        ...state.turnOrder.slice(0, leaverIndex),
+    ].filter((id) => id !== leaverId);
+    (piles[leaverId] ?? []).forEach((card, index) => {
+        const receiver = dealOrder[index % dealOrder.length]!;
+        piles[receiver] = [...(piles[receiver] ?? []), card];
+    });
+    piles[leaverId] = [];
+
+    const round = state.round;
+    const leaverCard = round?.playedCards[leaverId];
+    const pot = leaverCard ? [...state.pot, leaverCard] : state.pot;
+    const nextRound: RoundState | null = round
+        ? {
+              ...round,
+              playOrder: round.playOrder.filter((id) => id !== leaverId),
+              playedCards: Object.fromEntries(
+                  Object.entries(round.playedCards).filter(([id]) => id !== leaverId),
+              ),
+          }
+        : null;
+
+    const players = state.players.map((player) => {
+        if (player.id === leaverId) return markLeaver(player, now);
+        if (player.isSpectator) return player;
+        const onTable = nextRound?.playedCards[player.id] ? 1 : 0;
+        return { ...player, cardCount: (piles[player.id]?.length ?? 0) + onTable };
+    });
+
+    // Whoever held the turn keeps it; if it was the leaver, it passes to the next player.
+    const turnHolder = state.turnOrder[state.currentTurnIndex];
+    const currentTurnIndex =
+        turnHolder && turnHolder !== leaverId
+            ? remaining.indexOf(turnHolder)
+            : remaining.indexOf(dealOrder[0]!);
+    const leaderLeft = state.phase === 'AWAITING_ATTRIBUTE' && turnHolder === leaverId;
 
     const nextState: MatchState = {
         ...state,
         version: state.version + 1,
         piles,
         players,
-        turnOrder: remainingActive,
-        currentTurnIndex: newCurrentTurnIndex,
-        round: wasLeader ? null : state.round,
-        phase: wasLeader ? 'AWAITING_ATTRIBUTE' : state.phase,
-        turnDeadline: wasLeader ? computeTurnDeadline(state.config, ctx.now) : state.turnDeadline,
+        pot,
+        turnOrder: [...remaining],
+        currentTurnIndex: Math.max(0, currentTurnIndex),
+        round: nextRound,
+        turnOpensAt: leaderLeft ? now : state.turnOpensAt,
+        turnDeadline: leaderLeft ? computeTurnDeadline(state.config, now) : state.turnDeadline,
     };
+    const leftEvent: EngineEvent = { type: 'player.left', playerId: leaverId };
 
-    return { state: nextState, events: [{ type: 'player.left', playerId: action.playerId }] };
-}
-
-/** Shared elimination bookkeeping: marks players eliminated/spectator, zeroes their card
- *  count, drops them from `turnOrder`. Does not decide what happens to the round in progress
- *  - callers (`applyPlayerLeave`, `round.ts`'s `resolveRound`) handle that themselves, since
- *  the right response differs (a round losing its leader vs. a round losing a non-leader). */
-function eliminate(
-    state: MatchState,
-    playerIds: readonly string[],
-    now: number,
-): Pick<MatchState, 'piles' | 'players' | 'turnOrder'> {
-    const idSet = new Set(playerIds);
-    const piles = { ...state.piles };
-
-    for (const id of idSet) {
-        piles[id] = [];
+    // The leaver may have been the last one the round was waiting on.
+    if (
+        nextState.phase === 'AWAITING_CARDS' &&
+        nextRound &&
+        nextRound.playOrder.every((id) => nextRound.playedCards[id] !== undefined)
+    ) {
+        const resolved = resolveRound(nextState, now);
+        return { state: resolved.state, events: [leftEvent, ...resolved.events] };
     }
 
-    const players = state.players.map((player) =>
-        idSet.has(player.id)
-            ? {
-                  ...player,
-                  isEliminated: true,
-                  isSpectator: true,
-                  eliminatedAt: now,
-                  cardCount: 0,
-              }
-            : player,
-    );
-
-    const turnOrder = state.turnOrder.filter((id) => !idSet.has(id));
-
-    return { piles, players, turnOrder };
+    return { state: nextState, events: [leftEvent] };
 }
 
 function applyMatchConfigure(
@@ -250,8 +333,11 @@ function beginMatch(state: MatchState, deck: readonly Card[], now: number): Matc
     const players = activePlayerIds(state);
     const turnOrder = buildTurnOrder(state.players.filter((player) => !player.isSpectator));
     const dealt = dealDeck(deck, players, state.rng);
+    const dealtCount = Object.values(dealt.piles).reduce((sum, pile) => sum + pile.length, 0);
     const firstTurnPlayerId =
-        findFirstTurnPlayerId(dealt.piles, state.config.packs, state.config.cardsPerPack) ??
+        (state.config.firstTurn === 'first_joined'
+            ? turnOrder[0]
+            : findFirstTurnPlayerId(dealt.piles, state.config.packs, state.config.cardsPerPack)) ??
         turnOrder[0]!;
 
     return {
@@ -264,6 +350,7 @@ function beginMatch(state: MatchState, deck: readonly Card[], now: number): Matc
         pendingDeck: null,
         rng: dealt.rng,
         piles: dealt.piles,
+        undealtCount: deck.length - dealtCount,
         players: state.players.map((player) =>
             player.isSpectator
                 ? player
@@ -272,7 +359,9 @@ function beginMatch(state: MatchState, deck: readonly Card[], now: number): Matc
         turnOrder,
         currentTurnIndex: Math.max(turnOrder.indexOf(firstTurnPlayerId), 0),
         roundIndex: 0,
-        turnDeadline: computeTurnDeadline(state.config, now),
+        // The first turn opens once everyone has watched the cards being dealt.
+        turnOpensAt: now + TABLE_TIMING.dealMs,
+        turnDeadline: computeTurnDeadline(state.config, now + TABLE_TIMING.dealMs),
     };
 }
 
@@ -445,18 +534,7 @@ function applyPlayCard(
         return fail(state, 'ERR_VALIDATION');
     }
 
-    // Hand matches: the player may pick any card among the first `handSize` of their pile.
-    const handSize = state.config.handSize ?? 0;
-    let playedIndex = 0;
-    if (action.cardCode !== undefined && handSize > 0) {
-        playedIndex = pile.findIndex((card) => card.code === action.cardCode);
-        if (playedIndex < 0 || playedIndex >= handSize) {
-            return fail(state, 'ERR_VALIDATION');
-        }
-    }
-
-    const playedCard = pile[playedIndex]!;
-    const rest = pile.filter((_, index) => index !== playedIndex);
+    const [playedCard, ...rest] = pile as [Card, ...Card[]];
     const newRound: RoundState = {
         ...round,
         playedCards: { ...round.playedCards, [action.playerId]: playedCard },
@@ -500,6 +578,7 @@ function applyLeaderTimeout(state: MatchState, ctx: EngineContext): ReduceResult
             ...state,
             version: state.version + 1,
             currentTurnIndex: nextIndex,
+            turnOpensAt: ctx.now,
             turnDeadline: computeTurnDeadline(state.config, ctx.now),
         };
 

@@ -1,14 +1,6 @@
 import type { Card, DeckSourceId, MatchConfig } from '@kardux/contracts';
 import type { DeckEntity, DeckInfo } from '@kardux/content';
-import {
-    NAIPES_DECK,
-    deckFamilies,
-    effectiveAttributeCount,
-    getDeck,
-    getDeckInfo,
-    sharedAttributes,
-    validateDeckConfig,
-} from '@kardux/content';
+import { getDeckInfo, sharedAttributes, validateDeckConfig } from '@kardux/content';
 import { createRngState, shuffle } from '@kardux/engine';
 import { Injectable } from '@nestjs/common';
 import { KarduxError } from '../common/kardux-error.js';
@@ -36,12 +28,10 @@ interface SourcedFamily {
 }
 
 /**
- * Builds the playable `Card[]` for a match. API-backed decks (Pokémon, poker) come from the
- * `CardPoolEntry` mirror (`CardPoolService`, synced once at boot); bundled decks from
- * `@kardux/content`. Nothing here touches the network.
+ * Builds the playable `Card[]` for a match from the `CardPoolEntry` mirror (`CardPoolService`,
+ * synced at boot). Nothing here touches the network.
  *
- * Quartets are real: every card sharing a letter comes from the same family (a Pokémon type,
- * a card rank, a creature kind). The seeded RNG picks which families play and which members of
+ * Quartets are real: every card sharing a letter comes from the same family (a Pokémon type). The seeded RNG picks which families play and which members of
  * each, so a match is fully reproducible from its seed.
  */
 @Injectable()
@@ -58,7 +48,7 @@ export class DeckBuilder {
             .map((id) => getDeckInfo(id))
             .filter((info): info is DeckInfo => info !== undefined);
         const attributeKeys = sharedAttributes(infos)
-            .slice(0, effectiveAttributeCount(config.deckSources, config.attributeCount))
+            .slice(0, config.attributeCount)
             .map((attribute) => attribute.key);
 
         const families: SourcedFamily[] = [];
@@ -105,18 +95,7 @@ export class DeckBuilder {
         return cards;
     }
 
-    private async familiesFor(source: DeckSourceId): Promise<DeckEntity[][]> {
-        if (source === 'pokeapi') {
-            return this.cardPool.getFamilies(source);
-        }
-
-        if (source === 'deckofcards') {
-            const synced = await this.cardPool.getFamilies('deckofcards');
-            // Offline fallback: the bundled French deck has the exact same attributes.
-            return synced.length > 0 ? synced : deckFamilies(NAIPES_DECK);
-        }
-
-        const bundled = getDeck(source);
-        return bundled ? deckFamilies(bundled) : [];
+    private familiesFor(source: DeckSourceId): Promise<DeckEntity[][]> {
+        return this.cardPool.getFamilies(source);
     }
 }

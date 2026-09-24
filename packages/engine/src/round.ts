@@ -1,13 +1,27 @@
 import type { EngineEvent } from './events.js';
 import type { Card, MatchConfig, MatchState, Player, RoundResult } from '@kardux/contracts';
+import { TABLE_TIMING } from '@kardux/contracts';
 
-/** `null` when `turnTimeoutMs` is 0 (no limit configured for this match). */
+/** `null` when `turnTimeoutMs` is 0 (no limit configured for this match). `now` is when the
+ *  turn opens: callers pass a later moment when the table is still animating. */
 export function computeTurnDeadline(config: MatchConfig, now: number): number | null {
     return config.turnTimeoutMs > 0 ? now + config.turnTimeoutMs : null;
 }
 
+/** The next turn opens once the reveal of the round that just resolved has played out. */
+export function afterReveal(now: number): number {
+    return now + TABLE_TIMING.revealMs;
+}
+
 function standingsOf(players: readonly Player[]): Player[] {
-    return [...players].sort((a, b) => b.cardCount - a.cardCount || a.seat - b.seat);
+    return [...players].sort(
+        (a, b) =>
+            Number(a.hasLeft) - Number(b.hasLeft) ||
+            b.cardCount - a.cardCount ||
+            // Among players with no cards, whoever lasted longer ranks higher.
+            (b.eliminatedAt ?? Infinity) - (a.eliminatedAt ?? Infinity) ||
+            a.seat - b.seat,
+    );
 }
 
 /**
@@ -68,7 +82,8 @@ export function resolveRound(
             phase: 'AWAITING_ATTRIBUTE',
             pot: newPot,
             round: null,
-            turnDeadline: computeTurnDeadline(state.config, now),
+            turnOpensAt: afterReveal(now),
+            turnDeadline: computeTurnDeadline(state.config, afterReveal(now)),
         };
 
         return {
@@ -167,7 +182,8 @@ export function resolveRound(
         currentTurnIndex: newTurnOrder.indexOf(winnerId),
         round: null,
         pot: [],
-        turnDeadline: computeTurnDeadline(state.config, now),
+        turnOpensAt: afterReveal(now),
+        turnDeadline: computeTurnDeadline(state.config, afterReveal(now)),
     };
 
     return { state: nextState, events: [revealedEvent, resolvedEvent] };

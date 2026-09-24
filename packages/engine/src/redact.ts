@@ -19,18 +19,17 @@ export function redactFor(viewerId: string, state: MatchState): RedactedMatchSta
         endsAt: state.endsAt,
         countdownEndsAt: state.countdownEndsAt,
         turnDeadline: state.turnDeadline,
+        turnOpensAt: state.turnOpensAt,
         players: state.players,
         hostId: state.hostId,
         turnOrder: state.turnOrder,
         currentTurnIndex: state.currentTurnIndex,
         yourId: viewerId,
         yourTopCard: yourPile && yourPile.length > 0 ? yourPile[0]! : null,
-        yourHand:
-            yourPile && (state.config.handSize ?? 0) > 0
-                ? yourPile.slice(0, state.config.handSize)
-                : [],
+        roundsPlayed: state.roundIndex,
         round: state.round ? redactRound(state.round) : null,
         potSize: state.pot.length,
+        undealtCount: state.undealtCount,
         winnerId: state.winnerId,
         isDraw: state.isDraw,
     };

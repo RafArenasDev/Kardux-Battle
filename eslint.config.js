@@ -12,6 +12,7 @@ export default tseslint.config(
             '**/coverage/**',
             '**/node_modules/**',
             '**/*.config.js',
+            '**/dev-dist/**',
             'apps/desktop/src-tauri/target/**',
             'apps/mobile/.expo/**',
         ],
@@ -37,5 +38,20 @@ export default tseslint.config(
             'react-hooks/rules-of-hooks': 'error',
             'react-hooks/exhaustive-deps': 'warn',
         },
+    },
+    {
+        // Plain Node scripts (dev tooling, smoke tests, generators).
+        files: ['**/*.mjs'],
+        languageOptions: {
+            globals: {
+                console: 'readonly',
+                process: 'readonly',
+                fetch: 'readonly',
+                setTimeout: 'readonly',
+                clearTimeout: 'readonly',
+                URL: 'readonly',
+            },
+        },
+        rules: { 'no-console': 'off' },
     },
 );

@@ -218,29 +218,9 @@ export class GameService {
         };
     }
 
-    /** Mirrors a voluntary leave in the durable rows: a lobby seat is freed outright (and an
-     *  emptied lobby is closed), a mid-match leave is recorded as an elimination so the
-     *  player isn't offered "Continuar" for a match they walked away from. */
-    async leave(matchId: string, userId: string): Promise<void> {
-        const match = await this.prisma.match.findUnique({ where: { id: matchId } });
-        if (!match) return;
-
-        if (match.status === 'LOBBY') {
-            await this.prisma.matchPlayer.deleteMany({ where: { matchId, userId } });
-            const remaining = await this.countApproved(matchId);
-            if (remaining === 0) {
-                await this.prisma.match.update({
-                    where: { id: matchId },
-                    data: { status: 'FINISHED', endedAt: new Date() },
-                });
-            }
-            return;
-        }
-
-        await this.prisma.matchPlayer.updateMany({
-            where: { matchId, userId, eliminatedAt: null },
-            data: { eliminatedAt: new Date() },
-        });
+    /** Every match that is still waiting or being played. */
+    async listActiveMatches(): Promise<Match[]> {
+        return this.prisma.match.findMany({ where: { status: { in: ['LOBBY', 'IN_PROGRESS'] } } });
     }
 
     async countSeated(matchId: string): Promise<number> {

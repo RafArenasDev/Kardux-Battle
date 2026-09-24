@@ -16,7 +16,7 @@ describe('matchConfigSchema', () => {
             packs: 4,
             cardsPerPack: 8,
             attributeCount: 4,
-            deckSources: ['mythic'],
+            deckSources: ['pokeapi'],
             mixSources: false,
             allowSpectators: true,
             fillWithBots: false,
@@ -25,7 +25,7 @@ describe('matchConfigSchema', () => {
     });
 
     it('rejects minPlayers greater than maxPlayers', () => {
-        const result = matchConfigSchema.safeParse({ minPlayers: 8, maxPlayers: 4 });
+        const result = matchConfigSchema.safeParse({ minPlayers: 6, maxPlayers: 4 });
 
         expect(result.success).toBe(false);
     });
@@ -33,13 +33,13 @@ describe('matchConfigSchema', () => {
     it('rejects autoStartPlayers outside the min/max range', () => {
         const tooLow = matchConfigSchema.safeParse({
             minPlayers: 4,
-            maxPlayers: 8,
+            maxPlayers: 6,
             autoStartPlayers: 3,
         });
         const tooHigh = matchConfigSchema.safeParse({
             minPlayers: 4,
-            maxPlayers: 8,
-            autoStartPlayers: 9,
+            maxPlayers: 6,
+            autoStartPlayers: 7,
         });
 
         expect(tooLow.success).toBe(false);
@@ -64,22 +64,12 @@ describe('matchConfigSchema', () => {
         expect(result.success).toBe(true);
     });
 
-    it('rejects multiple deck sources without mixSources', () => {
-        const result = matchConfigSchema.safeParse({
-            deckSources: ['pokeapi', 'naruto'],
-            mixSources: false,
-        });
-
-        expect(result.success).toBe(false);
+    it('rejects more than the 7 players of the original rules', () => {
+        expect(matchConfigSchema.safeParse({ maxPlayers: 8 }).success).toBe(false);
     });
 
-    it('accepts multiple deck sources with mixSources enabled', () => {
-        const result = matchConfigSchema.safeParse({
-            deckSources: ['pokeapi', 'naruto'],
-            mixSources: true,
-        });
-
-        expect(result.success).toBe(true);
+    it('only accepts the Pokémon deck', () => {
+        expect(matchConfigSchema.safeParse({ deckSources: ['mythic'] }).success).toBe(false);
     });
 
     it('rejects an attributeCount outside 1..6 (1 = single-attribute decks)', () => {

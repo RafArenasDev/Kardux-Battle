@@ -1,54 +1,14 @@
 import type { DeckSourceId, MatchConfig } from '@kardux/contracts';
-import { renderCardArt } from '../art.js';
-import { hashString } from '../avatars.js';
 import type { IconName } from '../icons.generated.js';
-import { AUTOS_DECK } from './autos.js';
-import { AVIONES_DECK } from './aviones.js';
-import { MOTOS_DECK } from './motos.js';
-import { MYTHIC_DECK } from './mythic.js';
-import { NAIPES_DECK } from './naipes.js';
 import type { RemoteDeckMeta } from './remote.js';
-import { CLASSIC_DECK, POKEMON_DECK } from './remote.js';
-import type {
-    DeckAttribute,
-    DeckDefinition,
-    DeckEntity,
-    DeckFamily,
-    Locale,
-    LocalizedText,
-} from './types.js';
+import { POKEMON_DECK } from './remote.js';
+import type { DeckAttribute, Locale, LocalizedText } from './types.js';
 import { text } from './types.js';
 
-export type {
-    DeckAttribute,
-    DeckDefinition,
-    DeckEntity,
-    DeckFamily,
-    DeckMember,
-    Locale,
-    LocalizedText,
-} from './types.js';
+export type { DeckAttribute, DeckEntity, Locale, LocalizedText } from './types.js';
 export { text } from './types.js';
 export type { RemoteDeckMeta } from './remote.js';
-export {
-    CLASSIC_CARD_BACK_URL,
-    CLASSIC_DECK_COUNT,
-    CLASSIC_DECK,
-    POKEMON_DECK,
-    POKEMON_TYPE_LABELS,
-    REMOTE_DECKS,
-} from './remote.js';
-export { CLASSIC_RANKS, CLASSIC_SUITS, classicValueLabel } from './naipes.js';
-
-/** Decks bundled with the app (their own families and generated art). `naipes` is not listed
- *  in the catalog: it is the offline art for the classic deck. */
-export const BUNDLED_DECKS: readonly DeckDefinition[] = [
-    MYTHIC_DECK,
-    AUTOS_DECK,
-    MOTOS_DECK,
-    AVIONES_DECK,
-    NAIPES_DECK,
-];
+export { POKEMON_DECK, POKEMON_TYPE_LABELS, REMOTE_DECKS } from './remote.js';
 
 export interface DeckLimits {
     /** Max `packs`: every quartet needs one card per pack. */
@@ -58,49 +18,22 @@ export interface DeckLimits {
     maxAttributes: number;
 }
 
-/** What the lobby needs to know about any playable deck, bundled or synced. */
+/** What the lobby needs to know about a playable deck. */
 export interface DeckInfo {
     id: DeckSourceId;
-    kind: 'remote' | 'bundled';
     label: LocalizedText;
     tagline: LocalizedText;
     description: LocalizedText;
     coverIcon: IconName;
     accent: string;
     attributes: readonly DeckAttribute[];
-    credits?: LocalizedText;
+    credits: LocalizedText;
     limits: DeckLimits;
-    /** Single-attribute decks (the classic deck) compare automatically - nobody picks. */
-    autoCompare: boolean;
 }
 
-export function deckLimits(deck: DeckDefinition): DeckLimits {
-    return {
-        maxPacks: Math.min(...deck.families.map((family) => family.members.length)),
-        maxCardsPerPack: deck.families.length,
-        maxAttributes: deck.attributes.length,
-    };
-}
-
-function bundledInfo(deck: DeckDefinition): DeckInfo {
-    return {
-        id: deck.id,
-        kind: 'bundled',
-        label: deck.label,
-        tagline: deck.tagline,
-        description: deck.description,
-        coverIcon: deck.coverIcon,
-        accent: deck.accent,
-        attributes: deck.attributes,
-        limits: deckLimits(deck),
-        autoCompare: deck.attributes.length === 1,
-    };
-}
-
-function remoteInfo(meta: RemoteDeckMeta): DeckInfo {
+function deckInfo(meta: RemoteDeckMeta): DeckInfo {
     return {
         id: meta.id,
-        kind: 'remote',
         label: meta.label,
         tagline: meta.tagline,
         description: meta.description,
@@ -113,30 +46,14 @@ function remoteInfo(meta: RemoteDeckMeta): DeckInfo {
             maxCardsPerPack: meta.maxCardsPerPack,
             maxAttributes: meta.attributes.length,
         },
-        autoCompare: meta.attributes.length === 1,
     };
 }
 
-/** Every battle deck, in lobby order. */
-export const DECK_CATALOG: readonly DeckInfo[] = [
-    remoteInfo(POKEMON_DECK),
-    bundledInfo(MYTHIC_DECK),
-    remoteInfo(CLASSIC_DECK),
-];
+/** Every playable deck, in lobby order. */
+export const DECK_CATALOG: readonly DeckInfo[] = [deckInfo(POKEMON_DECK)];
 
-/** Metadata for any deck id, including the unlisted `naipes`/`local` ones. */
 export function getDeckInfo(id: DeckSourceId): DeckInfo | undefined {
-    const listed = DECK_CATALOG.find((deck) => deck.id === id);
-    if (listed) return listed;
-    const bundled = getDeck(id);
-    return bundled ? bundledInfo(bundled) : undefined;
-}
-
-/** Bundled deck definition. `local` is the historical offline/dev id and plays the mythic
- *  deck, so older configs and the engine tests keep working. */
-export function getDeck(id: DeckSourceId): DeckDefinition | undefined {
-    if (id === 'local') return MYTHIC_DECK;
-    return BUNDLED_DECKS.find((deck) => deck.id === id);
+    return DECK_CATALOG.find((deck) => deck.id === id);
 }
 
 /** Attributes shared by every selected deck, in the first deck's priority order. */
@@ -148,18 +65,6 @@ export function sharedAttributes(
     return first.attributes.filter((attribute) =>
         rest.every((deck) => deck.attributes.some((other) => other.key === attribute.key)),
     );
-}
-
-/** How many attributes a match really plays with: exactly one for a single-attribute deck. */
-export function effectiveAttributeCount(
-    deckSources: readonly DeckSourceId[],
-    requested: number,
-): number {
-    const infos = deckSources
-        .map((id) => getDeckInfo(id))
-        .filter((info): info is DeckInfo => info !== undefined);
-    const available = sharedAttributes(infos).length;
-    return available === 1 ? 1 : Math.min(requested, available);
 }
 
 type DeckConfig = Pick<
@@ -180,7 +85,7 @@ export function validateDeckConfig(config: DeckConfig): LocalizedText | null {
     }
 
     const attributes = sharedAttributes(decks);
-    if (attributes.length > 1 && attributes.length < config.attributeCount) {
+    if (attributes.length < config.attributeCount) {
         return text(
             `Este mazo solo ofrece ${attributes.length} atributos; baja la cantidad de atributos.`,
             `This deck only has ${attributes.length} attributes; lower the attribute count.`,
@@ -214,57 +119,7 @@ export function validateDeckConfig(config: DeckConfig): LocalizedText | null {
     return null;
 }
 
-/** Deterministic 5-99 variation around a family profile - invented creatures get distinct but
- *  stable stats. */
-function derivedStat(base: number, seed: string): number {
-    const spread = (hashString(seed) % 25) - 12;
-    return Math.max(5, Math.min(99, base + spread));
-}
-
-function familyEntities(deck: DeckDefinition, family: DeckFamily): DeckEntity[] {
-    return family.members.map((member, index) => {
-        const stats: Record<string, number> = {};
-        for (const attribute of deck.attributes) {
-            const explicit = member.stats?.[attribute.key];
-            stats[attribute.key] =
-                explicit ??
-                derivedStat(
-                    family.profile?.[attribute.key] ?? 50,
-                    `${deck.id}:${family.key}:${index}:${attribute.key}`,
-                );
-        }
-
-        const ink = member.ink ?? family.ink;
-        return {
-            id: `${deck.id}:${family.key}:${index}`,
-            familyKey: `${deck.id}:${family.key}`,
-            name: member.name.es,
-            nameEn: member.name.en,
-            imageUrl: renderCardArt({
-                icon: member.icon ?? family.icon,
-                palette: family.palette,
-                ...(member.rank ? { rank: member.rank } : {}),
-                ...(ink ? { ink } : {}),
-            }),
-            stats,
-        };
-    });
-}
-
-const entityCache = new Map<string, DeckEntity[][]>();
-
-/** Every family of a bundled deck as resolved entities (art rendered once, memoized). */
-export function deckFamilies(deck: DeckDefinition): DeckEntity[][] {
-    const cached = entityCache.get(deck.id);
-    if (cached) return cached;
-    const families = deck.families.map((family) => familyEntities(deck, family));
-    entityCache.set(deck.id, families);
-    return families;
-}
-
 /** Picks the text for a locale. */
 export function localize(value: LocalizedText, locale: Locale): string {
     return value[locale];
 }
-
-export { AUTOS_DECK, AVIONES_DECK, MOTOS_DECK, MYTHIC_DECK, NAIPES_DECK };

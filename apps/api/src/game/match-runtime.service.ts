@@ -25,22 +25,24 @@ import { KarduxError } from '../common/kardux-error.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { DeckBuilder } from '../deck/deck-builder.service.js';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { RatingService } from '../leaderboard/rating.service.js';
 import type { GameSocket } from './game-socket.type.js';
 import { toErrorPayload } from './to-error-payload.js';
 
 const LOCK_PREFIX = 'kardux:lock:match:';
-/** Pause before the leader's card lands, then between each following player's card - slow
- *  enough that everyone can follow the cards being laid on the table one by one. */
-const LEADER_PLAY_DELAY_MS = 450;
-const FOLLOWER_PLAY_DELAY_MS = 1_100;
-/** A bot "thinks" before choosing, and a single-attribute deck pauses so the table reads well. */
+/** Pause after the attribute is announced before the leader's card is laid down, then between
+ *  each following player's card - one step at a time, so everyone can follow the table. */
+const LEADER_PLAY_DELAY_MS = 1_200;
+const FOLLOWER_PLAY_DELAY_MS = 1_300;
+/** A bot "thinks" before choosing its attribute. */
 const BOT_THINK_MS = 2_200;
-const AUTO_ATTRIBUTE_MS = 1_200;
 
-/** Player ids starting with this prefix are the server-driven Kardux bot. */
+/** Player ids starting with this prefix are the server-driven practice rival. */
 export const BOT_PREFIX = 'bot:';
-const BOT_NICKNAME = 'Kardux Bot';
-const BOT_AVATAR = 'robot-golem:gold';
+/** The practice rival: always the same name and face, so players recognise it. */
+const PRACTICE_NICKNAME = 'Nova';
+const PRACTICE_AVATAR = 'astronaut-helmet:ice';
 const LOCK_TTL_MS = 5_000;
 const STATE_PREFIX = 'kardux:match:state:';
 /** Live matches are kept for a day; a finished one only long enough to show the result. */
@@ -75,6 +77,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
     constructor(
         private readonly prisma: PrismaService,
         private readonly deckBuilder: DeckBuilder,
+        private readonly rating: RatingService,
         config: ConfigService<AppConfig, true>,
     ) {
         this.redis = this.createRedisClient(config.get('REDIS_URL', { infer: true }));
@@ -195,17 +198,8 @@ export class MatchRuntimeService implements OnModuleDestroy {
         });
     }
 
-    async playCard(
-        matchId: string,
-        client: GameSocket,
-        playerId: string,
-        cardCode?: string,
-    ): Promise<void> {
-        await this.dispatchAndReport(matchId, client, {
-            type: 'round.playCard',
-            playerId,
-            ...(cardCode ? { cardCode } : {}),
-        });
+    async playCard(matchId: string, client: GameSocket, playerId: string): Promise<void> {
+        await this.dispatchAndReport(matchId, client, { type: 'round.playCard', playerId });
     }
 
     /** Used by `match:rejoin`: pushes a fresh redacted snapshot to the reconnecting socket
@@ -225,6 +219,25 @@ export class MatchRuntimeService implements OnModuleDestroy {
 
         client.emit('match:state', redactFor(playerId, state));
         return true;
+    }
+
+    /** Human players still holding a seat in a live match (not left, not knocked out). */
+    async seatedHumans(matchId: string): Promise<string[]> {
+        try {
+            const state = await this.ensureSession(matchId);
+            return state.players
+                .filter(
+                    (player) =>
+                        !player.id.startsWith(BOT_PREFIX) &&
+                        !player.hasLeft &&
+                        (state.phase === 'LOBBY' ||
+                            state.phase === 'COUNTDOWN' ||
+                            !player.isSpectator),
+                )
+                .map((player) => player.id);
+        } catch {
+            return [];
+        }
     }
 
     /** Current engine phase of a live match, or `null` when nothing is loaded for it. Used
@@ -322,23 +335,16 @@ export class MatchRuntimeService implements OnModuleDestroy {
         const round = state.round;
         if (state.phase !== 'AWAITING_CARDS' || !round) return;
 
-        // Hand matches: people choose their own card; only the bot is played for.
-        const handSize = state.config.handSize ?? 0;
-        const nextPlayerId = round.playOrder.find(
-            (id) => !round.playedCards[id] && (handSize === 0 || id.startsWith(BOT_PREFIX)),
-        );
+        const nextPlayerId = round.playOrder.find((id) => !round.playedCards[id]);
         if (!nextPlayerId || this.autoPlays.has(matchId)) return;
 
         const delay =
             nextPlayerId === round.leaderId ? LEADER_PLAY_DELAY_MS : FOLLOWER_PLAY_DELAY_MS;
         const timer = setTimeout(() => {
             this.autoPlays.delete(matchId);
-            const hand = handSize > 0 ? (state.piles[nextPlayerId] ?? []).slice(0, handSize) : [];
-            const pick = hand[Math.floor(Math.random() * hand.length)];
             void this.dispatchAction(matchId, {
                 type: 'round.playCard',
                 playerId: nextPlayerId,
-                ...(pick ? { cardCode: pick.code } : {}),
             }).catch((error: unknown) =>
                 this.logger.error(
                     `Auto-play failed for match ${matchId}: ${(error as Error).message}`,
@@ -348,38 +354,28 @@ export class MatchRuntimeService implements OnModuleDestroy {
         this.autoPlays.set(matchId, timer);
     }
 
-    /**
-     * Picks the round attribute when no human needs to: immediately-ish for a single-attribute
-     * deck (the classic deck compares ranks only) and after a short "think" for the bot leader.
-     */
+    /** The bot leads: it picks its attribute after a short "think". */
     private autoSelectAttribute(matchId: string, state: MatchState): void {
         if (state.phase !== 'AWAITING_ATTRIBUTE' || this.autoSelects.has(matchId)) return;
 
         const leaderId = state.turnOrder[state.currentTurnIndex];
-        const card = leaderId ? state.piles[leaderId]?.[0] : undefined;
-        if (!leaderId || !card) return;
+        if (!leaderId?.startsWith(BOT_PREFIX) || !state.piles[leaderId]?.[0]) return;
 
-        const attributes = Object.keys(card.stats);
-        const isBot = leaderId.startsWith(BOT_PREFIX);
-        if (attributes.length !== 1 && !isBot) return;
-
-        const attribute =
-            attributes.length === 1 ? attributes[0]! : this.bestAttributeFor(state, leaderId);
-        const timer = setTimeout(
-            () => {
-                this.autoSelects.delete(matchId);
-                void this.dispatchAction(matchId, {
-                    type: 'round.selectAttribute',
-                    playerId: leaderId,
-                    attribute,
-                }).catch((error: unknown) =>
-                    this.logger.error(
-                        `Auto-select failed for match ${matchId}: ${(error as Error).message}`,
-                    ),
-                );
-            },
-            isBot ? BOT_THINK_MS : AUTO_ATTRIBUTE_MS,
-        );
+        const attribute = this.bestAttributeFor(state, leaderId);
+        // Wait for the deal/reveal to finish at the table, then "think" like a person would.
+        const opensIn = Math.max(0, (state.turnOpensAt ?? 0) - Date.now());
+        const timer = setTimeout(() => {
+            this.autoSelects.delete(matchId);
+            void this.dispatchAction(matchId, {
+                type: 'round.selectAttribute',
+                playerId: leaderId,
+                attribute,
+            }).catch((error: unknown) =>
+                this.logger.error(
+                    `Auto-select failed for match ${matchId}: ${(error as Error).message}`,
+                ),
+            );
+        }, opensIn + BOT_THINK_MS);
         this.autoSelects.set(matchId, timer);
     }
 
@@ -409,19 +405,76 @@ export class MatchRuntimeService implements OnModuleDestroy {
         return best;
     }
 
-    /** Seats the Kardux bot in a lobby ("play against the machine"). */
+    /** Seats the practice rival in a lobby ("play against the machine"). */
     async addBot(matchId: string): Promise<void> {
         const result = await this.dispatchAction(matchId, {
             type: 'player.join',
-            playerId: `${BOT_PREFIX}kardux`,
-            nickname: BOT_NICKNAME,
-            avatarSeed: BOT_AVATAR,
+            playerId: `${BOT_PREFIX}nova`,
+            nickname: PRACTICE_NICKNAME,
+            avatarSeed: PRACTICE_AVATAR,
         });
         const error = this.firstError(result.events);
         if (error && error.code !== 'ERR_VALIDATION') {
             throw new KarduxError(error.code, error.message);
         }
         await this.maybeAutoStart(matchId);
+    }
+
+    /**
+     * A player walks away (the "Abandonar" button, or a dropped connection that never came
+     * back). There is no way to pause or resume a match:
+     * - in a private lobby the host leaving deletes the room for everyone;
+     * - anywhere else the seat is given up; mid-match that is a forfeit (zero cards, last
+     *   place), and the match ends as soon as fewer than two players remain;
+     * - once no human is left at the table, the match is deleted.
+     */
+    async abandon(matchId: string, playerId: string): Promise<void> {
+        let state: MatchState;
+        try {
+            state = await this.ensureSession(matchId);
+        } catch {
+            return;
+        }
+        if (!state.players.some((player) => player.id === playerId)) return;
+
+        const beforeDeal = state.phase === 'LOBBY' || state.phase === 'COUNTDOWN';
+        const userId = this.userIdOf(playerId);
+
+        if (beforeDeal && state.config.visibility === 'private' && state.hostId === playerId) {
+            await this.deleteMatch(matchId);
+            return;
+        }
+
+        if (state.phase !== 'FINISHED') {
+            await this.playerLeave(matchId, playerId);
+        }
+
+        if (beforeDeal) {
+            await this.prisma.matchPlayer.deleteMany({ where: { matchId, userId } });
+        } else {
+            await this.prisma.matchPlayer.updateMany({
+                where: { matchId, userId, eliminatedAt: null },
+                data: { eliminatedAt: new Date() },
+            });
+        }
+
+        const after = this.sessions.get(matchId);
+        const humansLeft = (after?.players ?? []).filter(
+            (player) =>
+                !player.id.startsWith(BOT_PREFIX) &&
+                !player.hasLeft &&
+                (beforeDeal || !player.isSpectator),
+        );
+        if (humansLeft.length === 0) {
+            await this.deleteMatch(matchId);
+        }
+    }
+
+    /** Removes a match for good: everyone still in the room is sent back to the lobby. */
+    async deleteMatch(matchId: string): Promise<void> {
+        this.closeRoom(matchId);
+        await this.dispose(matchId);
+        await this.prisma.match.deleteMany({ where: { id: matchId } });
     }
 
     /** Stops everything this process runs for a match (host deleted it, or it ended). */
@@ -683,6 +736,12 @@ export class MatchRuntimeService implements OnModuleDestroy {
         );
 
         this.clearTimer(matchId);
+
+        try {
+            await this.rating.rateMatch(matchId, event.standings);
+        } catch (error) {
+            this.logger.error(`Rating failed for match ${matchId}: ${(error as Error).message}`);
+        }
     }
 
     /** `Player.id`/`EngineAction.playerId` is the `userId:tabId` playerKey (docs/SPEC.md's

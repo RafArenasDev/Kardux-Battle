@@ -16,7 +16,7 @@ const validSummary = {
         packs: 4,
         cardsPerPack: 8,
         attributeCount: 4,
-        deckSources: ['local'] as const,
+        deckSources: ['pokeapi'] as const,
         mixSources: false,
         allowSpectators: true,
         fillWithBots: false,

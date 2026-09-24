@@ -8,4 +8,4 @@ export * from './match-config.js';
 export * from './match-state.js';
 export * from './player.js';
 export * from './socket-events.js';
-export * from './casino.js';
+export * from './table-timing.js';

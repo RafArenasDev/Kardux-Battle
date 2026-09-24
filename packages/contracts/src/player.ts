@@ -20,6 +20,8 @@ export const playerSchema = z.object({
     isEliminated: z.boolean(),
     eliminatedAt: z.number().int().nullable(),
     cardCount: z.number().int().min(0),
+    /** Left the match before it ended: out of the turn order with no cards, and ranked last. */
+    hasLeft: z.boolean(),
 });
 
 export type Player = z.infer<typeof playerSchema>;

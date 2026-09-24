@@ -94,11 +94,11 @@ export class AuthController {
     @ApiBody({
         type: LoginRequestDto,
         examples: {
-            demo: {
-                summary: 'Demo account',
+            account: {
+                summary: 'Your account',
                 value: {
-                    username: 'RafArenas',
-                    password: 'Rafa-123*',
+                    username: 'your_username',
+                    password: 'your-password',
                     tabId: EXAMPLE_TAB_ID,
                     remember: false,
                 },

@@ -18,7 +18,7 @@ export function card(code: string, quartet: string, stats: Record<string, number
         quartet,
         name: `Card ${code}`,
         imageUrl: `https://example.com/${code}.png`,
-        source: 'local',
+        source: 'pokeapi',
         stats,
     };
 }
@@ -34,6 +34,7 @@ export function player(id: string, overrides: Partial<Player> = {}): Player {
         isEliminated: false,
         eliminatedAt: null,
         cardCount: 0,
+        hasLeft: false,
         ...overrides,
     };
 }
@@ -71,6 +72,7 @@ export function state(overrides: Partial<MatchState> = {}): MatchState {
         endsAt: null,
         countdownEndsAt: null,
         turnDeadline: null,
+        turnOpensAt: null,
         pendingDeck: null,
         players,
         piles,
@@ -80,6 +82,7 @@ export function state(overrides: Partial<MatchState> = {}): MatchState {
         roundIndex: 0,
         round: null,
         pot: [],
+        undealtCount: 0,
         winnerId: null,
         isDraw: false,
         ...overrides,

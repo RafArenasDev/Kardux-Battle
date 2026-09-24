@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { DeckModule } from '../deck/deck.module.js';
+import { LeaderboardModule } from '../leaderboard/leaderboard.module.js';
 import { MatchModule } from '../match/match.module.js';
 import { GameGateway } from './game.gateway.js';
 import { MatchLifecycleController } from './match-lifecycle.controller.js';
@@ -14,7 +15,7 @@ import { MatchRuntimeService } from './match-runtime.service.js';
 // `DeckModule` is imported for its exported `DeckBuilder` - `MatchRuntimeService` builds the
 // real deck a match is dealt from it.
 @Module({
-    imports: [AuthModule, DeckModule, MatchModule],
+    imports: [AuthModule, DeckModule, LeaderboardModule, MatchModule],
     controllers: [MatchLifecycleController],
     providers: [GameGateway, GameService, MatchRuntimeService],
     exports: [GameService, MatchRuntimeService],

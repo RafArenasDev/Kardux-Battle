@@ -52,8 +52,9 @@ describe('LeaderboardService.getGlobal', () => {
                 include: { user: true },
             }),
         );
-        expect(prisma.leaderboardStat.findMany).not.toHaveBeenCalledWith(
-            expect.objectContaining({ where: expect.anything() }),
+        // Only accounts with at least one ranked match are listed.
+        expect(prisma.leaderboardStat.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({ where: { gamesPlayed: { gt: 0 } } }),
         );
         expect(result.nextCursor).toBeNull();
         expect(result.entries).toHaveLength(1);
@@ -92,7 +93,10 @@ describe('LeaderboardService.getGlobal', () => {
 
         expect(prisma.leaderboardStat.findMany).toHaveBeenCalledWith(
             expect.objectContaining({
-                where: { OR: [{ elo: { lt: 1400 } }, { elo: 1400, id: { lt: 'stat-a' } }] },
+                where: {
+                    gamesPlayed: { gt: 0 },
+                    OR: [{ elo: { lt: 1400 } }, { elo: 1400, id: { lt: 'stat-a' } }],
+                },
             }),
         );
     });

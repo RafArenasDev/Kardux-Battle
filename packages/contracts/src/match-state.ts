@@ -71,6 +71,9 @@ export const matchStateSchema = z.object({
      *  COUNTDOWN, FINISHED). Re-armed by the engine every time turn-taking responsibility
      *  moves to a new player. */
     turnDeadline: z.number().int().nullable(),
+    /** When the current turn opens for the player on turn: right after the deal or the reveal
+     *  of the previous round has played out at the table. */
+    turnOpensAt: z.number().int().nullable(),
     /** Stashed between `match.beginCountdown` and the countdown actually elapsing, so the
      *  engine never needs to fetch or rebuild a deck itself (ADR 0003: no I/O). */
     pendingDeck: z.array(cardSchema).nullable(),
@@ -91,6 +94,9 @@ export const matchStateSchema = z.object({
     round: roundStateSchema.nullable(),
     /** Cards carried over from tied rounds, waiting for the next clear winner. */
     pot: z.array(cardSchema),
+    /** Cards left in the deck after the deal (the total does not always divide evenly
+     *  between the players); they stay out of play for the whole match. */
+    undealtCount: z.number().int().min(0),
     winnerId: z.string().min(1).nullable(),
     isDraw: z.boolean(),
 });
@@ -128,16 +134,18 @@ export const redactedMatchStateSchema = z.object({
     endsAt: z.number().int().nullable(),
     countdownEndsAt: z.number().int().nullable(),
     turnDeadline: z.number().int().nullable(),
+    turnOpensAt: z.number().int().nullable(),
     players: z.array(playerSchema),
     hostId: z.string().min(1).nullable(),
     turnOrder: z.array(z.string().min(1)),
     currentTurnIndex: z.number().int().min(0),
     yourId: z.string().min(1),
     yourTopCard: cardSchema.nullable(),
-    /** The recipient's own playable hand when `config.handSize` > 0; empty otherwise. */
-    yourHand: z.array(cardSchema),
+    /** Rounds started so far (the current one included). */
+    roundsPlayed: z.number().int().min(0),
     round: publicRoundViewSchema.nullable(),
     potSize: z.number().int().min(0),
+    undealtCount: z.number().int().min(0),
     winnerId: z.string().min(1).nullable(),
     isDraw: z.boolean(),
 });

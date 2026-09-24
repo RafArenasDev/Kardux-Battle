@@ -12,11 +12,9 @@
         "test": "vitest run",
         "sim:match": "tsx scripts/sim-match.ts",
         "db:migrate": "prisma migrate dev",
-        "db:seed": "prisma db seed",
         "db:studio": "prisma studio"
     },
     "dependencies": {
-        "@kardux/casino-engine": "workspace:*",
         "@kardux/content": "workspace:*",
         "@kardux/contracts": "workspace:*",
         "@kardux/engine": "workspace:*",

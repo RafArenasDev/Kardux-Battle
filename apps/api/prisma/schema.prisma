@@ -30,9 +30,6 @@ model Player {
   createdAt    DateTime @default(now())
   lastSeenAt   DateTime @default(now())
 
-  /// Virtual chips for the casino tables. No real-money value, never purchasable.
-  coins        Int      @default(5000)
-
   hostedMatches   Match[]         @relation("MatchHost")
   matchPlayers    MatchPlayer[]
   leaderboardStat LeaderboardStat?
@@ -192,14 +189,13 @@ model MatchEvent {
   @@map("match_events")
 }
 
-/// Local mirror of the cards synced from public APIs (ADR 0006 / docs/SPEC.md "Espejo local
-/// persistente"): PokéAPI and Deck of Cards API are queried once when the API boots (and
-/// re-synced weekly), then every match is built from these rows - never from the network.
+/// Local mirror of the cards synced from PokéAPI (ADR 0006): queried once when the API boots
+/// (and re-synced weekly), then every match is built from these rows - never from the network.
 model CardPoolEntry {
   id         String   @id @default(cuid())
   source     String
   externalId String
-  /// Quartet family: the Pokémon's primary type, or the playing card's rank.
+  /// Quartet family: the Pokémon's primary type.
   quartetKey String
   name       String
   /// English name when the source provides one (`name` is the Spanish name).

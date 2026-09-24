@@ -31,8 +31,17 @@ function isPortOpen(port, host = '127.0.0.1') {
     });
 }
 
+/** Windows needs a shell to resolve `pnpm.cmd`; passing one quoted command line (instead of
+ *  an args array) avoids Node's DEP0190 warning about unescaped shell arguments. */
+function commandLine(command, args) {
+    const quoted = args.map((arg) => (/[\s"]/.test(arg) ? `"${arg.replace(/"/g, '\\"')}"` : arg));
+    return [command, ...quoted].join(' ');
+}
+
 function run(command, args, cwd = root) {
-    const result = spawnSync(command, args, { cwd, stdio: 'inherit', shell: isWindows });
+    const result = isWindows
+        ? spawnSync(commandLine(command, args), { cwd, stdio: 'inherit', shell: true })
+        : spawnSync(command, args, { cwd, stdio: 'inherit' });
     if (result.status !== 0) {
         log(color('31', `"${command} ${args.join(' ')}" failed.`));
         process.exit(result.status ?? 1);
@@ -40,12 +49,10 @@ function run(command, args, cwd = root) {
 }
 
 function start(name, command, args, options = {}) {
-    const child = spawn(command, args, {
-        cwd: root,
-        stdio: options.silent ? 'ignore' : 'inherit',
-        shell: isWindows,
-        ...options,
-    });
+    const spawnOptions = { cwd: root, stdio: options.silent ? 'ignore' : 'inherit', ...options };
+    const child = isWindows
+        ? spawn(commandLine(command, args), { ...spawnOptions, shell: true })
+        : spawn(command, args, spawnOptions);
     child.on('exit', (code) => {
         if (!shuttingDown && options.critical) {
             log(color('31', `${name} exited (${code}). Stopping.`));

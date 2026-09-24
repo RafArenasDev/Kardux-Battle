@@ -1,3 +1,4 @@
+import { TABLE_TIMING } from '@kardux/contracts';
 import { describe, expect, it } from 'vitest';
 import { createMatch } from './create-match.js';
 import { reduce } from './reduce.js';
@@ -832,47 +833,62 @@ describe('player.leave', () => {
         expect(next.hostId).toBe('bob');
     });
 
-    it('eliminates a player who leaves mid-match', () => {
+    it('keeps a 3+ player match going and deals the leaver cards to the others', () => {
         const ongoing = state({
-            phase: 'AWAITING_ATTRIBUTE',
+            phase: 'AWAITING_CARDS',
             players: [
                 player('alice', { joinOrder: 0, cardCount: 2 }),
-                player('bob', { joinOrder: 1, cardCount: 2 }),
-                player('carol', { joinOrder: 2, cardCount: 2 }),
+                player('bob', { joinOrder: 1, cardCount: 3 }),
+                player('carol', { joinOrder: 2, cardCount: 3 }),
             ],
             piles: {
-                alice: [card('1A', 'A', {}), card('2A', 'A', {})],
-                bob: [card('1B', 'B', {}), card('2B', 'B', {})],
-                carol: [card('1C', 'C', {}), card('2C', 'C', {})],
+                alice: [card('2A', 'A', { power: 5 })],
+                bob: [card('1B', 'B', {}), card('2B', 'B', {}), card('3B', 'B', {})],
+                carol: [card('1C', 'C', {}), card('2C', 'C', {}), card('3C', 'C', {})],
+            },
+            round: {
+                index: 0,
+                leaderId: 'alice',
+                attribute: 'power',
+                playOrder: ['alice', 'bob', 'carol'],
+                playedCards: { alice: card('1A', 'A', { power: 9 }) },
             },
             turnOrder: ['alice', 'bob', 'carol'],
             currentTurnIndex: 0,
         });
 
-        const { state: next } = reduce(
+        const { state: next, events } = reduce(
             ongoing,
             { type: 'player.leave', playerId: 'bob' },
             ctx(500),
         );
 
-        const bob = next.players.find((p) => p.id === 'bob');
-        expect(bob?.isEliminated).toBe(true);
-        expect(bob?.cardCount).toBe(0);
+        expect(events).toEqual([{ type: 'player.left', playerId: 'bob' }]);
+        expect(next.phase).toBe('AWAITING_CARDS');
         expect(next.turnOrder).toEqual(['alice', 'carol']);
+        expect(next.round?.playOrder).toEqual(['alice', 'carol']);
+        // bob's 3 cards: carol (next after bob), alice, carol.
+        expect(next.piles.carol).toHaveLength(5);
+        expect(next.piles.alice).toHaveLength(2);
+        expect(next.players.find((p) => p.id === 'alice')?.cardCount).toBe(3);
+        expect(next.players.find((p) => p.id === 'bob')).toMatchObject({
+            cardCount: 0,
+            hasLeft: true,
+        });
     });
 
-    it('hands leadership to the next player if the leaving player was the current leader', () => {
+    it('passes the turn on when the leader leaves a 3+ player match', () => {
         const ongoing = state({
             phase: 'AWAITING_ATTRIBUTE',
             players: [
-                player('alice', { joinOrder: 0, cardCount: 2 }),
-                player('bob', { joinOrder: 1, cardCount: 2 }),
-                player('carol', { joinOrder: 2, cardCount: 2 }),
+                player('alice', { joinOrder: 0, cardCount: 1 }),
+                player('bob', { joinOrder: 1, cardCount: 1 }),
+                player('carol', { joinOrder: 2, cardCount: 1 }),
             ],
             piles: {
-                alice: [card('1A', 'A', {}), card('2A', 'A', {})],
-                bob: [card('1B', 'B', {}), card('2B', 'B', {})],
-                carol: [card('1C', 'C', {}), card('2C', 'C', {})],
+                alice: [card('1A', 'A', {})],
+                bob: [card('1B', 'B', {})],
+                carol: [card('1C', 'C', {})],
             },
             turnOrder: ['alice', 'bob', 'carol'],
             currentTurnIndex: 0,
@@ -885,6 +901,134 @@ describe('player.leave', () => {
         );
 
         expect(next.turnOrder[next.currentTurnIndex]).toBe('bob');
+        expect(next.piles.bob).toHaveLength(2);
+    });
+
+    it('in a duel the rival wins with every card on the table and in the pot', () => {
+        const duel = state({
+            phase: 'AWAITING_CARDS',
+            players: [
+                player('alice', { joinOrder: 0, cardCount: 3 }),
+                player('bob', { joinOrder: 1, cardCount: 2 }),
+            ],
+            piles: {
+                alice: [card('2A', 'A', {}), card('3A', 'A', {})],
+                bob: [card('1B', 'B', {}), card('2B', 'B', {})],
+            },
+            pot: [card('4D', 'D', {})],
+            round: {
+                index: 0,
+                leaderId: 'alice',
+                attribute: 'power',
+                playOrder: ['alice', 'bob'],
+                playedCards: { alice: card('1A', 'A', {}) },
+            },
+            turnOrder: ['alice', 'bob'],
+            currentTurnIndex: 0,
+        });
+
+        const { state: next } = reduce(duel, { type: 'player.leave', playerId: 'alice' }, ctx());
+
+        expect(next.phase).toBe('FINISHED');
+        expect(next.winnerId).toBe('bob');
+        expect(next.players.find((p) => p.id === 'bob')?.cardCount).toBe(6);
+    });
+
+    it('marks the leaver as having left, so they rank last with zero cards', () => {
+        const ongoing = state({
+            phase: 'AWAITING_ATTRIBUTE',
+            players: [
+                player('alice', { joinOrder: 0, cardCount: 1 }),
+                player('bob', { joinOrder: 1, cardCount: 3 }),
+            ],
+            piles: {
+                alice: [card('1A', 'A', {})],
+                bob: [card('1B', 'B', {}), card('2B', 'B', {}), card('3B', 'B', {})],
+            },
+            turnOrder: ['alice', 'bob'],
+            currentTurnIndex: 0,
+        });
+
+        const { state: next, events } = reduce(
+            ongoing,
+            { type: 'player.leave', playerId: 'bob' },
+            ctx(500),
+        );
+
+        expect(next.phase).toBe('FINISHED');
+        expect(next.winnerId).toBe('alice');
+        expect(next.players.find((p) => p.id === 'bob')).toMatchObject({
+            hasLeft: true,
+            cardCount: 0,
+        });
+        const finished = events.find((event) => event.type === 'match.finished');
+        expect(finished?.type === 'match.finished' && finished.standings.at(-1)?.id).toBe('bob');
+    });
+
+    it('stops the auto-start countdown when the room drops below the threshold', () => {
+        const counting = state({
+            phase: 'COUNTDOWN',
+            countdownEndsAt: 5_000,
+            pendingDeck: [card('1A', 'A', {})],
+            players: [player('alice', { joinOrder: 0 }), player('bob', { joinOrder: 1 })],
+            hostId: 'alice',
+            config: config({ minPlayers: 2, maxPlayers: 2, autoStartPlayers: 2 }),
+        });
+
+        const { state: next } = reduce(counting, { type: 'player.leave', playerId: 'bob' }, ctx());
+
+        expect(next.phase).toBe('LOBBY');
+        expect(next.countdownEndsAt).toBeNull();
+        expect(next.pendingDeck).toBeNull();
+    });
+});
+
+describe('first turn', () => {
+    it('lets the first player who joined lead when the match says so (practice matches)', () => {
+        // 1A goes to bob, but a practice match always starts with the person who joined first.
+        const deck = ['2A', '1A', '3A', '4A'].map((code) => card(code, 'A', { power: 1 }));
+        const lobby = state({
+            players: [player('alice', { joinOrder: 0 }), player('bob', { joinOrder: 1 })],
+            hostId: 'alice',
+            config: config({
+                minPlayers: 2,
+                maxPlayers: 2,
+                autoStartPlayers: 2,
+                firstTurn: 'first_joined',
+            }),
+        });
+
+        const { state: next } = reduce(
+            lobby,
+            { type: 'match.start', playerId: 'alice', deck },
+            ctx(),
+        );
+
+        expect(next.turnOrder[next.currentTurnIndex]).toBe('alice');
+    });
+});
+
+describe('dealing', () => {
+    it('keeps the cards that do not divide evenly out of play and counts them', () => {
+        const deck = ['1A', '2A', '1B', '2B', '1C'].map((code) =>
+            card(code, code.slice(-1), { power: 1 }),
+        );
+        const lobby = state({
+            players: [player('alice', { joinOrder: 0 }), player('bob', { joinOrder: 1 })],
+            hostId: 'alice',
+            config: config({ minPlayers: 2, maxPlayers: 2, autoStartPlayers: 2 }),
+        });
+
+        const { state: next } = reduce(
+            lobby,
+            { type: 'match.start', playerId: 'alice', deck },
+            ctx(),
+        );
+
+        expect(next.undealtCount).toBe(1);
+        // The first turn waits for the deal animation.
+        expect(next.turnOpensAt).toBe(TABLE_TIMING.dealMs);
+        expect(next.players.map((p) => p.cardCount)).toEqual([2, 2]);
     });
 });
 

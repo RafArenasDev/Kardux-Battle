@@ -7,7 +7,6 @@ import { LoggerModule } from 'nestjs-pino';
 import { AppConfigModule } from './config/app-config.module.js';
 import type { AppConfig } from './config/app-config.js';
 import { AuthModule } from './auth/auth.module.js';
-import { CasinoModule } from './casino/casino.module.js';
 import { DeckModule } from './deck/deck.module.js';
 import { GameModule } from './game/game.module.js';
 import { HealthModule } from './health/health.module.js';
@@ -52,7 +51,6 @@ import { PrismaModule } from './prisma/prisma.module.js';
         AuthModule,
         MatchModule,
         GameModule,
-        CasinoModule,
         DeckModule,
         LeaderboardModule,
         MaintenanceModule,

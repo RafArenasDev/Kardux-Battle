@@ -1,6 +1,5 @@
 import type {
     CreateMatchRequest,
-    DeckSourceId,
     MatchConfig,
     MatchSummary,
     MatchSummaryWithRole,
@@ -9,7 +8,7 @@ import type { Match, Prisma, Player as PlayerRow } from '@prisma/client';
 import { randomInt, randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { matchConfigSchema } from '@kardux/contracts';
-import { DECK_CATALOG, getDeckInfo, validateDeckConfig } from '@kardux/content';
+import { POKEMON_DECK, validateDeckConfig } from '@kardux/content';
 // Value import required: Nest's DI resolves constructor params via `design:paramtypes`
 // reflection metadata, which `import type` erases at compile time.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -49,18 +48,13 @@ export class MatchService {
         return this.insertMatch(hostUserId, { ...request, visibility: 'private' });
     }
 
-    /** A fresh public quick-match lobby hosted by whoever asked for it (guests allowed). */
+    /** A fresh public quick-match lobby hosted by whoever asked for it (guests allowed), 1 vs 1
+     *  for up to 20 minutes: the original 32-card deck (4 packs x 8 quartets) against a person,
+     *  a longer 48-card deck (6 x 8) against the machine. */
     async createQuickMatch(
         hostUserId: string,
-        options: { deck?: DeckSourceId | undefined; vsBot?: boolean } = {},
+        options: { vsBot?: boolean } = {},
     ): Promise<MatchSummary> {
-        const disabled = disabledDeckIds();
-        const pool = DECK_CATALOG.filter((deck) => !disabled.has(deck.id));
-        const deck =
-            pool.find((candidate) => candidate.id === options.deck) ??
-            pool[randomInt(pool.length)]!;
-        const { limits } = deck;
-
         return this.insertMatch(hostUserId, {
             visibility: 'public',
             fillWithBots: options.vsBot ?? false,
@@ -68,18 +62,20 @@ export class MatchService {
             maxPlayers: 2,
             autoStartPlayers: 2,
             autoStartCountdownMs: 4_000,
-            matchDurationMs: 10 * 60_000,
+            matchDurationMs: 20 * 60_000,
             turnTimeoutMs: 20_000,
             onTurnTimeout: 'random_attr',
-            deckSources: [deck.id],
-            packs: Math.min(4, limits.maxPacks),
-            cardsPerPack: Math.min(8, limits.maxCardsPerPack),
-            attributeCount: Math.min(4, limits.maxAttributes),
+            deckSources: [POKEMON_DECK.id],
+            // Against the machine the person always leads the first round.
+            firstTurn: options.vsBot ? 'first_joined' : 'lowest_card',
+            packs: options.vsBot ? 6 : 4,
+            cardsPerPack: 8,
+            attributeCount: 4,
         });
     }
 
     /** Open quick-match lobbies with a free seat, oldest first (fair queue). */
-    async listQuickCandidates(excludeUserId: string, deck?: DeckSourceId): Promise<MatchSummary[]> {
+    async listQuickCandidates(excludeUserId: string): Promise<MatchSummary[]> {
         const matches = await this.prisma.match.findMany({
             where: {
                 status: 'LOBBY',
@@ -96,8 +92,7 @@ export class MatchService {
             .filter(
                 (summary) =>
                     !summary.config.fillWithBots &&
-                    summary.playerCount < summary.config.autoStartPlayers &&
-                    (deck === undefined || summary.config.deckSources[0] === deck),
+                    summary.playerCount < summary.config.autoStartPlayers,
             );
     }
 
@@ -157,10 +152,7 @@ export class MatchService {
     }
 
     private parseConfig(request: CreateMatchRequest): MatchConfig {
-        const decks = (request.deckSources ?? []).map((id) => getDeckInfo(id));
-        const handGame = decks.length > 0 && decks.every((deck) => deck?.autoCompare);
-        // Rank-only decks are played from a hand of 5; attribute decks always play the top card.
-        const result = matchConfigSchema.safeParse({ ...request, handSize: handGame ? 5 : 0 });
+        const result = matchConfigSchema.safeParse(request);
 
         if (!result.success) {
             throw new KarduxError('ERR_INVALID_CONFIG', result.error.issues[0]?.message);

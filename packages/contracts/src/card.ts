@@ -1,34 +1,12 @@
 import { z } from 'zod';
 
 /**
- * Every deck provider docs/SPEC.md documents, plus `deckofcards` and `apitcg` - the two extra
- * sources the `tcg-github-sync` mirror (github.com/FlakoArenas26/tcg-github-sync) actually
- * syncs data for today (see `docs/PENDING-WORK.md`'s "tcg-github-sync data status" entry).
- * `dragonball`, `naruto`, `digimon`, `rickmorty`, `swapi`, `superheroes`, `marvel`, and
- * `transformers` are still valid identifiers reserved for `TASK-02-providers.md`'s original
- * per-source-API plan, but nothing syncs data for them yet - `DeckService` reports them as
- * `ready: false`.
+ * Deck sources the game can build a match from. Kardux plays a single deck: the Pokémon cards
+ * mirrored from PokéAPI into `card_pool_entries`. It is still modeled as an enum (and
+ * `MatchConfig.deckSources` as a list) so adding another source later is a data change, not a
+ * contract change.
  */
-export const DECK_SOURCE_IDS = [
-    'mythic',
-    'autos',
-    'motos',
-    'aviones',
-    'fauna',
-    'naipes',
-    'local',
-    'pokeapi',
-    'deckofcards',
-    'apitcg',
-    'dragonball',
-    'naruto',
-    'digimon',
-    'rickmorty',
-    'swapi',
-    'superheroes',
-    'marvel',
-    'transformers',
-] as const;
+export const DECK_SOURCE_IDS = ['pokeapi'] as const;
 
 export type DeckSourceId = (typeof DECK_SOURCE_IDS)[number];
 

@@ -62,6 +62,8 @@ describe('MatchRuntimeService (real game loop, via sockets)', () => {
             await prisma.match.deleteMany({ where: { id: { in: createdMatchIds.splice(0) } } });
         }
         if (createdUserIds.length > 0) {
+            // Finished matches between accounts are rated, so their stats go first.
+            await prisma.leaderboardStat.deleteMany({ where: { userId: { in: createdUserIds } } });
             await prisma.player.deleteMany({ where: { id: { in: createdUserIds.splice(0) } } });
         }
     });
@@ -81,7 +83,7 @@ describe('MatchRuntimeService (real game loop, via sockets)', () => {
     async function createMatch(hostId: string, overrides: Partial<MatchConfig>) {
         const config = matchConfigSchema.parse({
             visibility: 'public',
-            deckSources: ['local'],
+            deckSources: ['pokeapi'],
             packs: 1,
             cardsPerPack: 2,
             attributeCount: 3,
@@ -149,9 +151,9 @@ describe('MatchRuntimeService (real game loop, via sockets)', () => {
         // Whoever the engine picked as leader is unknown to the test in advance - both sockets
         // attempt to select an attribute; only the real leader's attempt succeeds, the other
         // gets a harmless `ERR_NOT_YOUR_TURN` this test doesn't assert on.
-        // `local` plays the mythic deck: 'poder' is always its first attribute.
-        hostSocket.emit('round:selectAttribute', { attribute: 'poder' });
-        playerSocket.emit('round:selectAttribute', { attribute: 'poder' });
+        // 'hp' is always the Pokémon deck's first attribute.
+        hostSocket.emit('round:selectAttribute', { attribute: 'hp' });
+        playerSocket.emit('round:selectAttribute', { attribute: 'hp' });
 
         const round = await roundStartedPromise;
         expect(round.playOrder).toHaveLength(2);

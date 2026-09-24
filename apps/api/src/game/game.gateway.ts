@@ -56,6 +56,10 @@ interface SocketAuth {
     token: string;
 }
 
+/** How long a dropped connection keeps its seat: enough for a reload, a network blip or a
+ *  phone that briefly switches apps (mobile browsers suspend background tabs). */
+const RECONNECT_GRACE_MS = 45_000;
+
 interface RequestMeta {
     nickname: string;
     avatarSeed: string;
@@ -101,6 +105,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
      *  record (see `respondJoin`) if the process restarted in between and lost this map. */
     private readonly pendingRequestMeta = new Map<string, RequestMeta>();
 
+    /** Which match each socket is seated in, so a disconnect knows what seat to hold. */
+    private readonly seatBySocket = new Map<GameSocket, { matchId: string; playerId: string }>();
+
+    /** Seats of players whose connection dropped, released when the grace period ends. */
+    private readonly graceTimers = new Map<string, NodeJS.Timeout>();
+
     constructor(
         private readonly gameService: GameService,
         private readonly jwtService: JwtService,
@@ -110,6 +120,24 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
     afterInit(server: Server<ClientEvents, ServerEvents>): void {
         this.matchRuntime.setServer(server);
+        // Seats held across a restart lost their grace timers with the old process: once the
+        // grace window has passed, whoever did not reconnect is treated as having left.
+        setTimeout(() => void this.releaseAbandonedSeats(), RECONNECT_GRACE_MS).unref();
+    }
+
+    private async releaseAbandonedSeats(): Promise<void> {
+        try {
+            const connected = new Set([...this.seatBySocket.values()].map((seat) => seat.playerId));
+            for (const match of await this.gameService.listActiveMatches()) {
+                for (const playerId of await this.matchRuntime.seatedHumans(match.id)) {
+                    if (!connected.has(playerId)) {
+                        await this.matchRuntime.abandon(match.id, playerId);
+                    }
+                }
+            }
+        } catch (error) {
+            this.logger.warn(`Could not release abandoned seats: ${(error as Error).message}`);
+        }
     }
 
     async handleConnection(client: GameSocket): Promise<void> {
@@ -152,6 +180,35 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         if (auth) {
             this.unregisterSocket(auth.userId, client);
         }
+
+        const seat = this.seatBySocket.get(client);
+        this.seatBySocket.delete(client);
+        if (seat) this.holdSeat(seat.matchId, seat.playerId);
+    }
+
+    /** A reload reconnects with the same `userId:tabId`; if nothing comes back in time, the
+     *  player is treated exactly as if they had pressed "Abandonar". */
+    private holdSeat(matchId: string, playerId: string): void {
+        clearTimeout(this.graceTimers.get(playerId));
+        const timer = setTimeout(() => {
+            this.graceTimers.delete(playerId);
+            const back = [...this.seatBySocket.values()].some(
+                (seat) => seat.matchId === matchId && seat.playerId === playerId,
+            );
+            if (!back) {
+                void this.matchRuntime.abandon(matchId, playerId).catch((error: unknown) => {
+                    this.logger.warn(`Could not release seat: ${(error as Error).message}`);
+                });
+            }
+        }, RECONNECT_GRACE_MS);
+        timer.unref();
+        this.graceTimers.set(playerId, timer);
+    }
+
+    private trackSeat(client: GameSocket, matchId: string, playerId: string): void {
+        this.seatBySocket.set(client, { matchId, playerId });
+        clearTimeout(this.graceTimers.get(playerId));
+        this.graceTimers.delete(playerId);
     }
 
     /**
@@ -200,7 +257,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
             if (options.vsBot) {
                 if (current) await this.abandonLobby(client, auth, current.id);
                 const created = await this.matchService.createQuickMatch(auth.userId, {
-                    deck: options.deck,
                     vsBot: true,
                 });
                 const ack = await this.joinByCode(client, auth, created.code);
@@ -212,10 +268,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
             // ends up alone in their own lobby; the waiting room re-sends `match:quick` every few
             // seconds, and only the *newer* lobby moves into the older one (deterministic
             // tie-break, so the two never swap past each other).
-            const candidates = await this.matchService.listQuickCandidates(
-                auth.userId,
-                options.deck,
-            );
+            const candidates = await this.matchService.listQuickCandidates(auth.userId);
             for (const candidate of candidates) {
                 if (current && candidate.createdAt >= current.createdAt.toISOString()) continue;
                 const waiting = await this.server.in(candidate.matchId).fetchSockets();
@@ -230,9 +283,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
                 return await this.joinByCode(client, auth, current.code);
             }
 
-            const created = await this.matchService.createQuickMatch(auth.userId, {
-                deck: options.deck,
-            });
+            const created = await this.matchService.createQuickMatch(auth.userId);
             return await this.joinByCode(client, auth, created.code);
         } catch (error) {
             return toErrorPayload(error);
@@ -263,6 +314,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
         await this.leaveOtherMatchRooms(client, match.id);
         await client.join(match.id);
+        this.trackSeat(client, match.id, playerId);
         await this.matchRuntime.rejoin(match.id, client, playerId);
 
         return { code: match.code, matchId: match.id, token: auth.token, playerId };
@@ -274,10 +326,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         auth: SocketAuth,
         matchId: string,
     ): Promise<void> {
-        await this.matchRuntime.playerLeave(matchId, this.playerKey(auth));
-        await this.gameService.leave(matchId, auth.userId);
-        await this.matchRuntime.dispose(matchId);
+        this.seatBySocket.delete(client);
         await client.leave(matchId);
+        await this.matchRuntime.abandon(matchId, this.playerKey(auth));
     }
 
     private async leaveOtherMatchRooms(client: GameSocket, keepMatchId: string): Promise<void> {
@@ -424,6 +475,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
             await this.leaveOtherMatchRooms(client, match.id);
             await client.join(match.id);
+            this.trackSeat(client, match.id, playerId);
 
             return { code: match.code, matchId: match.id, token: auth.token, playerId };
         } catch (error) {
@@ -474,21 +526,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         }
     }
 
+    /** "Abandonar": always final - see `MatchRuntimeService.abandon`. */
     @SubscribeMessage('match:leave')
     async handleLeave(@ConnectedSocket() client: GameSocket): Promise<void> {
         const auth = client.data.auth as SocketAuth | undefined;
         const matchId = this.currentMatchRoom(client);
+        if (!auth || !matchId) return;
 
-        if (auth && matchId) {
-            await this.matchRuntime.playerLeave(matchId, this.playerKey(auth));
-            await this.gameService.leave(matchId, auth.userId).catch((error: unknown) => {
-                this.logger.warn(`Could not record leave: ${(error as Error).message}`);
-            });
-        }
-
-        if (matchId) {
-            await client.leave(matchId);
-        }
+        this.seatBySocket.delete(client);
+        await client.leave(matchId);
+        await this.matchRuntime.abandon(matchId, this.playerKey(auth)).catch((error: unknown) => {
+            this.logger.warn(`Could not record leave: ${(error as Error).message}`);
+        });
     }
 
     @SubscribeMessage('round:selectAttribute')
@@ -519,17 +568,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         @MessageBody() body: unknown,
     ): Promise<void> {
         try {
-            const payload = roundPlayCardPayloadSchema.parse(body ?? {});
+            roundPlayCardPayloadSchema.parse(body ?? {});
             const auth = this.requireAuth(client);
             const matchId = this.currentMatchRoom(client);
             if (!matchId) throw new KarduxError('ERR_MATCH_NOT_FOUND');
 
-            await this.matchRuntime.playCard(
-                matchId,
-                client,
-                this.playerKey(auth),
-                payload.cardCode,
-            );
+            await this.matchRuntime.playCard(matchId, client, this.playerKey(auth));
         } catch (error) {
             client.emit('error', toErrorPayload(error));
         }

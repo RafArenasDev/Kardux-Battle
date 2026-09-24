@@ -22,7 +22,7 @@ export type EngineAction =
     | { type: 'match.beginCountdown'; deck: Card[] }
     | { type: 'match.cancelCountdown'; playerId: string }
     | { type: 'round.selectAttribute'; playerId: string; attribute: string }
-    | { type: 'round.playCard'; playerId: string; cardCode?: string }
+    | { type: 'round.playCard'; playerId: string }
     | { type: 'system.tick' };
 
 export interface EngineContext {

@@ -32,13 +32,6 @@ const TAGS: Record<string, { name: Text; description: Text }> = {
             en: 'The available decks and their attributes.',
         },
     },
-    casino: {
-        name: { es: 'Casino', en: 'Casino' },
-        description: {
-            es: 'Fichas virtuales para blackjack y póker (sin dinero real).',
-            en: 'Virtual chips for blackjack and poker (no real money).',
-        },
-    },
     leaderboard: {
         name: { es: 'Clasificación', en: 'Leaderboard' },
         description: {
@@ -88,8 +81,8 @@ const OPERATIONS: Record<string, { summary: Text; description: Text }> = {
     AuthController_login: {
         summary: { es: 'Iniciar sesión', en: 'Sign in' },
         description: {
-            es: 'Entra con usuario y contraseña. Prueba con la cuenta demo del ejemplo. Con `remember: true` también devuelve un token para mantener la sesión 30 días.',
-            en: 'Signs in with username and password. Try the demo account in the example. With `remember: true` it also returns a token to stay signed in for 30 days.',
+            es: 'Entra con usuario y contraseña. Usa una cuenta que ya hayas registrado. Con `remember: true` también devuelve un token para mantener la sesión 30 días.',
+            en: 'Signs in with username and password. Use an account you already registered. With `remember: true` it also returns a token to stay signed in for 30 days.',
         },
     },
     AuthController_resume: {
@@ -137,22 +130,8 @@ const OPERATIONS: Record<string, { summary: Text; description: Text }> = {
     DeckController_listSources: {
         summary: { es: 'Mazos disponibles', en: 'Available decks' },
         description: {
-            es: 'Cada mazo con sus atributos, una vista previa y cuántas cartas permite. Pokémon, países y naipes se descargan una vez al arrancar y quedan guardados.',
-            en: 'Each deck with its attributes, a preview and how many cards it allows. Pokémon, countries and playing cards are downloaded once at startup and stored.',
-        },
-    },
-    CasinoController_wallet: {
-        summary: { es: 'Mis fichas', en: 'My chips' },
-        description: {
-            es: 'Cuántas fichas virtuales tienes y si puedes pedir una recarga.',
-            en: 'How many virtual chips you have and whether you can claim a refill.',
-        },
-    },
-    CasinoController_refill: {
-        summary: { es: 'Recarga gratis', en: 'Free refill' },
-        description: {
-            es: 'Suma 2000 fichas si tienes menos de 200 y no estás sentado en una mesa. Una vez cada 24 horas.',
-            en: 'Adds 2000 chips if you have fewer than 200 and are not seated at a table. Once every 24 hours.',
+            es: 'Cada mazo con sus atributos, una vista previa y cuántas cartas permite. Los Pokémon se descargan de PokéAPI una vez al arrancar y quedan guardados.',
+            en: 'Each deck with its attributes, a preview and how many cards it allows. The Pokémon are downloaded from PokéAPI once at startup and stored.',
         },
     },
     LeaderboardController_getGlobal: {
@@ -177,7 +156,7 @@ const SPANISH: Record<string, string> = {
         'Cuenta creada; el `token` ya se puede usar.',
     'Login name: 3-24 letters, numbers or underscore.':
         'Usuario: 3 a 24 letras, números o guion bajo.',
-    'Demo account': 'Cuenta demo',
+    'Your account': 'Tu cuenta',
     'Signed in.': 'Sesión iniciada.',
     'Resume on a new tab': 'Retomar en una pestaña nueva',
     'Signed in again.': 'Sesión retomada.',
@@ -230,11 +209,11 @@ const INTRO: Text = {
         'La API del juego de cartas **Kardux Battle**.',
         '',
         '**Cómo probarla en 3 pasos:**',
-        '1. En **Cuentas y acceso**, abre *Iniciar sesión*, pulsa **Try it out** y luego **Execute** (el ejemplo ya trae la cuenta demo).',
+        '1. En **Cuentas y acceso**, abre *Iniciar sesión*, pulsa **Try it out** y luego **Execute** (cambia el ejemplo por tu usuario y contraseña).',
         '2. Copia el `token` de la respuesta.',
         '3. Pulsa **Authorize** arriba, pega el token y listo: ya puedes probar el resto.',
         '',
-        'Las partidas en vivo (jugar cartas, chat, casino) usan Socket.IO y no aparecen en esta página.',
+        'Las partidas en vivo (jugar cartas, chat) usan Socket.IO y no aparecen en esta página.',
         '',
         'Cambia el idioma con el selector de arriba a la derecha.',
     ].join('\n'),
@@ -242,11 +221,11 @@ const INTRO: Text = {
         'The API of the **Kardux Battle** card game.',
         '',
         '**Try it in 3 steps:**',
-        '1. Under **Accounts and sign-in**, open *Sign in*, click **Try it out** and then **Execute** (the example already has the demo account).',
+        '1. Under **Accounts and sign-in**, open *Sign in*, click **Try it out** and then **Execute** (replace the example with your username and password).',
         '2. Copy the `token` from the answer.',
         '3. Click **Authorize** at the top, paste the token and you are set: now try the rest.',
         '',
-        'Live play (playing cards, chat, casino) uses Socket.IO and is not listed on this page.',
+        'Live play (playing cards, chat) uses Socket.IO and is not listed on this page.',
         '',
         'Switch the language with the selector at the top right.',
     ].join('\n'),

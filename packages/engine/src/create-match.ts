@@ -34,6 +34,7 @@ export function createMatch(config: MatchConfig, options: CreateMatchOptions): M
         endsAt: null,
         countdownEndsAt: null,
         turnDeadline: null,
+        turnOpensAt: null,
         pendingDeck: null,
         players: [],
         piles: {},
@@ -43,6 +44,7 @@ export function createMatch(config: MatchConfig, options: CreateMatchOptions): M
         roundIndex: 0,
         round: null,
         pot: [],
+        undealtCount: 0,
         winnerId: null,
         isDraw: false,
     };

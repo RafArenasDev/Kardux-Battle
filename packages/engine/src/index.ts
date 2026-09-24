@@ -7,3 +7,4 @@ export { reduce, type ReduceResult } from './reduce.js';
 export { createRngState, nextInt, nextRandom, shuffle } from './rng.js';
 export { computeTurnDeadline, finishByTimeout, resolveRound } from './round.js';
 export { buildTurnOrder, findFirstTurnPlayerId, rotateToLeader } from './turn-order.js';
+export * from './rating.js';
