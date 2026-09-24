@@ -6,7 +6,7 @@ import { text } from './types.js';
 /** A deck whose cards are synced from a public API into the database (`card_pool_entries`)
  *  when the API boots, instead of being bundled with the app. */
 export interface RemoteDeckMeta {
-    id: 'pokeapi' | 'paises' | 'deckofcards';
+    id: 'pokeapi' | 'deckofcards';
     label: LocalizedText;
     tagline: LocalizedText;
     description: LocalizedText;
@@ -66,60 +66,6 @@ export const POKEMON_DECK: RemoteDeckMeta = {
     maxCardsPerPack: 16,
 };
 
-export const COUNTRIES_DECK: RemoteDeckMeta = {
-    id: 'paises',
-    label: text('Países del mundo', 'World Countries'),
-    tagline: text('Datos reales del Banco Mundial', 'Real World Bank data'),
-    description: text(
-        'Todos los países con su población, superficie, PIB, esperanza de vida y fronteras. Cada cuarteto es una región del mundo.',
-        'Every country with its population, area, GDP, life expectancy and borders. Each quartet is a world region.',
-    ),
-    coverIcon: 'wireframe-globe',
-    accent: '#3fd6a4',
-    attributes: [
-        {
-            key: 'poblacion',
-            label: text('Población', 'Population'),
-            unit: 'hab.',
-            icon: 'hooded-figure',
-            higherIsBetter: true,
-        },
-        {
-            key: 'area',
-            label: text('Superficie', 'Area'),
-            unit: 'km²',
-            icon: 'measure-tape',
-            higherIsBetter: true,
-        },
-        {
-            key: 'pib',
-            label: text('PIB', 'GDP'),
-            unit: 'mil M US$',
-            icon: 'crown',
-            higherIsBetter: true,
-        },
-        {
-            key: 'esperanza',
-            label: text('Esperanza de vida', 'Life expectancy'),
-            unit: 'años',
-            icon: 'heart-plus',
-            higherIsBetter: true,
-        },
-        {
-            key: 'fronteras',
-            label: text('Fronteras', 'Borders'),
-            icon: 'linked-rings',
-            higherIsBetter: true,
-        },
-    ],
-    credits: text(
-        'Datos: Banco Mundial (CC BY 4.0) y mledoze/countries (ODbL). Banderas: flagcdn.com.',
-        'Data: World Bank (CC BY 4.0) and mledoze/countries (ODbL). Flags: flagcdn.com.',
-    ),
-    maxPacks: 4,
-    maxCardsPerPack: 16,
-};
-
 /** Same single attribute as the bundled `naipes` deck, which doubles as its offline fallback. */
 export const CLASSIC_DECK: RemoteDeckMeta = {
     id: 'deckofcards',
@@ -133,8 +79,8 @@ export const CLASSIC_DECK: RemoteDeckMeta = {
     accent: '#e8e0cc',
     attributes: CLASSIC_ATTRIBUTES,
     credits: text(
-        'Imágenes de cartas vía Deck of Cards API (deckofcardsapi.com).',
-        'Card images via Deck of Cards API (deckofcardsapi.com).',
+        'Mazo Clásica: imágenes de los naipes vía Deck of Cards API (deckofcardsapi.com).',
+        'Classic deck: playing card images via Deck of Cards API (deckofcardsapi.com).',
     ),
     // 6 decks are synced: every rank has 24 copies (4 suits x 6 decks).
     maxPacks: 24,
@@ -144,7 +90,7 @@ export const CLASSIC_DECK: RemoteDeckMeta = {
 /** How many 52-card decks the classic pool keeps (Deck of Cards API `deck_count`). */
 export const CLASSIC_DECK_COUNT = 6;
 
-export const REMOTE_DECKS: readonly RemoteDeckMeta[] = [POKEMON_DECK, COUNTRIES_DECK, CLASSIC_DECK];
+export const REMOTE_DECKS: readonly RemoteDeckMeta[] = [POKEMON_DECK, CLASSIC_DECK];
 
 /** Card back served by the Deck of Cards API - used for the classic deck and casino tables. */
 export const CLASSIC_CARD_BACK_URL = 'https://deckofcardsapi.com/static/img/back.png';

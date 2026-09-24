@@ -49,10 +49,11 @@ export function ToastProvider({ children }: { children: ReactNode }): JSX.Elemen
                         <motion.div
                             key={item.id}
                             className={`toast toast--${item.tone}`}
-                            initial={{ opacity: 0, y: 24, scale: 0.96 }}
+                            // Appears lower on screen and glides up into place at the top.
+                            initial={{ opacity: 0, y: 120, scale: 0.9 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 24, scale: 0.96 }}
-                            transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
+                            exit={{ opacity: 0, y: -24, scale: 0.96 }}
+                            transition={{ type: 'spring', bounce: 0.15, duration: 0.6 }}
                             layout
                         >
                             <Icon

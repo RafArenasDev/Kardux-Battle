@@ -373,7 +373,7 @@
     position: fixed;
     z-index: 100;
     left: 50%;
-    bottom: calc(20px + var(--safe-bottom));
+    top: calc(16px + var(--safe-top));
     transform: translateX(-50%);
     display: grid;
     gap: 10px;
@@ -385,9 +385,11 @@
     pointer-events: auto;
     display: flex;
     align-items: center;
+    justify-content: center;
+    text-align: center;
     gap: 12px;
     padding: 14px 18px;
-    border-radius: var(--r-md);
+    border-radius: var(--r-pill);
     background: var(--surface-2);
     border: 1px solid var(--hairline-strong);
     box-shadow: var(--shadow-3);

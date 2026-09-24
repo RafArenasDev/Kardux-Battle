@@ -4,6 +4,54 @@
 > one left off, without re-reading the whole git history. Update it whenever a unit of work
 > lands on `main`.
 
+## Next up (status at 2026-09-23)
+
+Everything below is committed on `main` except where noted. Start here.
+
+### Done in this round
+
+- **Casino server** (`apps/api/src/casino/`): `/casino` Socket.IO namespace with blackjack and
+  Texas Hold'em tables, poker bots, chips synced with `players.coins`, daily refill
+  (`POST /casino/wallet/refill`), Redis table snapshots, 60 s seat grace on disconnect.
+- **Stay signed in**: `remember: true` on login/register returns a 30-day `rememberToken`;
+  `POST /auth/resume` trades it for a tab session. Accounts only; sign-out forgets the device.
+- **API docs** (`/api/docs`): Spanish/English selector, plain-language texts centralized in
+  `apps/api/src/docs/api-docs.ts`, demo-login example, schema names without `Dto`.
+- **Classic deck**: the web now shows the hand face up; the player throws any card
+  (`round:playCard { cardCode }`), highest value wins, ties allowed. Playing cards render as
+  full faces with the gold frame. The countries deck was removed.
+- **Quick match**: deck picker (or random) + "Find a rival" / "Vs the machine" (the bot is
+  disabled for the classic deck).
+- Auth page (fixed desktop layout, form-only scroll, two-column feature cards, stay-signed-in
+  checkbox, classic eye icon), avatar picker (6 columns, unclipped rings/tooltips), toasts at
+  the top, uniform home cards with scrolling rooms/leaderboard panels, round banner in its own
+  slot above the cards, localized error messages.
+
+### Pending (in priority order)
+
+1. **Full ES/EN translation of the UI.** The locale provider (`apps/web/src/lib/i18n.tsx`)
+   detects the browser language and the switch works, but many screens still have hardcoded
+   Spanish copy. Wrap every remaining string with `t('es', 'en')` - pending files:
+   `HomePage.tsx` (resume banner, private room / join cards, panels), `CreateMatchPage.tsx`,
+   `JoinPage.tsx`, `WaitingRoom.tsx`, `MatchPage.tsx`, `SidePanel.tsx`, `FinishOverlay.tsx`,
+   `GameTable.tsx` (seats, spectator texts), `InstallPrompt.tsx`, `share.ts` messages.
+2. **Casino web UI** (server is ready): lobby with tiers + wallet + refill, blackjack table
+   (bet chips, hit/stand/double/split), hold'em table (fold/check/call/raise/all-in, board,
+   pot, side pots), deckofcards faces with the gold frame and `CLASSIC_CARD_BACK_URL` backs,
+   chip-win coin animation. Socket: namespace `/casino`, events in
+   `packages/contracts/src/casino.ts`. Add "Casino" to the quick-match options once it exists.
+3. **Create page per mode**: when "Clásica" is chosen, the rules panel must show classic
+   options (hand size, time) instead of the attribute-battle options; a "Casino" mode entry
+   that links to the casino lobby (blackjack / hold'em) instead of creating a battle room.
+4. **Five-card draw** (the rules the user shared) as a third casino game - design first.
+5. **Visual check** of every screen on phone/tablet/desktop (no page scroll on mobile tables).
+6. **Deploy**: Render start command `prisma migrate deploy && node dist/main.js`; env vars
+   `REDIS_URL` (Aiven, `rediss://`), `CORS_ORIGINS`, `VITE_API_BASE_URL`; two local
+   migrations (`20260923233000_rename_tables_players_coins`, `20260923234500_card_pool_name_en`)
+   are not in production yet. Ask before touching production.
+7. **Git history**: older commits still carry an attribution trailer that must be removed
+   (rewrite with a backup branch, then force-push to `main` - needs explicit go-ahead).
+
 ## Session 2026-09-21 — Phase 0: monorepo scaffold
 
 **Merged to `main`** (commits `8daf860`..`5c54065`, then this recap on top):
@@ -606,6 +654,7 @@ pnpm --filter @kardux/api dev          # terminal 1
   wired to `round:*` events yet). Integrating the two is the very next step once both PRs land.
 - Motores de póker/blackjack/51/baccarat y persistencia offline SQLite: siguen exactamente
   donde estaban (ver arriba) - no tocados en esta sesión.
+
 ## Session 2026-09-22 (cont'd) — frontend total redesign (apple-design, real branding)
 
 Parallel fork, worktree-isolated, scope limited to `apps/web` (+ copying `favicon/`/`logo.png`

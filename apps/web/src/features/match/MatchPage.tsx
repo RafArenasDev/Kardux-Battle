@@ -95,6 +95,7 @@ export default function MatchPage(): JSX.Element {
                             myPlayedCard={session.myPlayedCard}
                             breakpoint={breakpoint}
                             onSelectAttribute={session.selectAttribute}
+                            onPlayCard={session.playCard}
                         />
 
                         <div className="match__tools">

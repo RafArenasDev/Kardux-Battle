@@ -629,8 +629,16 @@
 
 .home__actions {
     display: grid;
-    grid-template-columns: 1.2fr 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 18px;
+}
+
+.action-card__buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    position: relative;
+    z-index: 1;
 }
 
 .action-card {
@@ -682,9 +690,25 @@
 
 .home__grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 18px;
-    align-items: start;
+    align-items: stretch;
+}
+
+/* Both panels share one height; long lists scroll inside instead of stretching the page. */
+.home__panel {
+    height: clamp(280px, 42dvh, 420px);
+    grid-template-rows: auto minmax(0, 1fr);
+    align-content: stretch;
+}
+
+.home__scroll {
+    min-height: 0;
+    overflow-y: auto;
+    align-content: start;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gold-700) transparent;
 }
 
 .room-list {

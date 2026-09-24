@@ -51,7 +51,7 @@ export class DeckService {
     }
 
     private async familiesOf(info: DeckInfo): Promise<DeckEntity[][]> {
-        if (info.id === 'pokeapi' || info.id === 'paises') {
+        if (info.id === 'pokeapi') {
             return this.cardPool.getFamilies(info.id);
         }
         if (info.id === 'deckofcards') {

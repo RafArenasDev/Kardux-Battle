@@ -8,9 +8,9 @@ import { disabledDeckIds } from '../config/app-config.js';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { PrismaService } from '../prisma/prisma.service.js';
 
-export type RemoteSource = 'pokeapi' | 'paises' | 'deckofcards';
+export type RemoteSource = 'pokeapi' | 'deckofcards';
 
-export const REMOTE_SOURCES: readonly RemoteSource[] = ['pokeapi', 'paises', 'deckofcards'];
+export const REMOTE_SOURCES: readonly RemoteSource[] = ['pokeapi', 'deckofcards'];
 
 const POKEAPI_GRAPHQL = 'https://beta.pokeapi.co/graphql/v1beta';
 const POKEMON_ARTWORK = (id: number): string =>
@@ -18,11 +18,6 @@ const POKEMON_ARTWORK = (id: number): string =>
 const DECKOFCARDS_NEW = `https://deckofcardsapi.com/api/deck/new/shuffle/?deck_count=${CLASSIC_DECK_COUNT}`;
 const DECKOFCARDS_DRAW = (deckId: string, count: number): string =>
     `https://deckofcardsapi.com/api/deck/${deckId}/draw/?count=${count}`;
-const COUNTRIES_DATASET =
-    'https://raw.githubusercontent.com/mledoze/countries/master/countries.json';
-const WORLD_BANK = (indicator: string): string =>
-    `https://api.worldbank.org/v2/country/all/indicator/${indicator}?format=json&mrv=1&per_page=400`;
-const FLAG_URL = (cca2: string): string => `https://flagcdn.com/w320/${cca2.toLowerCase()}.png`;
 
 /** Re-sync at most weekly; otherwise every boot is served straight from the database. */
 const RESYNC_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
@@ -48,22 +43,6 @@ interface DeckOfCardsCard {
     images?: { png?: string };
     value: string;
     suit: string;
-}
-
-interface CountryRow {
-    cca2: string;
-    cca3: string;
-    name: { common: string };
-    translations: { spa?: { common: string } };
-    subregion?: string;
-    area?: number;
-    borders?: string[];
-    independent?: boolean;
-}
-
-interface WorldBankRow {
-    countryiso3code: string;
-    value: number | null;
 }
 
 const CARD_RANK: Record<string, number> = {
@@ -201,8 +180,6 @@ export class CardPoolService implements OnApplicationBootstrap {
         switch (source) {
             case 'pokeapi':
                 return this.fetchPokemon();
-            case 'paises':
-                return this.fetchCountries();
             case 'deckofcards':
                 return this.fetchPlayingCards();
         }
@@ -266,53 +243,6 @@ export class CardPoolService implements OnApplicationBootstrap {
         }
 
         if (entries.length < 100) throw new Error(`only ${entries.length} Pokémon returned`);
-        return entries;
-    }
-
-    private async fetchCountries(): Promise<Prisma.CardPoolEntryCreateManyInput[]> {
-        const [countries, population, gdp, life] = await Promise.all([
-            this.getJson<CountryRow[]>(COUNTRIES_DATASET),
-            this.getJson<[unknown, WorldBankRow[]]>(WORLD_BANK('SP.POP.TOTL')),
-            this.getJson<[unknown, WorldBankRow[]]>(WORLD_BANK('NY.GDP.MKTP.CD')),
-            this.getJson<[unknown, WorldBankRow[]]>(WORLD_BANK('SP.DYN.LE00.IN')),
-        ]);
-
-        const byIso = (rows: [unknown, WorldBankRow[]]): Map<string, number> =>
-            new Map(
-                (rows[1] ?? [])
-                    .filter((row) => row.value !== null)
-                    .map((row) => [row.countryiso3code, row.value as number]),
-            );
-        const populationBy = byIso(population);
-        const gdpBy = byIso(gdp);
-        const lifeBy = byIso(life);
-
-        const entries: Prisma.CardPoolEntryCreateManyInput[] = [];
-        for (const country of countries) {
-            const pop = populationBy.get(country.cca3);
-            const gross = gdpBy.get(country.cca3);
-            const expectancy = lifeBy.get(country.cca3);
-            if (!country.subregion || !country.area || !pop || !gross || !expectancy) continue;
-
-            entries.push({
-                source: 'paises',
-                externalId: country.cca3,
-                quartetKey: country.subregion,
-                name: country.translations.spa?.common ?? country.name.common,
-                nameEn: country.name.common,
-                imageUrl: FLAG_URL(country.cca2),
-                stats: {
-                    poblacion: Math.round(pop),
-                    area: Math.round(country.area),
-                    // Billions of current US dollars, one decimal.
-                    pib: Math.round(gross / 1e8) / 10,
-                    esperanza: Math.round(expectancy * 10) / 10,
-                    fronteras: country.borders?.length ?? 0,
-                },
-            });
-        }
-
-        if (entries.length < 100) throw new Error(`only ${entries.length} countries returned`);
         return entries;
     }
 

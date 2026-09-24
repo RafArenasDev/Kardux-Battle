@@ -8,7 +8,7 @@ import { MOTOS_DECK } from './motos.js';
 import { MYTHIC_DECK } from './mythic.js';
 import { NAIPES_DECK } from './naipes.js';
 import type { RemoteDeckMeta } from './remote.js';
-import { CLASSIC_DECK, COUNTRIES_DECK, POKEMON_DECK } from './remote.js';
+import { CLASSIC_DECK, POKEMON_DECK } from './remote.js';
 import type {
     DeckAttribute,
     DeckDefinition,
@@ -34,7 +34,6 @@ export {
     CLASSIC_CARD_BACK_URL,
     CLASSIC_DECK_COUNT,
     CLASSIC_DECK,
-    COUNTRIES_DECK,
     POKEMON_DECK,
     POKEMON_TYPE_LABELS,
     REMOTE_DECKS,
@@ -121,7 +120,6 @@ function remoteInfo(meta: RemoteDeckMeta): DeckInfo {
 /** Every battle deck, in lobby order. */
 export const DECK_CATALOG: readonly DeckInfo[] = [
     remoteInfo(POKEMON_DECK),
-    remoteInfo(COUNTRIES_DECK),
     bundledInfo(MYTHIC_DECK),
     bundledInfo(AUTOS_DECK),
     bundledInfo(MOTOS_DECK),

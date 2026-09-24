@@ -106,7 +106,7 @@ export class DeckBuilder {
     }
 
     private async familiesFor(source: DeckSourceId): Promise<DeckEntity[][]> {
-        if (source === 'pokeapi' || source === 'paises') {
+        if (source === 'pokeapi') {
             return this.cardPool.getFamilies(source);
         }
 

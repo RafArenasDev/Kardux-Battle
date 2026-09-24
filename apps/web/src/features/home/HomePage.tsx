@@ -1,5 +1,6 @@
 import type { LeaderboardEntry, MatchSummary, MatchSummaryWithRole } from '@kardux/contracts';
-import { getDeckInfo } from '@kardux/content';
+import type { DeckSourceId } from '@kardux/contracts';
+import { DECK_CATALOG, getDeckInfo } from '@kardux/content';
 import { motion } from 'framer-motion';
 import type { FormEvent, JSX } from 'react';
 import { useEffect, useState } from 'react';
@@ -8,6 +9,7 @@ import { AppShell } from '../../components/layout/AppShell';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { Icon } from '../../components/ui/Icon';
+import { ChoiceChips } from '../../components/ui/Segmented';
 import { useToast } from '../../components/ui/Toast';
 import { useDocumentTitle } from '../../hooks/useNow';
 import { deleteMatch, getActiveMatch, getLeaderboard, listMyMatches } from '../../lib/api';
@@ -31,7 +33,7 @@ const cardMotion = {
 };
 
 export default function HomePage(): JSX.Element {
-    const { l } = useI18n();
+    const { l, t } = useI18n();
     useDocumentTitle('');
     const navigate = useNavigate();
     const location = useLocation();
@@ -43,7 +45,10 @@ export default function HomePage(): JSX.Element {
     const [rooms, setRooms] = useState<MatchSummaryWithRole[]>([]);
     const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
     const [code, setCode] = useState('');
-    const [quickBusy, setQuickBusy] = useState(false);
+    const [quickBusy, setQuickBusy] = useState<'rival' | 'bot' | null>(null);
+    const [quickDeck, setQuickDeck] = useState<DeckSourceId | 'random'>('random');
+    // The classic deck is played hand-to-hand between people; the bot only plays attribute decks.
+    const botAvailable = quickDeck === 'random' || !getDeckInfo(quickDeck)?.autoCompare;
 
     useEffect(() => {
         let cancelled = false;
@@ -63,17 +68,20 @@ export default function HomePage(): JSX.Element {
         };
     }, [guest]);
 
-    async function quickMatch(): Promise<void> {
-        setQuickBusy(true);
+    async function quickMatch(vsBot = false): Promise<void> {
+        setQuickBusy(vsBot ? 'bot' : 'rival');
         try {
             const socket = await whenConnected();
-            const ack = await socket.timeout(10_000).emitWithAck('match:quick', {});
+            const ack = await socket.timeout(10_000).emitWithAck('match:quick', {
+                vsBot,
+                ...(quickDeck === 'random' ? {} : { deck: quickDeck }),
+            });
             if (isErrorPayload(ack)) throw ack;
             navigate(`/match/${ack.matchId}`);
         } catch (error) {
             toast.show(errorMessage(error), 'error');
         } finally {
-            setQuickBusy(false);
+            setQuickBusy(null);
         }
     }
 
@@ -167,21 +175,46 @@ export default function HomePage(): JSX.Element {
                             <Icon name="lightning-helix" />
                         </span>
                         <div className="action-card__body">
-                            <h2>Partida rápida</h2>
+                            <h2>{t('Partida rápida', 'Quick match')}</h2>
                             <p className="text-2">
-                                Te emparejamos con otro jugador al instante. Sin esperas, sin
-                                aprobaciones: arranca apenas haya rival.
+                                {t(
+                                    'Elige el mazo y juega al instante contra otra persona o contra la máquina.',
+                                    'Pick a deck and play right away against another person or the machine.',
+                                )}
                             </p>
+                            <ChoiceChips
+                                label={t('Mazo', 'Deck')}
+                                value={quickDeck}
+                                onChange={setQuickDeck}
+                                options={[
+                                    { value: 'random' as const, label: t('Al azar', 'Random') },
+                                    ...DECK_CATALOG.map((deck) => ({
+                                        value: deck.id as DeckSourceId,
+                                        label: l(deck.label),
+                                    })),
+                                ]}
+                            />
                         </div>
-                        <Button
-                            variant="gold"
-                            size="lg"
-                            icon="crossed-swords"
-                            loading={quickBusy}
-                            onClick={quickMatch}
-                        >
-                            Buscar rival
-                        </Button>
+                        <div className="action-card__buttons">
+                            <Button
+                                variant="gold"
+                                icon="crossed-swords"
+                                loading={quickBusy === 'rival'}
+                                disabled={quickBusy !== null}
+                                onClick={() => void quickMatch(false)}
+                            >
+                                {t('Buscar rival', 'Find a rival')}
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                icon="robot-golem"
+                                loading={quickBusy === 'bot'}
+                                disabled={quickBusy !== null || !botAvailable}
+                                onClick={() => void quickMatch(true)}
+                            >
+                                {t('Contra la máquina', 'Vs the machine')}
+                            </Button>
+                        </div>
                         <Icon name="sword-clash" className="action-card__watermark" />
                     </motion.article>
 
@@ -276,7 +309,7 @@ export default function HomePage(): JSX.Element {
                 </section>
 
                 <section className="home__grid">
-                    <div className="panel panel--pad stack">
+                    <div className="panel panel--pad stack home__panel">
                         <div className="row row--between">
                             <h3>Mis salas privadas</h3>
                             {!guest ? (
@@ -306,7 +339,7 @@ export default function HomePage(): JSX.Element {
                                 </p>
                             </div>
                         ) : (
-                            <ul className="room-list">
+                            <ul className="room-list home__scroll">
                                 {rooms.map((room) => (
                                     <li key={room.matchId} className="room-item">
                                         <span className="room-item__code">{room.code}</span>
@@ -340,7 +373,7 @@ export default function HomePage(): JSX.Element {
                         )}
                     </div>
 
-                    <div className="panel panel--pad stack">
+                    <div className="panel panel--pad stack home__panel">
                         <h3>Mejores jugadores</h3>
                         {leaders.length === 0 ? (
                             <div className="empty-state">
@@ -348,7 +381,7 @@ export default function HomePage(): JSX.Element {
                                 <p>El ranking se llena con las partidas terminadas.</p>
                             </div>
                         ) : (
-                            <ol className="room-list">
+                            <ol className="room-list home__scroll">
                                 {leaders.map((leader, index) => (
                                     <li key={leader.userId} className="leader-row">
                                         <span className="leader-row__rank">{index + 1}</span>

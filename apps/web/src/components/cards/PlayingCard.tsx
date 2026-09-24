@@ -36,15 +36,31 @@ export function PlayingCard({
     const interactive = Boolean(onSelectAttribute);
     const accent = deck?.accent ?? 'var(--gold-400)';
 
+    // A real playing card has no stats: the face fills the whole card, framed in gold.
+    if (isPlayingCard) {
+        return (
+            <div
+                className={[
+                    'pcard',
+                    'pcard-face',
+                    `pcard--${size}`,
+                    outcome && `pcard--${outcome}`,
+                    className,
+                ]
+                    .filter(Boolean)
+                    .join(' ')}
+                style={style}
+                role="img"
+                aria-label={card.name}
+            >
+                <img src={card.imageUrl} alt="" loading="lazy" draggable={false} />
+            </div>
+        );
+    }
+
     return (
         <div
-            className={[
-                'pcard',
-                `pcard--${size}`,
-                isPlayingCard && 'pcard--poker',
-                outcome && `pcard--${outcome}`,
-                className,
-            ]
+            className={['pcard', `pcard--${size}`, outcome && `pcard--${outcome}`, className]
                 .filter(Boolean)
                 .join(' ')}
             style={{ ['--accent' as string]: accent, ...style }}

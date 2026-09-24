@@ -1,5 +1,5 @@
 import type { Card, Player, RedactedMatchState } from '@kardux/contracts';
-import { AnimatePresence, motion, useAnimationControls, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion, useAnimationControls } from 'framer-motion';
 import type { JSX, RefObject } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CardBack, PlayingCard } from '../../components/cards/PlayingCard';
@@ -7,6 +7,7 @@ import type { CardOutcome, CardSize } from '../../components/cards/PlayingCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { Icon } from '../../components/ui/Icon';
 import type { Breakpoint } from '../../hooks/useBreakpoint';
+import { useMediaQuery } from '../../hooks/useBreakpoint';
 import { useNow } from '../../hooks/useNow';
 import { attributeMeta, formatStat } from '../../lib/deck-meta';
 import type { RevealState } from './useMatchSession';
@@ -20,6 +21,7 @@ interface GameTableProps {
     myPlayedCard: Card | null;
     breakpoint: Breakpoint;
     onSelectAttribute: (attribute: string) => void;
+    onPlayCard: (cardCode: string) => void;
 }
 
 /** Soft, readable motion: cards travel like real cards, never snap. */
@@ -38,6 +40,7 @@ export function GameTable({
     myPlayedCard,
     breakpoint,
     onSelectAttribute,
+    onPlayCard,
 }: GameTableProps): JSX.Element {
     const tableRef = useRef<HTMLDivElement>(null);
     const me = state.players.find((player) => player.id === state.yourId);
@@ -70,6 +73,7 @@ export function GameTable({
                 myPlayedCard={myPlayedCard}
                 breakpoint={breakpoint}
                 onSelectAttribute={onSelectAttribute}
+                onPlayCard={onPlayCard}
             />
 
             <AnimatePresence>
@@ -249,7 +253,7 @@ function CenterStage({
                 initial={{ scale: 0.7, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
             >
-                ¡Empate! Las cartas van al pozo
+                {t('¡Empate! Las cartas van al pozo', 'Tie! The cards go to the pot')}
             </motion.div>
         ) : (
             <motion.div
@@ -259,23 +263,36 @@ function CenterStage({
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: 'spring', bounce: 0.4, duration: 0.8 }}
             >
-                {winnerId === state.yourId ? '¡Ganas la ronda!' : `Gana ${winner?.nickname ?? '…'}`}
-                <span className="banner__sub">+{result.potSize} cartas</span>
+                {winnerId === state.yourId
+                    ? t('¡Ganas la ronda!', 'You win the round!')
+                    : t(`Gana ${winner?.nickname ?? '…'}`, `${winner?.nickname ?? '…'} wins`)}
+                <span className="banner__sub">
+                    +{result.potSize} {t('cartas', 'cards')}
+                </span>
             </motion.div>
         );
     } else if (reveal) {
         banner = (
             <div className="banner">
-                {attribute ? <Icon name={attribute.icon} /> : null} Revelando cartas…
+                {attribute ? <Icon name={attribute.icon} /> : null}{' '}
+                {t('Revelando cartas…', 'Revealing cards…')}
             </div>
         );
     } else if (state.phase === 'AWAITING_ATTRIBUTE') {
         banner =
             leaderId === state.yourId ? (
-                <div className="banner banner--turn">¡Tu turno! Elige el atributo de tu carta</div>
+                <div className="banner banner--turn">
+                    {t(
+                        '¡Tu turno! Elige el atributo de tu carta',
+                        'Your turn! Pick your card attribute',
+                    )}
+                </div>
             ) : (
                 <div className="banner">
-                    {leader?.nickname ?? 'El líder'} está eligiendo atributo…
+                    {t(
+                        `${leader?.nickname ?? 'El líder'} está eligiendo atributo…`,
+                        `${leader?.nickname ?? 'The leader'} is picking an attribute…`,
+                    )}
                 </div>
             );
     } else if (state.phase === 'AWAITING_CARDS' && attribute) {
@@ -286,16 +303,17 @@ function CenterStage({
             </div>
         );
     } else {
-        banner = <div className="banner">Preparando la mesa…</div>;
+        banner = <div className="banner">{t('Preparando la mesa…', 'Setting the table…')}</div>;
     }
 
     return (
         <section className="center" aria-live="polite">
-            {banner}
+            {/* Fixed slot above the cards: the message never lands on top of them. */}
+            <div className="center__banner">{banner}</div>
             <div className="center__board">
                 <PotPile potSize={state.potSize} />
                 <div className="center__cards">
-                    <AnimatePresence mode="popLayout">
+                    <AnimatePresence>
                         {slotIds.map((playerId, index) => {
                             const player = playersById.get(playerId);
                             const revealed = reveal?.cards[playerId];
@@ -398,7 +416,7 @@ function CenterSlot({
 }): JSX.Element {
     const ref = useRef<HTMLDivElement>(null);
     const controls = useAnimationControls();
-    const reduceMotion = useReducedMotion();
+    const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
     const tilt = reduceMotion ? 0 : (index - (count - 1) / 2) * 3;
 
     useEffect(() => {
@@ -517,6 +535,7 @@ function MyZone({
     myPlayedCard,
     breakpoint,
     onSelectAttribute,
+    onPlayCard,
 }: {
     state: RedactedMatchState;
     me: Player | undefined;
@@ -525,7 +544,9 @@ function MyZone({
     myPlayedCard: Card | null;
     breakpoint: Breakpoint;
     onSelectAttribute: (attribute: string) => void;
+    onPlayCard: (cardCode: string) => void;
 }): JSX.Element {
+    const { t } = useI18n();
     const card = state.yourTopCard;
     const choosing = state.phase === 'AWAITING_ATTRIBUTE' && isLeader && !busy;
     // After our card is laid down the next one stays hidden until the round is over.
@@ -539,6 +560,59 @@ function MyZone({
                     {me?.isEliminated
                         ? 'Te quedaste sin cartas. Sigues mirando la partida.'
                         : 'Estás mirando como espectador.'}
+                </p>
+            </section>
+        );
+    }
+
+    // Classic: the player holds a hand and throws any card of it - no attributes, no leader.
+    if (state.config.handSize > 0) {
+        const canThrow = state.phase === 'AWAITING_CARDS' && !busy && !myPlayedCard;
+        return (
+            <section
+                className={`my-zone my-zone--hand ${canThrow ? 'my-zone--active' : ''}`}
+                aria-label={t('Tu mano', 'Your hand')}
+            >
+                <TurnTimer state={state} active={canThrow} />
+                <div className="hand" role="list">
+                    <AnimatePresence initial={false}>
+                        {state.yourHand.map((handCard, index) => (
+                            <motion.button
+                                key={handCard.code}
+                                type="button"
+                                role="listitem"
+                                className="hand__card"
+                                disabled={!canThrow}
+                                aria-label={handCard.name}
+                                style={{ zIndex: index }}
+                                initial={{ opacity: 0, y: 80, rotate: 0 }}
+                                animate={{
+                                    opacity: 1,
+                                    y: 0,
+                                    rotate: (index - (state.yourHand.length - 1) / 2) * 4,
+                                }}
+                                exit={{ opacity: 0, y: -180, scale: 0.8 }}
+                                whileHover={canThrow ? { y: -18 } : undefined}
+                                transition={cardTravel}
+                                onClick={() => onPlayCard(handCard.code)}
+                            >
+                                <PlayingCard
+                                    card={handCard}
+                                    size={breakpoint === 'mobile' ? 'sm' : 'md'}
+                                />
+                            </motion.button>
+                        ))}
+                    </AnimatePresence>
+                </div>
+                <p className="my-zone__hint">
+                    {canThrow
+                        ? t(
+                              'Toca la carta que quieres lanzar. La más alta gana.',
+                              'Tap the card you want to throw. Highest wins.',
+                          )
+                        : myPlayedCard
+                          ? t('Esperando a tu rival…', 'Waiting for your rival…')
+                          : t('Mira cómo se resuelve la ronda.', 'Watch the round resolve.')}
                 </p>
             </section>
         );

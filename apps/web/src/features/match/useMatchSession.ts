@@ -47,6 +47,7 @@ export interface MatchSession {
     finished: MatchFinishedPayload | null;
     chat: ChatMessagePayload[];
     selectAttribute: (attribute: string) => void;
+    playCard: (cardCode: string) => void;
     start: () => void;
     cancelCountdown: () => void;
     leave: () => void;
@@ -233,6 +234,11 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
             emit((socket) => socket.emit('round:selectAttribute', { attribute })),
         [emit],
     );
+    /** Classic mode: throw the chosen card from the hand. */
+    const playCard = useCallback(
+        (cardCode: string) => emit((socket) => socket.emit('round:playCard', { cardCode })),
+        [emit],
+    );
     const start = useCallback(() => emit((socket) => socket.emit('match:start')), [emit]);
     const cancelCountdown = useCallback(
         () => emit((socket) => socket.emit('match:cancelCountdown')),
@@ -267,6 +273,7 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
         finished,
         chat,
         selectAttribute,
+        playCard,
         start,
         cancelCountdown,
         leave,
