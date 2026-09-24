@@ -17,11 +17,7 @@ export class CasinoController {
     constructor(private readonly runtime: CasinoRuntimeService) {}
 
     @Get('wallet')
-    @ApiOperation({
-        summary: 'Chip balance',
-        description:
-            'Current virtual chips of the signed-in player and whether a refill is available.',
-    })
+    @ApiOperation({ summary: 'Chip balance' })
     @ApiOkResponse({ schema: { example: { coins: 5000, canRefill: false } } })
     wallet(@CurrentUser() user: GuestJwtPayload): Promise<CasinoWallet> {
         return this.runtime.wallet(user.sub);
@@ -29,12 +25,7 @@ export class CasinoController {
 
     @Post('wallet/refill')
     @HttpCode(200)
-    @ApiOperation({
-        summary: 'Claim a free refill',
-        description:
-            'Adds 2000 chips when the balance is under 200 and the player is not seated at a ' +
-            'table. Available once every 24 hours.',
-    })
+    @ApiOperation({ summary: 'Claim a free refill' })
     @ApiOkResponse({ schema: { example: { coins: 2150, canRefill: false } } })
     refill(@CurrentUser() user: GuestJwtPayload): Promise<CasinoWallet> {
         return this.runtime.refill(user.sub);

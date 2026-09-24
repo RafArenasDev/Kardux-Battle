@@ -28,13 +28,7 @@ export class MatchLifecycleController {
 
     @Delete(':matchId')
     @HttpCode(204)
-    @ApiOperation({
-        summary: 'Delete or leave a match',
-        description:
-            'The host permanently deletes the match (and its rounds, deck snapshot and event ' +
-            'log) - everyone still in the room receives `match:closed`. Any other seated player ' +
-            'just leaves it, exactly like the `match:leave` socket event.',
-    })
+    @ApiOperation({ summary: 'Delete or leave a match' })
     @ApiNoContentResponse()
     async remove(
         @CurrentUser() user: GuestJwtPayload,

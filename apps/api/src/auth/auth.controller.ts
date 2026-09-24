@@ -38,22 +38,7 @@ export class AuthController {
     // Brute-force / account-farming guard, on top of the global rate limit.
     @Throttle({ default: { limit: 20, ttl: 60_000 } })
     @Post('guest')
-    @ApiOperation({
-        summary: 'Create a guest identity',
-        description:
-            'Issues a fully anonymous guest JWT - no account, no password, no email, and no ' +
-            'nickname/avatar to pick: both are generated server-side. Call this once per ' +
-            "browser tab, right when the tab loads (docs/SPEC.md's multi-tab session rules): " +
-            'the resulting `token` and the `tabId` you sent must both be kept in ' +
-            '`sessionStorage` (never `localStorage` - a duplicated tab must get its own ' +
-            'identity, not inherit this one). Reuse the same token for every `POST` request ' +
-            'and for the Socket.IO handshake (`auth: { token, tabId }`) from that tab. The ' +
-            'token expires after `JWT_GUEST_TTL` (12h by default) - after that, call this ' +
-            'endpoint again to get a new (different) guest identity. A guest can join any ' +
-            'match but cannot host one (`POST /matches` fails with `ERR_GUEST_CANNOT_HOST`) - ' +
-            'use `POST /auth/register` for a real, independent account instead, which has no ' +
-            'relationship to any guest identity you may already have.',
-    })
+    @ApiOperation({ summary: 'Create a guest identity' })
     @ApiBody({
         type: GuestAuthRequestDto,
         description: 'Only the tab id (a UUID generated in the browser, one per tab).',
@@ -70,18 +55,7 @@ export class AuthController {
     // Brute-force / account-farming guard, on top of the global rate limit.
     @Throttle({ default: { limit: 5, ttl: 60_000 } })
     @Post('register')
-    @ApiOperation({
-        summary: 'Register a new account',
-        description:
-            'Public, no bearer token involved - a registered account is a completely ' +
-            'separate identity from any guest session, never "upgraded" from one. Always ' +
-            'creates a brand-new `Player` with its own `username`/password; `nickname` and the ' +
-            'avatar both default to `username` (nothing else to send). Returns the same ' +
-            '`{token, user}` shape as `POST /auth/guest` / `POST /auth/login`, ready to store ' +
-            'in `sessionStorage` immediately. Fails with `ERR_VALIDATION` (400) if the ' +
-            "username is already taken - the error body's `data.suggestions` carries 2-3 " +
-            'available alternatives, the same ones `GET /auth/check-username` would offer.',
-    })
+    @ApiOperation({ summary: 'Register a new account' })
     @ApiBody({
         type: RegisterRequestDto,
         examples: {
@@ -106,14 +80,7 @@ export class AuthController {
     }
 
     @Get('check-username')
-    @ApiOperation({
-        summary: 'Check whether a username is available',
-        description:
-            'Public - lets a signup form validate live while the user types, before ' +
-            'submitting the full `POST /auth/register` body. When taken, `suggestions` ' +
-            'carries 2-3 available alternatives generated the same way `POST /auth/register` ' +
-            'itself would if you submitted the taken username as-is.',
-    })
+    @ApiOperation({ summary: 'Check whether a username is available' })
     @ApiQuery({ name: 'username', required: true, type: String })
     @ApiOkResponse({ type: CheckUsernameResponseDto })
     async checkUsername(@Query() query: CheckUsernameQueryDto): Promise<CheckUsernameResponseDto> {
@@ -123,15 +90,7 @@ export class AuthController {
     // Brute-force / account-farming guard, on top of the global rate limit.
     @Throttle({ default: { limit: 10, ttl: 60_000 } })
     @Post('login')
-    @ApiOperation({
-        summary: 'Sign into a previously registered identity',
-        description:
-            'For a user who already called `POST /auth/register` before - verifies ' +
-            'username/password and issues a fresh JWT for that SAME user id, restoring ' +
-            'access to whatever it was already hosting/playing (e.g. `GET /matches/mine`). ' +
-            'Like `POST /auth/guest`, this is a new entry point (needs its own `tabId`), not ' +
-            'a continuation of an existing tab session.',
-    })
+    @ApiOperation({ summary: 'Sign into a previously registered identity' })
     @ApiBody({
         type: LoginRequestDto,
         examples: {
@@ -154,14 +113,7 @@ export class AuthController {
     @Throttle({ default: { limit: 20, ttl: 60_000 } })
     @Post('resume')
     @HttpCode(200)
-    @ApiOperation({
-        summary: 'Resume a remembered session',
-        description:
-            'For devices that signed in with `remember: true`. Exchanges the saved ' +
-            '`rememberToken` for a session bound to the new tab and returns a rotated ' +
-            '`rememberToken`. Accounts only; fails with `ERR_UNAUTHORIZED` once it expires ' +
-            '(30 days).',
-    })
+    @ApiOperation({ summary: 'Resume a remembered session' })
     @ApiBody({
         type: ResumeRequestDto,
         examples: {

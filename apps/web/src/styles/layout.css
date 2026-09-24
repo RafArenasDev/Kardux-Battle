@@ -378,6 +378,9 @@
         height: 100dvh;
         min-height: 0;
         overflow: hidden;
+        /* One row exactly as tall as the screen: without this the row grows with the form
+           and the form column never gets anything to scroll. */
+        grid-template-rows: minmax(0, 1fr);
     }
     .auth__brand {
         min-height: 0;
@@ -386,6 +389,8 @@
     }
     .auth__form-col {
         min-height: 0;
+        height: 100%;
+        justify-content: flex-start;
         overflow-y: auto;
         overscroll-behavior: contain;
         scrollbar-width: thin;
@@ -542,7 +547,7 @@
     border-radius: 999px;
     background: #16131d;
     border: 1px solid rgba(245, 210, 122, 0.35);
-    color: var(--text-1);
+    color: var(--text);
     font: 700 12px/1.2 var(--font-body, inherit);
     white-space: nowrap;
     pointer-events: none;

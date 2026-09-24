@@ -20,18 +20,7 @@ export class LeaderboardController {
     @Get()
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
-    @ApiOperation({
-        summary: 'Get the global leaderboard',
-        description:
-            'Returns the persisted global ranking, ordered by Elo (K=32, 1200 base) and ' +
-            'keyset-paginated over `(elo desc, id desc)`. Only the `global` scope is ' +
-            'implemented today: the schema has no per-card-source stats, no time-bucketed ' +
-            'stats, and no friends graph yet, so the `scope`/`period`/friends filters from ' +
-            "docs/SPEC.md's design are intentionally left out until those columns/tables are " +
-            'designed and approved separately. Requires a bearer token (any guest works - ' +
-            'this data has no per-user visibility rule, it just should never be callable ' +
-            'anonymously).',
-    })
+    @ApiOperation({ summary: 'Get the global leaderboard' })
     @ApiQuery({
         name: 'cursor',
         required: false,

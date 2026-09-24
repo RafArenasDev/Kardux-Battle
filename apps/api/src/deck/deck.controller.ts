@@ -15,14 +15,7 @@ export class DeckController {
     @Get('sources')
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
-    @ApiOperation({
-        summary: 'List available deck sources',
-        description:
-            'Every playable deck. Pokémon (PokéAPI) and the poker deck (Deck of Cards API) are ' +
-            'synced once into the database at boot (`CardPoolEntry`) and report `ready` once ' +
-            'available; the bundled original decks are always ready. Each entry carries its ' +
-            'attributes, a 4-card preview and the pack / cards-per-pack limits.',
-    })
+    @ApiOperation({ summary: 'List available deck sources' })
     @ApiOkResponse({ type: DeckSourceListDto })
     async listSources(): Promise<DeckSourceListDto> {
         return this.deckService.listSources();
