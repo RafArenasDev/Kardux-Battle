@@ -8,14 +8,7 @@ describe('DeckService', () => {
     it('lists every battle deck in lobby order', async () => {
         const sources = await new DeckService(emptyPool).listSources();
 
-        expect(sources.map((source) => source.id)).toEqual([
-            'pokeapi',
-            'mythic',
-            'autos',
-            'motos',
-            'aviones',
-            'deckofcards',
-        ]);
+        expect(sources.map((source) => source.id)).toEqual(['pokeapi', 'mythic', 'deckofcards']);
         // API decks are not ready until their pool syncs (the classic deck falls back to bundled art).
         expect(sources[0]?.ready).toBe(false);
         for (const source of sources.slice(1)) {

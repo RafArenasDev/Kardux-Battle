@@ -1115,3 +1115,22 @@
         flex: 1;
     }
 }
+
+/* Round results and "your turn" float centered above everything, never over the cards. */
+.center__banner:has(.banner--win, .banner--lose, .banner--tie, .banner--turn) {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    z-index: 200;
+    pointer-events: none;
+    min-height: 0;
+}
+
+.center__banner:has(.banner--win, .banner--lose, .banner--tie, .banner--turn) .banner {
+    font-size: clamp(1.2rem, min(4vw, 4.5dvh), 2rem);
+    padding: 14px 28px;
+    box-shadow:
+        0 18px 48px rgba(0, 0, 0, 0.7),
+        0 0 0 100vmax rgba(0, 0, 0, 0.25);
+}

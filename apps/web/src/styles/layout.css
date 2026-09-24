@@ -907,3 +907,13 @@
     letter-spacing: 0.18em;
     color: var(--gold-200);
 }
+
+.action-card--quick .chips {
+    justify-content: center;
+}
+
+.join-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}

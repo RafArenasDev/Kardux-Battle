@@ -121,9 +121,6 @@ function remoteInfo(meta: RemoteDeckMeta): DeckInfo {
 export const DECK_CATALOG: readonly DeckInfo[] = [
     remoteInfo(POKEMON_DECK),
     bundledInfo(MYTHIC_DECK),
-    bundledInfo(AUTOS_DECK),
-    bundledInfo(MOTOS_DECK),
-    bundledInfo(AVIONES_DECK),
     remoteInfo(CLASSIC_DECK),
 ];
 

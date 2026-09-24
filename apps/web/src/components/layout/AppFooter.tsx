@@ -5,14 +5,11 @@ import { useI18n } from '../../lib/i18n';
 const SOURCES = [
     { name: 'PokéAPI', href: 'https://pokeapi.co' },
     { name: 'Deck of Cards API', href: 'https://deckofcardsapi.com' },
-    { name: 'World Bank', href: 'https://data.worldbank.org' },
-    { name: 'mledoze/countries', href: 'https://github.com/mledoze/countries' },
-    { name: 'flagcdn', href: 'https://flagcdn.com' },
     { name: 'game-icons.net (CC BY 3.0)', href: 'https://game-icons.net' },
 ];
 
 /** Version, the free-to-play notice and the attributions every data/art source requires.
- *  The same notice shows everywhere; the compact variant only drops the source links. */
+ *  Identical on every screen; `compact` only tightens the spacing. */
 export function AppFooter({ compact = false }: { compact?: boolean }): JSX.Element {
     const { t } = useI18n();
 
@@ -28,19 +25,17 @@ export function AppFooter({ compact = false }: { compact?: boolean }): JSX.Eleme
                     'Free, non-profit game: no payments, purchases or real money; casino chips are virtual. Fan project not affiliated with Nintendo, Game Freak or The Pokémon Company; trademarks belong to their owners.',
                 )}
             </p>
-            {compact ? null : (
-                <p className="app-footer__sources">
-                    {t('Datos e imágenes: ', 'Data and images: ')}
-                    {SOURCES.map((source, index) => (
-                        <span key={source.name}>
-                            {index > 0 ? ' · ' : null}
-                            <a href={source.href} target="_blank" rel="noopener noreferrer">
-                                {source.name}
-                            </a>
-                        </span>
-                    ))}
-                </p>
-            )}
+            <p className="app-footer__sources">
+                {t('Datos e imágenes: ', 'Data and images: ')}
+                {SOURCES.map((source, index) => (
+                    <span key={source.name}>
+                        {index > 0 ? ' · ' : null}
+                        <a href={source.href} target="_blank" rel="noopener noreferrer">
+                            {source.name}
+                        </a>
+                    </span>
+                ))}
+            </p>
         </footer>
     );
 }

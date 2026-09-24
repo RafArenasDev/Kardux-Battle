@@ -38,8 +38,8 @@ const FEATURES: Feature[] = [
         icon: 'crossed-swords',
         title: ['Batallas de atributos', 'Attribute battles'],
         text: [
-            'Pokémon, países, criaturas míticas, autos, motos y aviones. Elige el atributo y gana la ronda.',
-            'Pokémon, countries, mythic creatures, cars, bikes and planes. Pick the stat, win the round.',
+            'Pokémon y criaturas míticas. Elige el atributo y gana la ronda.',
+            'Pokémon and mythic creatures. Pick the stat, win the round.',
         ],
     },
     {

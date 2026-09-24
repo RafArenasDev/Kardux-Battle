@@ -36,7 +36,27 @@ Everything below is committed on `main` except where noted. Start here.
 - Own seat (name/avatar) shown next to the classic hand; HUD shows the game mode.
 - Home fully translated (ES/EN). Sign-up page back to natural page scroll.
 
+### Round 3 (same day)
+
+- Decks reduced to Pokémon, Mythic creatures and Classic (cars, bikes, planes removed: no
+  per-card images). Footer identical on every screen, no countries credits.
+- Round result / "your turn" banners float centered above everything.
+- Quick-match deck chips centered; "Paste code" and "Join" share one row.
+
 ### Pending (in priority order)
+
+A. **Deal animation**: keep the deck pile visible on the table and deal from it; while
+dealing, every player's zone starts empty and cards appear one by one as they land. The
+pot pile must also sit on the table next to the deck.
+B. **Animation reliability**: after a few rounds the played cards (mine and the bot's) stop
+showing - audit `CenterStage`/`CenterSlot` timing (`REVEAL_RESULT_MS`, `COLLECT`, `HOLD`
+in `useMatchSession`) and make every transition interruptible; banners "Repartiendo" and
+"Tu turno" must not overlap (one central message at a time).
+C. **Classic modes** (user requirement): the classic deck must offer several modes from the
+rules the user shared - highest card (current), 21/blackjack, Texas Hold'em, five-card draw.
+Create page: choosing Classic swaps the rules panel to a mode picker with each mode's own
+options (not the attribute-battle options).
+D. Attribute lists on cards must never be cut off when choosing (check small screens).
 
 0. **Create page per mode** (user priority): choosing the classic deck must switch the rules
    panel to the classic rules; poker (Texas Hold'em, 5-card draw) and 21 belong to the

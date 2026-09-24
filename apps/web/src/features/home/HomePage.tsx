@@ -312,22 +312,23 @@ export default function HomePage(): JSX.Element {
                                     )
                                 }
                             />
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                icon="card-pickup"
-                                onClick={pasteCode}
-                            >
-                                {t('Pegar código', 'Paste code')}
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={!CODE_PATTERN.test(code)}
-                                icon="magic-portal"
-                            >
-                                {t('Entrar', 'Join')}
-                            </Button>
+                            <div className="join-row">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    icon="card-pickup"
+                                    onClick={pasteCode}
+                                >
+                                    {t('Pegar código', 'Paste code')}
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={!CODE_PATTERN.test(code)}
+                                    icon="magic-portal"
+                                >
+                                    {t('Entrar', 'Join')}
+                                </Button>
+                            </div>
                         </form>
                     </motion.article>
                 </section>
