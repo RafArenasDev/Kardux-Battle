@@ -14,7 +14,8 @@ const DAY = 24 * HOUR;
 /**
  * Keeps the database inside a free tier (Aiven: 1 GB) by pruning what nobody needs anymore:
  * finished matches after `RETENTION_FINISHED_DAYS`, lobbies/games abandoned for a day, the
- * append-only event log after `RETENTION_EVENTS_DAYS`, and guest identities that never played.
+ * append-only event log after `RETENTION_EVENTS_DAYS`, and guest identities that never played -
+ * plus a size guard that clears all history if the database nears `RETENTION_MAX_DB_MB`.
  * Registered accounts and the leaderboard are never touched. Runs hourly and shortly after
  * boot; every step is a bounded `deleteMany`, cheap enough for a 0.1-CPU instance.
  */
@@ -73,8 +74,30 @@ export class RetentionService implements OnApplicationBootstrap {
                     `Retention: removed ${matches.count} match(es), ${events.count} event(s), ${guests.count} idle guest(s).`,
                 );
             }
+
+            await this.guardDatabaseSize();
         } catch (error) {
             this.logger.error(`Retention run failed: ${(error as Error).message}`);
         }
+    }
+
+    /**
+     * Safety net for the free tier's storage cap: when the database grows past
+     * `RETENTION_MAX_DB_MB`, drop everything that is only history - the whole event log and
+     * every finished match (their rounds and deck snapshots cascade). Accounts, the ranking and
+     * the card pool are never touched, and live matches are left alone.
+     */
+    private async guardDatabaseSize(): Promise<void> {
+        const limitMb = this.config.get('RETENTION_MAX_DB_MB', { infer: true });
+        const [row] = await this.prisma.$queryRaw<{ bytes: bigint }[]>`
+            SELECT pg_database_size(current_database()) AS bytes`;
+        const sizeMb = Number(row?.bytes ?? 0n) / (1024 * 1024);
+        if (sizeMb < limitMb) return;
+
+        const events = await this.prisma.matchEvent.deleteMany({});
+        const matches = await this.prisma.match.deleteMany({ where: { status: 'FINISHED' } });
+        this.logger.warn(
+            `Database at ${sizeMb.toFixed(0)} MB (limit ${limitMb} MB): removed ${matches.count} finished match(es) and ${events.count} event(s).`,
+        );
     }
 }

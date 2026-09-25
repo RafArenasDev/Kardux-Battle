@@ -1,0 +1,27 @@
+# Keeps the free Render instance (and the Aiven database behind /health) awake, so anyone who
+# opens the link gets the game right away instead of a ~50 s cold start.
+#
+# GitHub Actions minutes are free for public repositories; on a private repository the job is
+# skipped (it would eat the monthly quota) - use an external monitor instead (docs/DEPLOY.md).
+name: Keep alive
+
+on:
+    schedule:
+        - cron: '*/10 * * * *'
+    workflow_dispatch:
+
+jobs:
+    ping:
+        if: ${{ !github.event.repository.private }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 3
+        steps:
+            - name: Ping /health
+              run: |
+                  for attempt in 1 2 3; do
+                    if curl --fail --silent --show-error --max-time 60 https://kardux-battle.onrender.com/health; then
+                      exit 0
+                    fi
+                    sleep 20
+                  done
+                  exit 1

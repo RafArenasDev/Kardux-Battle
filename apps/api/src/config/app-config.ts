@@ -33,6 +33,8 @@ const envSchema = z.object({
     // --- Free-tier data retention (see RetentionService) ---
     RETENTION_FINISHED_DAYS: z.coerce.number().int().positive().default(7),
     RETENTION_EVENTS_DAYS: z.coerce.number().int().positive().default(2),
+    /** Size (MB) at which the retention job also clears all match history (1 GB free tier). */
+    RETENTION_MAX_DB_MB: z.coerce.number().int().positive().default(700),
 
     // --- Deck kill switch: comma-separated deck ids hidden from players (e.g. "pokeapi") ---
     DISABLED_DECKS: z.string().default(''),

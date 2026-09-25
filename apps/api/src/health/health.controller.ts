@@ -1,27 +1,45 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import {
+    ApiOkResponse,
+    ApiOperation,
+    ApiServiceUnavailableResponse,
+    ApiTags,
+} from '@nestjs/swagger';
+// Value import required: Nest's DI resolves constructor params via `design:paramtypes`
+// reflection metadata, which `import type` erases at compile time.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { PrismaService } from '../prisma/prisma.service.js';
 
 export interface HealthResponse {
     status: 'ok';
+    database: 'up';
     uptimeSeconds: number;
     timestamp: string;
 }
 
 /**
- * `GET /health` from docs/SPEC.md's REST endpoint list. Intentionally has no constructor
- * dependencies for now (nothing to check yet - no Prisma/Redis clients exist until the next
- * phase); once they do, this becomes a real liveness/readiness check instead of "the process
- * is running."
+ * `GET /health`: the process is up and the database answers. The uptime monitor that keeps the
+ * free Render instance awake calls this every few minutes, so each ping also keeps the database
+ * connection warm.
  */
 @ApiTags('health')
 @Controller('health')
 export class HealthController {
+    constructor(private readonly prisma: PrismaService) {}
+
     @Get()
-    @ApiOperation({ summary: 'Liveness check' })
-    @ApiOkResponse({ description: 'The API process is running.' })
-    check(): HealthResponse {
+    @ApiOperation({ summary: 'Liveness and database check' })
+    @ApiOkResponse({ description: 'The API is running and the database answers.' })
+    @ApiServiceUnavailableResponse({ description: 'The database is not reachable.' })
+    async check(): Promise<HealthResponse> {
+        try {
+            await this.prisma.$queryRaw`SELECT 1`;
+        } catch {
+            throw new ServiceUnavailableException('Database unreachable');
+        }
         return {
             status: 'ok',
+            database: 'up',
             uptimeSeconds: Math.round(process.uptime()),
             timestamp: new Date().toISOString(),
         };

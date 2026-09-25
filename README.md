@@ -1,7 +1,7 @@
 # Kardux Battle
 
-A real-time, multiplayer card battle in the "Top Trumps" family, played with **Pokémon**: pick
-the strongest stat of your card, beat everyone at the table and take their cards. From 2 to 7
+A real-time, multiplayer card battle in the "Top Trumps" family, played with **Pokémon**: choose
+which stat of your card to compete with, beat everyone at the table on it and take their cards. From 2 to 7
 players per table, quick 1-vs-1 matches, a practice rival, a real ranking, Spanish and English,
 and an installable PWA that plays on a phone as well as on a desktop.
 
@@ -71,7 +71,8 @@ coded `1A…4H`. Every rule is implemented, and each one lives in the pure engin
 2. Share the room code or link; the match starts when the host presses **Start** or when the
    room fills up.
 3. The cards are dealt. Whoever holds `1A` (or the next code in order) leads the first round.
-4. On your turn, your top card appears: tap its strongest attribute. Everyone's top card is laid
+4. On your turn, your top card appears: tap the attribute you want to compete with (any of them;
+   the trick is picking one your rivals are likely to have lower). Everyone's top card is laid
    down, then flipped. Highest value wins every card on the table; a tie sends them to the pot.
 5. The winner leads the next round. You are out when you run out of cards.
 6. The match ends when one player holds every card or time runs out.
@@ -246,6 +247,7 @@ pnpm --filter @kardux/web i18n:check
 - [`docs/tasks/`](docs/tasks/): the phase-by-phase build plan.
 - [`docs/PENDING-WORK.md`](docs/PENDING-WORK.md): session-by-session log and what comes next.
 - [`API-TESTING.md`](API-TESTING.md): exercising the REST API by hand.
+- [`docs/DEPLOY.md`](docs/DEPLOY.md): production on Render + Aiven free tiers, keep-alive and data retention.
 
 ## Credits and license
 

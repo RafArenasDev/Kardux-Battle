@@ -1,0 +1,50 @@
+# Render Blueprint - one free web service that serves the API and the PWA from the same origin.
+# PostgreSQL and Redis (Valkey) live on Aiven's free tier; their URLs are secrets set in the
+# Render dashboard (sync: false), never committed.
+services:
+    - type: web
+      name: Kardux-Battle
+      runtime: node
+      plan: free
+      branch: main
+      # devDependencies (Nest CLI, TypeScript, Vite) are needed to build even with NODE_ENV=production.
+      buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm build:render
+      # Free instances have no pre-deploy step: migrations run right before the server starts.
+      startCommand: pnpm --filter @kardux/api start:prod
+      healthCheckPath: /health
+      autoDeploy: true
+      envVars:
+          - key: NODE_ENV
+            value: production
+          - key: DATABASE_PROVIDER
+            value: postgresql
+          - key: DATABASE_URL
+            sync: false
+          - key: DB_HOST
+            sync: false
+          - key: DB_PORT
+            sync: false
+          - key: DB_NAME
+            sync: false
+          - key: DB_USERNAME
+            sync: false
+          - key: DB_PASSWORD
+            sync: false
+          - key: REDIS_URL
+            sync: false
+          - key: JWT_SECRET
+            sync: false
+          - key: JWT_GUEST_TTL
+            value: 12h
+          - key: CORS_ORIGINS
+            value: https://kardux-battle.onrender.com
+          - key: RATE_LIMIT_TTL_MS
+            value: '60000'
+          - key: RATE_LIMIT_MAX
+            value: '100'
+          - key: RETENTION_FINISHED_DAYS
+            value: '7'
+          - key: RETENTION_EVENTS_DAYS
+            value: '2'
+          - key: RETENTION_MAX_DB_MB
+            value: '700'
