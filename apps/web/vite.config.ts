@@ -39,18 +39,18 @@ export default defineConfig({
                 background_color: '#07060a',
                 screenshots: [
                     {
-                        src: '/screenshots/mobile-choose.png',
-                        sizes: '372x779',
+                        src: '/screenshots/mobile-table.png',
+                        sizes: '390x844',
                         type: 'image/png',
                         form_factor: 'narrow',
                         label: 'Elige con qué atributo competir',
                     },
                     {
-                        src: '/screenshots/mobile-round-result.png',
-                        sizes: '372x779',
+                        src: '/screenshots/mobile-compare.png',
+                        sizes: '390x844',
                         type: 'image/png',
                         form_factor: 'narrow',
-                        label: 'Resultado de la ronda sobre la mesa',
+                        label: 'La carta ganadora se ilumina',
                     },
                     {
                         src: '/screenshots/mobile-ranking.png',
@@ -58,6 +58,13 @@ export default defineConfig({
                         type: 'image/png',
                         form_factor: 'narrow',
                         label: 'Ranking con podio',
+                    },
+                    {
+                        src: '/screenshots/desktop-result.png',
+                        sizes: '1456x820',
+                        type: 'image/png',
+                        form_factor: 'wide',
+                        label: 'Resultado de la ronda sobre la mesa',
                     },
                 ],
                 icons: [
