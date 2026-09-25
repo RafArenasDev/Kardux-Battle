@@ -9,23 +9,31 @@ import {
 // reflection metadata, which `import type` erases at compile time.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { PrismaService } from '../prisma/prisma.service.js';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { MatchRuntimeService } from '../game/match-runtime.service.js';
 
 export interface HealthResponse {
     status: 'ok';
     database: 'up';
+    /** Redis keeps live matches across restarts; the game still works while it reconnects. */
+    cache: 'up' | 'down' | 'disabled';
     uptimeSeconds: number;
     timestamp: string;
 }
 
 /**
- * `GET /health`: the process is up and the database answers. The uptime monitor that keeps the
+ * `GET /health`: the process is up and the database answers (503 otherwise), plus whether the
+ * Redis cache is connected. The uptime monitor that keeps the
  * free Render instance awake calls this every few minutes, so each ping also keeps the database
  * connection warm.
  */
 @ApiTags('health')
 @Controller('health')
 export class HealthController {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly runtime: MatchRuntimeService,
+    ) {}
 
     @Get()
     @ApiOperation({ summary: 'Liveness and database check' })
@@ -40,6 +48,7 @@ export class HealthController {
         return {
             status: 'ok',
             database: 'up',
+            cache: this.runtime.cacheStatus(),
             uptimeSeconds: Math.round(process.uptime()),
             timestamp: new Date().toISOString(),
         };

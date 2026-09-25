@@ -28,7 +28,23 @@ import { PrismaModule } from './prisma/prisma.module.js';
                 // every line at least carries the request id nestjs-pino already attaches.
                 return {
                     pinoHttp: isProduction
-                        ? { level: 'info' }
+                        ? {
+                              level: 'info',
+                              // The keep-alive monitor calls /health every few minutes.
+                              autoLogging: {
+                                  ignore: (request) => request.url?.startsWith('/health') ?? false,
+                              },
+                              // One compact line per request: no headers or cookies in the logs.
+                              serializers: {
+                                  req: (request: { method?: string; url?: string }) => ({
+                                      method: request.method,
+                                      url: request.url,
+                                  }),
+                                  res: (response: { statusCode?: number }) => ({
+                                      statusCode: response.statusCode,
+                                  }),
+                              },
+                          }
                         : {
                               level: 'debug',
                               transport: { target: 'pino-pretty', options: { singleLine: true } },

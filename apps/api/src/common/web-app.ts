@@ -56,7 +56,8 @@ export function mountWebApp(app: NestExpressApplication, webDist = defaultWebDis
         const isApi = API_PREFIXES.some(
             (prefix) => request.path === prefix || request.path.startsWith(`${prefix}/`),
         );
-        if (request.method !== 'GET' || isApi || !request.accepts('html')) {
+        const readsPage = request.method === 'GET' || request.method === 'HEAD';
+        if (!readsPage || isApi || !request.accepts('html')) {
             next();
             return;
         }

@@ -240,6 +240,12 @@ export class MatchRuntimeService implements OnModuleDestroy {
         }
     }
 
+    /** Whether live-match snapshots are being written to Redis right now. */
+    cacheStatus(): 'up' | 'down' | 'disabled' {
+        if (!this.redis) return 'disabled';
+        return this.redis.status === 'ready' ? 'up' : 'down';
+    }
+
     /** Current engine phase of a live match, or `null` when nothing is loaded for it. Used
      *  by quick matchmaking to skip lobbies that already started their countdown. */
     async phaseOf(matchId: string): Promise<MatchState['phase'] | null> {

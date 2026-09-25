@@ -5,6 +5,13 @@ which stat of your card to compete with, beat everyone at the table on it and ta
 players per table, quick 1-vs-1 matches, a practice rival, a real ranking, Spanish and English,
 and an installable PWA that plays on a phone as well as on a desktop.
 
+> **Play it live:** <https://kardux-battle.onrender.com> ·
+> **API docs (Swagger):** <https://kardux-battle.onrender.com/api/docs> ·
+> **Status:** <https://kardux-battle.onrender.com/health>
+>
+> Free hosting: if nobody has opened it for a while, the first visit can take up to a minute
+> while the server wakes up.
+
 It started as the **SENASOFT 2022** programming challenge ("Siigo Match Battle") and grew into a
 portfolio project: a TypeScript monorepo with an authoritative NestJS game server, a pure and
 deterministic rules engine, and a React client built around the table choreography.
@@ -24,8 +31,12 @@ deterministic rules engine, and a React client built around the table choreograp
 - [Architecture](#architecture)
 - [Engineering highlights](#engineering-highlights)
 - [Tech stack](#tech-stack)
+- [Installable app (PWA)](#installable-app-pwa)
 - [Run it locally](#run-it-locally)
+- [Configuration](#configuration)
 - [Testing](#testing)
+- [Deployment](#deployment)
+- [Fork, clone and contribute](#fork-clone-and-contribute)
 - [Documentation map](#documentation-map)
 - [Credits and license](#credits-and-license)
 
@@ -201,6 +212,19 @@ kardux-battle/
 | Auth         | JWT per browser tab, bcrypt passwords, optional 30-day "stay signed in"  | [`docs/SPEC.md`](docs/SPEC.md)                              |
 | Quality      | Vitest, Supertest, socket.io-client, ESLint, Prettier, Husky, commitlint | [`docs/SPEC.md`](docs/SPEC.md)                              |
 
+## Installable app (PWA)
+
+Kardux Battle is a Progressive Web App built with `vite-plugin-pwa` (Workbox):
+
+- **Install**: after signing in, Chrome, Edge and Android show an "Install Kardux Battle" card
+  (the browser's `beforeinstallprompt` is captured at startup and offered at a calm moment, never
+  mid-match); on iPhone the card explains _Share → Add to Home Screen_.
+- **Launch screen**: a branded splash while the app loads; Android builds its native splash from
+  the manifest (name, colors, 512 px icon).
+- **Offline shell**: the app shell and assets are precached; the API and the live game always use
+  the network. New versions update silently in the background.
+- **Store-style install dialog**: the manifest ships screenshots, categories and an `id`.
+
 ## Run it locally
 
 Requirements: Node.js 24+, pnpm 10+, PostgreSQL 14+ and Redis 7+ (all free and open source).
@@ -221,6 +245,28 @@ and the web app (**http://localhost:5173**) together. `Ctrl+C` stops everything 
 There is no seed data: create your account from the sign-up screen. To try a match alone, open
 two browser windows (each tab is its own player) or play **Vs the machine**.
 
+## Configuration
+
+All server settings are environment variables, validated at boot by a Zod schema
+([`apps/api/src/config/app-config.ts`](apps/api/src/config/app-config.ts)); the template is
+[`apps/api/.env.example`](apps/api/.env.example).
+
+| Variable                                           | Purpose                                                         |
+| -------------------------------------------------- | --------------------------------------------------------------- |
+| `DATABASE_URL`, `DB_*`                             | PostgreSQL connection                                           |
+| `REDIS_URL`                                        | Redis/Valkey for live match snapshots and locks (optional)      |
+| `JWT_SECRET`, `JWT_GUEST_TTL`                      | Session signing and guest session length                        |
+| `CORS_ORIGINS`                                     | Extra allowed origins (the service's own URL is always allowed) |
+| `RATE_LIMIT_TTL_MS`, `RATE_LIMIT_MAX`              | Global rate limit per IP                                        |
+| `RETENTION_FINISHED_DAYS`, `RETENTION_EVENTS_DAYS` | How long finished matches and the event log are kept            |
+| `RETENTION_MAX_DB_MB`                              | Database size at which all match history is cleared             |
+| `DISABLED_DECKS`                                   | Kill switch to hide a deck without a code change                |
+| `VITE_API_BASE_URL` (web, optional)                | API URL when the web app is hosted on a different origin        |
+
+Game rules are configured per room from the create screen: players (2-7), minimum to start,
+auto-start threshold, packs and quartets, attributes per card (3-6), cards per player, match
+duration and time per turn.
+
 ## Testing
 
 ```bash
@@ -239,6 +285,40 @@ pnpm --filter @kardux/web i18n:check
 - `apps/api/scripts/smoke-table.mjs`: a scripted 3-player private match against a running API
   (auto-start, rounds, two players leaving, ranking update), using existing accounts from
   `SMOKE_ACCOUNTS`.
+
+## Deployment
+
+Production runs on free tiers - details, commands and the maintenance jobs in
+[`docs/DEPLOY.md`](docs/DEPLOY.md):
+
+- **Render** (free web service): one Node process serves the REST API, the Socket.IO game
+  server, Swagger and the built PWA from the same origin. Every push to `main` builds and deploys
+  automatically (`render.yaml`); migrations run on start; `/health` is the health check.
+- **Aiven** (free PostgreSQL 1 GB + free Valkey): the database and the cache.
+- **Always reachable**: an uptime monitor pings `/health` every few minutes so the free instance
+  never sleeps; every ping also touches the database.
+- **Self-healing**: Render restarts the process if it crashes or `/health` fails; Prisma and the
+  Redis client reconnect on their own; seats of players who never came back are released
+  automatically, even across restarts.
+- **Stays under 1 GB**: an hourly retention job prunes old matches, the event log and idle guest
+  accounts, with a size guard that clears all match history near the limit.
+
+## Fork, clone and contribute
+
+1. Fork the repository on GitHub (or clone it directly) and follow [Run it locally](#run-it-locally).
+2. Create a branch, make your change, and keep the checks green: `pnpm lint`, `pnpm typecheck`,
+   `pnpm test`, `pnpm build`.
+3. Commits follow [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`,
+   `docs:`…), enforced by commitlint; Husky runs ESLint and Prettier on staged files.
+4. New UI text goes into both `apps/web/src/i18n/locales/es.json` and `en.json`
+   (`pnpm --filter @kardux/web i18n:check` verifies they match).
+5. Game rules live in `packages/engine` as pure functions: add a test there first, then wire the
+   API and the client.
+6. Open a pull request describing the change and how you tested it.
+
+Ideas that fit the architecture: more decks from other public APIs (`DECK_SOURCE_IDS` plus a
+card-pool sync), spectator mode polish, match replays from the `match_events` log, and a
+Playwright end-to-end run of a 7-player table.
 
 ## Documentation map
 
