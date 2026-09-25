@@ -1,7 +1,7 @@
 import type { Card, Player, RedactedMatchState } from '@kardux/contracts';
 import { TABLE_TIMING } from '@kardux/contracts';
 import { AnimatePresence, motion } from 'framer-motion';
-import type { JSX, RefObject } from 'react';
+import type { JSX, MutableRefObject, ReactNode, RefObject } from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CardBack, PlayingCard } from '../../components/cards/PlayingCard';
@@ -130,8 +130,19 @@ export function GameTable({
         busy: reveal !== null || deal.counts !== null,
         isLeader: leaderId === state.yourId,
         myPlayedCard,
+        remaining: me ? countOf(me) : 0,
     });
-    const handCard = <HandCard hand={hand} onSelectAttribute={onSelectAttribute} />;
+    /** Last on-screen box of my face-up card, so it can be launched from exactly there even
+     *  when the element is gone by the time the card is played (phones re-layout the table). */
+    const myFaceRect = useRef<DOMRect | null>(null);
+    const handCard = (
+        <HandCard
+            hand={hand}
+            faceRect={myFaceRect}
+            shared={compact}
+            onSelectAttribute={onSelectAttribute}
+        />
+    );
 
     return (
         <div className={`table table--${breakpoint}`} ref={tableRef}>
@@ -160,6 +171,9 @@ export function GameTable({
                         tableRef={tableRef}
                         compact={compact}
                         handCard={compact && hand.showCard ? handCard : null}
+                        myCard={compact && hand.showCard ? hand.card : null}
+                        myPlayedCard={myPlayedCard}
+                        faceRect={myFaceRect}
                     />
                     <PotSpot count={potSize} />
                 </div>
@@ -622,6 +636,9 @@ function PlayArea({
     tableRef,
     compact,
     handCard,
+    myCard,
+    myPlayedCard,
+    faceRect,
 }: {
     state: RedactedMatchState;
     reveal: RevealState | null;
@@ -629,6 +646,11 @@ function PlayArea({
     compact: boolean;
     /** On phones my card is chosen right here, in the middle of the table. */
     handCard: JSX.Element | null;
+    /** Phones: my top card, still in my hands, waiting in my seat at the table. */
+    myCard: Card | null;
+    /** The card I just laid down, so it can be seen turning face down on its way. */
+    myPlayedCard: Card | null;
+    faceRect: MutableRefObject<DOMRect | null>;
 }): JSX.Element {
     const [stageRef, stage] = useElementSize<HTMLDivElement>();
     const playersById = new Map(state.players.map((player) => [player.id, player]));
@@ -704,14 +726,9 @@ function PlayArea({
                     <div className="slot" key={playerId}>
                         {played ? (
                             <FlyingCard
-                                from={
-                                    isMine
-                                        ? [
-                                              '[data-my-card] .my-card',
-                                              `[data-pile-id="${CSS.escape(playerId)}"]`,
-                                          ]
-                                        : [`[data-pile-id="${CSS.escape(playerId)}"]`]
-                                }
+                                from={isMine ? '[data-my-face]' : null}
+                                fromRect={isMine ? faceRect : null}
+                                fallback={`[data-pile-id="${CSS.escape(playerId)}"]`}
                                 collectTo={collectTo}
                                 tableRef={tableRef}
                                 index={index}
@@ -725,10 +742,18 @@ function PlayArea({
                                         delay={(index * TABLE_TIMING.flipStaggerMs) / 1000}
                                         startFaceUp={false}
                                     />
+                                ) : isMine && myPlayedCard ? (
+                                    <LaunchCard card={myPlayedCard} />
                                 ) : (
                                     <CardBack size="md" />
                                 )}
                             </FlyingCard>
+                        ) : isMine && myCard ? (
+                            <motion.div layoutId="my-top-card" transition={cardTravel}>
+                                <TrackedFace rectRef={faceRect}>
+                                    <PlayingCard card={myCard} size="md" />
+                                </TrackedFace>
+                            </motion.div>
                         ) : (
                             <div className="slot__empty">
                                 {player ? <Avatar seed={player.avatarSeed} size={28} /> : null}
@@ -753,8 +778,8 @@ function PlayArea({
 
 /**
  * One card on the table: it flies in from where it came from (the owner's pile, or my own
- * card in my zone) and, once collected, flies to the winner's pile or into the pot - both
- * measured live from the DOM, so it lands on the real spot at any screen size.
+ * face-up card wherever it was showing) and, once collected, flies to the winner's pile or into
+ * the pot - both measured live from the DOM, so it lands on the real spot at any screen size.
  *
  * Fully declarative: the wrapper is measured first, then the moving card mounts with its
  * starting offset as `initial` and its destination as `animate`. No imperative animation
@@ -762,15 +787,20 @@ function PlayArea({
  */
 function FlyingCard({
     children,
-    from: sources,
+    from: source,
+    fromRect,
+    fallback,
     collectTo,
     tableRef,
     index,
     highlight,
 }: {
     children: JSX.Element;
-    /** Where the card comes from, most specific first (the first one on screen wins). */
-    from: string[];
+    /** Where the card comes from: this element if it is still on screen, else the last box
+     *  recorded for it, else the fallback (the owner's pile). */
+    from: string | null;
+    fromRect: MutableRefObject<DOMRect | null> | null;
+    fallback: string;
     collectTo: string | null;
     tableRef: RefObject<HTMLDivElement>;
     index: number;
@@ -782,17 +812,25 @@ function FlyingCard({
 
     useLayoutEffect(() => {
         const table = tableRef.current;
-        const source = sources
-            .map((selector) => table?.querySelector(selector))
-            .find((element) => element !== null && element !== undefined);
-        setFrom(offsetBetween(source, ref.current));
+        const live = source ? table?.querySelector(source) : null;
+        const box =
+            live?.getBoundingClientRect() ??
+            fromRect?.current ??
+            table?.querySelector(fallback)?.getBoundingClientRect() ??
+            null;
+        // A recorded box is used once: the next round records a fresh one.
+        if (fromRect) fromRect.current = null;
+        setFrom(offsetBetween(box, ref.current));
         // Only where the card came from matters, measured once on arrival.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useLayoutEffect(() => {
         if (!collectTo) return;
-        const target = offsetBetween(tableRef.current?.querySelector(collectTo), ref.current);
+        const target = offsetBetween(
+            tableRef.current?.querySelector(collectTo)?.getBoundingClientRect() ?? null,
+            ref.current,
+        );
         setTo(target ?? { x: 0, y: 0, scale: 1 });
     }, [collectTo, tableRef]);
 
@@ -833,14 +871,10 @@ interface Offset {
     scale: number;
 }
 
-/** How far (and how much bigger) `source` is from `anchor`, center to center. */
-function offsetBetween(
-    source: Element | null | undefined,
-    anchor: HTMLElement | null,
-): Offset | null {
+/** How far (and how much bigger) the `from` box is from `anchor`, center to center. */
+function offsetBetween(from: DOMRect | null, anchor: HTMLElement | null): Offset | null {
     if (!anchor) return null;
-    if (!source) return { x: 0, y: 0, scale: 1 };
-    const from = source.getBoundingClientRect();
+    if (!from) return { x: 0, y: 0, scale: 1 };
     const box = anchor.getBoundingClientRect();
     return {
         x: from.left + from.width / 2 - (box.left + box.width / 2),
@@ -887,6 +921,60 @@ function FlipCard({
                     <CardBack size="md" />
                 </div>
             </motion.div>
+        </div>
+    );
+}
+
+/** My own card leaving my hands: it starts face up, where I was looking at it, and turns face
+ *  down on the way, so it lands like every other card. */
+function LaunchCard({ card }: { card: Card }): JSX.Element {
+    return (
+        <div className="flip">
+            <motion.div
+                className="flip__inner"
+                initial={{ rotateY: 0 }}
+                animate={{ rotateY: 180 }}
+                transition={{ duration: TABLE_TIMING.landMs / 1000, ease: [0.22, 1, 0.36, 1] }}
+            >
+                <div className="flip__face">
+                    <PlayingCard card={card} size="md" />
+                </div>
+                <div className="flip__face flip__face--back">
+                    <CardBack size="md" />
+                </div>
+            </motion.div>
+        </div>
+    );
+}
+
+/** Wraps my face-up card and keeps `rectRef` pointing at its latest on-screen box, including
+ *  the very moment it unmounts (cleanups run before the node leaves the DOM). */
+function TrackedFace({
+    rectRef,
+    children,
+}: {
+    rectRef: MutableRefObject<DOMRect | null>;
+    children: ReactNode;
+}): JSX.Element {
+    const ref = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        const element = ref.current;
+        if (!element) return undefined;
+        const save = (): void => {
+            const box = element.getBoundingClientRect();
+            if (box.width > 0) rectRef.current = box;
+        };
+        save();
+        const observer = new ResizeObserver(save);
+        observer.observe(element);
+        return () => {
+            save();
+            observer.disconnect();
+        };
+    });
+    return (
+        <div ref={ref} data-my-face>
+            {children}
         </div>
     );
 }
@@ -950,8 +1038,10 @@ function RoundResultBanner({
 
 interface HandState {
     card: Card | null;
-    /** The top card is visible (between rounds, before it is laid down). */
+    /** The top card is visible face up: from the moment it is mine until it is laid down. */
     showCard: boolean;
+    /** Otherwise the next card of my pile shows its back, so my spot is never empty. */
+    showBack: boolean;
     /** I lead and the turn is open: the attribute rows are buttons. */
     choosing: boolean;
     busy: boolean;
@@ -963,26 +1053,40 @@ function useHand(
         busy,
         isLeader,
         myPlayedCard,
-    }: { busy: boolean; isLeader: boolean; myPlayedCard: Card | null },
+        remaining,
+    }: { busy: boolean; isLeader: boolean; myPlayedCard: Card | null; remaining: number },
 ): HandState {
     const now = useNow(250, state.turnOpensAt !== null && state.turnOpensAt > Date.now());
     const card = state.yourTopCard;
     const turnOpen = state.turnOpensAt === null || Math.max(now, Date.now()) >= state.turnOpensAt;
+    // My card stays in my hands while the attribute is chosen (by me or by the leader) and
+    // until the moment it is laid down - it never vanishes before it flies to the table.
+    const laidDown =
+        myPlayedCard !== null || (state.round?.playedBy.includes(state.yourId) ?? false);
+    const inRound = state.phase === 'AWAITING_ATTRIBUTE' || state.phase === 'AWAITING_CARDS';
+    const showCard = card !== null && !busy && !laidDown && inRound;
     return {
         card,
-        showCard: card !== null && !busy && !myPlayedCard && state.phase === 'AWAITING_ATTRIBUTE',
+        showCard,
+        showBack: !showCard && remaining > 0,
         choosing: state.phase === 'AWAITING_ATTRIBUTE' && isLeader && !busy && turnOpen,
         busy,
     };
 }
 
-/** My top card, face up. Only one card is ever visible; once laid down it lives on the table,
- *  so this spot stays empty (never a face-down card) until the next round. */
+/** My spot: the top card face up while it is in my hands, and the back of the next card of my
+ *  pile once it has been laid down, so the spot always shows a card while I have one. The
+ *  face-up card leaves without fading: the card on the table takes off from its exact box. */
 function HandCard({
     hand,
+    faceRect,
+    shared,
     onSelectAttribute,
 }: {
     hand: HandState;
+    faceRect: MutableRefObject<DOMRect | null>;
+    /** Phones: the card can move to my seat at the table, so it animates between both. */
+    shared: boolean;
     onSelectAttribute: (attribute: string) => void;
 }): JSX.Element {
     return (
@@ -992,16 +1096,30 @@ function HandCard({
                     <motion.div
                         key={hand.card.code}
                         className="my-card"
+                        {...(shared ? { layoutId: 'my-top-card' } : {})}
                         initial={{ opacity: 0, y: 50, rotateY: 80 }}
                         animate={{ opacity: 1, y: 0, rotateY: 0 }}
-                        exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                        exit={{ opacity: 0, transition: { duration: 0 } }}
                         transition={cardTravel}
                     >
-                        <PlayingCard
-                            card={hand.card}
-                            size="lg"
-                            {...(hand.choosing ? { onSelectAttribute } : {})}
-                        />
+                        <TrackedFace rectRef={faceRect}>
+                            <PlayingCard
+                                card={hand.card}
+                                size="lg"
+                                {...(hand.choosing ? { onSelectAttribute } : {})}
+                            />
+                        </TrackedFace>
+                    </motion.div>
+                ) : hand.showBack ? (
+                    <motion.div
+                        key="back"
+                        className="my-card"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0, transition: { duration: 0 } }}
+                        transition={{ duration: 0.2 }}
+                    >
+                        <CardBack size="lg" />
                     </motion.div>
                 ) : null}
             </AnimatePresence>
