@@ -26,10 +26,9 @@ export class LeaderboardService {
      * between rows with the same Elo, which offset pagination can't do consistently once rows
      * are inserted/updated between pages.
      *
-     * Only the `global` scope from docs/SPEC.md exists here: `scope` (per card source) and
-     * `period`/`friends` would need columns/tables (per-source stats, time buckets, a friends
-     * graph) that `LeaderboardStat` doesn't have yet, per the "no new models without approval"
-     * rule - out of scope for this endpoint until that's designed separately.
+     * Only the global ranking exists: per-deck, per-period or friends rankings would need
+     * columns/tables (per-source stats, time buckets, a friends graph) that `LeaderboardStat`
+     * doesn't have.
      */
     async getGlobal(query: LeaderboardQuery): Promise<LeaderboardResponse> {
         const cursor = query.cursor ? this.decodeCursor(query.cursor) : null;

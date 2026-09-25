@@ -14,7 +14,7 @@ export interface CreateMatchOptions {
  * Fresh `LOBBY` state for a brand-new match. No players, no deck yet - those arrive via
  * `player.join` and `match.start`/`match.beginCountdown` actions.
  *
- * `TASK-01-backend.md` abbreviates this as `createMatch(config, seed)`; `now` is still an
+ * Conceptually `createMatch(config, seed)`; `now` is still an
  * explicit input (never `Date.now()` inside the engine, same rule as `reduce()`), so it's
  * bundled into one options object here instead of a longer positional parameter list.
  */

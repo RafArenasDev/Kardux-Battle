@@ -43,14 +43,9 @@ apps/mobile/android/
 *.rdb
 *.dump
 
-# Local Claude Code tooling (agent worktrees, settings)
-.claude/
-
 # Local Redis data written by `pnpm dev`
 .redis/
 
 # vite-plugin-pwa dev service worker (generated)
 dev-dist/
 
-# Local assistant notes (not part of the project)
-CLAUDE.md

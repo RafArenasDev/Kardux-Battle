@@ -6,43 +6,34 @@ Accepted
 
 ## Context
 
-The game runs on four platforms (`api`, `web`, `desktop`, `mobile`). The server must stay
-authoritative — no client decides a round's outcome — but the web/desktop/mobile clients still
-need to predict outcomes optimistically (e.g. animate a card flip before the server's
-`round:resolved` event arrives) and the engine needs exhaustive, fast unit tests that never
-touch a network or a clock.
+The server is authoritative: no client decides a round. The rules have many edge cases (chained
+ties, knock-outs mid-round, decks that do not divide evenly, time-outs, players leaving a duel or
+a larger table) and they must be tested quickly and exhaustively, without sockets, databases or
+clocks.
 
 ## Decision
 
-`@kardux/engine` is plain TypeScript with **zero runtime dependencies** beyond
-`@kardux/contracts`'s types. It exposes:
+`@kardux/engine` is plain TypeScript whose only dependency is `@kardux/contracts`. It exposes:
 
-- `createMatch(config, seed)` and `reduce(state, action, ctx)`, where `ctx = { now, rng }` is
-  always injected — the engine never calls `Date.now()` or `Math.random()` internally.
-- A seeded RNG (`sfc32`, seeded from a string via a small hash) and a deterministic
-  Fisher-Yates `shuffle` built on it, so `createMatch(config, 'same-seed')` always produces the
-  same deal.
-- `redactFor(playerId, state)`, which is what actually enforces "no client sees another
-  player's cards" — the server calls it once per socket before every broadcast, and it's unit
-  tested exactly like the rest of the reducer.
-
-`apps/api` is the only place that supplies real `now`/`rng`; `apps/web` (and later
-`desktop`/`mobile`) import the same `reduce`/`redactFor` for optimistic UI, never a
-reimplementation of the rules.
+- `createMatch(config, { seed, now })` and `reduce(state, action, { now })`, returning the next
+  state plus the list of events that happened. Time is always injected; the engine never calls
+  `Date.now()` or `Math.random()`.
+- A seeded RNG (`cyrb128` + `sfc32`) whose state is part of `MatchState`, and a deterministic
+  Fisher-Yates shuffle, so the same seed always produces the same deal.
+- `redactFor(playerId, state)`, which enforces that no player ever receives another player's
+  cards. The server calls it once per socket before every broadcast.
+- `ratingChanges` / `placementsOf`, the multiplayer Elo used by the ranking.
 
 ## Alternatives considered
 
-- **Engine logic embedded in the NestJS gateway**: faster to write initially, but then the
-  frontend can only predict outcomes by guessing, and testing a tie-pot edge case means
-  spinning up sockets — exactly what `README-COMO-USAR.md` warns against ("depurarlos a través
-  de sockets es un infierno").
-- **A stateful class with internal `Date.now()`/`Math.random()`**: not deterministic, so a
-  fixed-seed regression test (full match, reproducible) would be impossible, and so is
-  replaying a `MatchEvent` log for debugging or spectating.
+- **Rules inside the NestJS gateway**: quicker at first, but testing a tie-pot edge case would
+  mean spinning up sockets.
+- **A stateful class using the real clock and `Math.random()`**: not deterministic, so a
+  reproducible full-match test or a replay from the `match_events` log would be impossible.
 
 ## Consequences
 
-- Every engine function takes its inputs explicitly (state, action, `ctx`) — no hidden module-
-  level state, no singletons.
-- `apps/api`'s `MatchRuntimeService` owns the _only_ live `now`/`rng` instances per match and
-  is responsible for injecting them into `reduce()` on every action.
+- Every engine function receives its inputs explicitly; there is no module-level state.
+- `MatchRuntimeService` in `apps/api` is the only caller of `reduce()` and the only place that
+  supplies the real time.
+- The engine suite (80 tests) has enforced coverage thresholds of 90 % lines and 85 % branches.

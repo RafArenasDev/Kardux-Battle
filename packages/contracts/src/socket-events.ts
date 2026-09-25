@@ -47,7 +47,9 @@ export const matchQuickPayloadSchema = z.object({
     vsBot: z
         .boolean()
         .default(false)
-        .describe('Play against the Kardux bot instead of waiting for another player.'),
+        .describe(
+            'Play a practice match against the machine instead of waiting for another player.',
+        ),
 });
 export type MatchQuickPayload = z.input<typeof matchQuickPayloadSchema>;
 
@@ -60,7 +62,7 @@ export type MatchRejoinPayload = z.infer<typeof matchRejoinPayloadSchema>;
  * `match:requestJoin` - the discovery counterpart to `match:join`: a player who picked the
  * match from `GET /matches/public` (no code in hand) instead of typing/receiving one. Creates
  * a `PENDING` `MatchPlayer` row that the host must approve via `match:respondJoin` before the
- * requester is actually seated - see the 2026-09-21 join-request design in docs/SPEC.md.
+ * requester is actually seated - see "Solicitudes de ingreso" in docs/SPEC.md.
  */
 export const matchRequestJoinPayloadSchema = z.object({
     matchId: z.string().min(1),

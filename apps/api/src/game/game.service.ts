@@ -38,10 +38,9 @@ export type RespondJoinResult =
  * way `MatchService` is kept separate from `MatchController`: the gateway only deals with
  * sockets/rooms/acks, this deals with Prisma and the typed errors that drive them.
  *
- * Deliberately narrow: only the two join paths from the 2026-09-21 join-request design
- * (`GameGateway`'s `match:join`/`match:requestJoin`/`match:respondJoin`). Seating the deck,
- * starting the match, and everything else `MatchRuntimeService` will eventually own is out of
- * scope here - see docs/SPEC.md's "MatchRuntimeService" section for that later phase.
+ * Deliberately narrow: only the two join paths (`GameGateway`'s `match:join` and
+ * `match:requestJoin`/`match:respondJoin`, docs/SPEC.md "Solicitudes de ingreso"). Dealing,
+ * starting the match and everything that happens at the table belong to `MatchRuntimeService`.
  */
 @Injectable()
 export class GameService {
@@ -93,7 +92,7 @@ export class GameService {
      * Direct join (docs/SPEC.md's `match:join` contract): immediate `APPROVED` seat, no admin
      * involved. `upsert` so a player who already has a row (e.g. previously `REJECTED` from a
      * request-join, or reconnecting) can still get straight in via a code/deep link - direct
-     * join never asks for approval, per the 2026-09-21 design.
+     * join never asks for approval.
      */
     async getPlayer(userId: string): Promise<PlayerRow> {
         const user = await this.prisma.player.findUnique({ where: { id: userId } });
@@ -162,7 +161,7 @@ export class GameService {
 
     /**
      * Host-only decision on a `PENDING` row. Rejection keeps the row (`REJECTED`) instead of
-     * deleting it, per the 2026-09-21 design ("útil para auditoría/historial"). Re-checks
+     * deleting it, as docs/SPEC.md asks ("útil para auditoría/historial"). Re-checks
      * capacity on accept too - time may have passed between the request and the host's
      * decision, and another player could have filled the last seat meanwhile.
      */

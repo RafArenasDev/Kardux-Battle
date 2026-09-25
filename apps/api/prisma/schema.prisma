@@ -47,15 +47,15 @@ enum MatchStatus {
 
 /// One playthrough. `config`/`winnerId` mirror `@kardux/contracts`'s `MatchConfig`/
 /// `MatchState.winnerId` - this row is the durable record of a match that otherwise lives
-/// as in-memory `MatchState` while it's actually being played (`MatchRuntimeService`, Phase
-/// 2b) plus a `DeckSnapshot`/`MatchEvent` trail for replay.
+/// as in-memory `MatchState` while it's actually being played (`MatchRuntimeService`)
+/// plus a `DeckSnapshot`/`MatchEvent` trail for replay.
 model Match {
   id        String      @id @default(cuid())
   /// 6-character hex room code. Not globally unique in the schema on purpose: docs/SPEC.md
   /// calls for uniqueness only "sobre partidas activas" (a finished match's code can be
   /// reused later) - Prisma's declarative schema can't express a partial/filtered unique
-  /// index, so that rule is enforced in `MatchModule` (Phase 2b: reject creating a match
-  /// whose code collides with another LOBBY/IN_PROGRESS match) rather than at the DB level.
+  /// index, so that rule is enforced in `MatchService` (a new room never gets a code already
+  /// held by another LOBBY/IN_PROGRESS match) rather than at the DB level.
   code      String
   config    Json
   status    MatchStatus @default(LOBBY)
@@ -66,8 +66,8 @@ model Match {
   endedAt   DateTime?
   winnerId  String?
   isDraw    Boolean     @default(false)
-  /// Set once the post-match Elo update has run - TASK-04-leaderboard.md's idempotency
-  /// requirement ("si el job se reintenta, no debe recalcular dos veces").
+  /// Set once the post-match Elo update has run, so a retried rating job never applies the
+  /// same result twice.
   ratedAt   DateTime?
   createdAt DateTime    @default(now())
 
@@ -83,7 +83,7 @@ model Match {
 }
 
 /// Lifecycle of a `MatchPlayer` row across the two join flows `GameGateway` supports
-/// (docs/SPEC.md "CONTRATO DE EVENTOS SOCKET.IO" + the 2026-09-21 join-request design): a
+/// (docs/SPEC.md "CONTRATO DE EVENTOS SOCKET.IO" + "Solicitudes de ingreso"): a
 /// direct `match:join` (by code/deep link) is auto-`APPROVED`, a discovery `match:requestJoin`
 /// (from `GET /matches/public`, no code) starts `PENDING` until the host calls
 /// `match:respondJoin`. Rows are never deleted on rejection - kept `REJECTED` for audit/history.
@@ -152,8 +152,8 @@ model DeckSnapshot {
   @@map("deck_snapshots")
 }
 
-/// Global stats, one row per user - `TASK-04-leaderboard.md`'s Elo (K=32, base 1200) and
-/// aggregate counters.
+/// Global stats, one row per user - docs/SPEC.md's "TABLA DE POSICIONES": Elo (K=32, base
+/// 1200) and aggregate counters.
 model LeaderboardStat {
   id                String   @id @default(cuid())
   userId            String   @unique

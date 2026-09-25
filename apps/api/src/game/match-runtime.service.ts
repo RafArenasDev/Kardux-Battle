@@ -98,7 +98,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
         this.autoSelects.clear();
         this.autoPlays.clear();
         // `.quit()` rejects with "Connection is closed" if the client never actually
-        // connected (e.g. no local Redis running, per docs/PENDING-WORK.md) - harmless during
+        // connected (e.g. no local Redis running) - harmless during
         // shutdown, but left uncaught it surfaces as an unhandled rejection in tests.
         this.redis?.quit().catch(() => undefined);
     }

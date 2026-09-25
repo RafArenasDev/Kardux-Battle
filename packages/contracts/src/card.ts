@@ -14,7 +14,7 @@ export const deckSourceIdSchema = z.enum(DECK_SOURCE_IDS);
 
 /**
  * Describes one comparable attribute of a deck (e.g. "hp", "attack"). `higherIsBetter` is
- * always true for every provider in `docs/SPEC.md` today, but it's still a real field (not a
+ * always true for the Pokémon deck, but it's still a real field (not a
  * hardcoded assumption in the engine) so a future provider with a "lower is better" stat
  * (e.g. lap time) doesn't need an engine change.
  */
@@ -41,8 +41,8 @@ export const cardSchema = z.object({
     imageUrl: z.string().url(),
     source: deckSourceIdSchema,
     /**
-     * Same attribute keys across every card in a deck - enforced by DeckBuilder
-     * (`packages/providers`, TASK-02), not re-validated per-card here since a single card in
+     * Same attribute keys across every card in a deck - enforced when the deck is
+     * built (`apps/api/src/deck`), not re-validated per-card here since a single card in
      * isolation has no way to know what the rest of the deck looks like.
      */
     stats: z.record(z.string(), z.number()),

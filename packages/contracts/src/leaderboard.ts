@@ -37,9 +37,8 @@ export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;
 
 /**
  * `GET /leaderboard` response. `nextCursor: null` means this was the last page. Only the
- * `global` scope exists today - docs/SPEC.md's `scope`/`period`/friends filters need columns
- * (per-source stats, time-bucketed stats) and a friends graph that don't exist in the schema
- * yet, so they're deliberately not modeled here until that's designed and approved.
+ * `global` scope exists: per-deck, per-period or friends rankings would need per-source stats,
+ * time-bucketed stats and a friends graph, none of which the schema has.
  */
 export const leaderboardResponseSchema = z.object({
     entries: z.array(leaderboardEntrySchema),
