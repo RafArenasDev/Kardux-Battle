@@ -241,9 +241,25 @@ export class MatchRuntimeService implements OnModuleDestroy {
     }
 
     /** Whether live-match snapshots are being written to Redis right now. */
-    cacheStatus(): 'up' | 'down' | 'disabled' {
-        if (!this.redis) return 'disabled';
-        return this.redis.status === 'ready' ? 'up' : 'down';
+    /** Sends a real `PING` (2 s budget), so every health check also exercises the cache. */
+    async cacheStatus(): Promise<'up' | 'down' | 'disabled'> {
+        const redis = this.redis;
+        if (!redis) return 'disabled';
+        if (redis.status !== 'ready') return 'down';
+        let timer: NodeJS.Timeout | undefined;
+        const timeout = new Promise<'down'>((resolve) => {
+            timer = setTimeout(() => resolve('down'), 2_000);
+        });
+        try {
+            return await Promise.race([
+                redis.ping().then((reply) => (reply === 'PONG' ? 'up' : 'down')),
+                timeout,
+            ]);
+        } catch {
+            return 'down';
+        } finally {
+            clearTimeout(timer);
+        }
     }
 
     /** Current engine phase of a live match, or `null` when nothing is loaded for it. Used

@@ -42,16 +42,24 @@ The service's own URL (`RENDER_EXTERNAL_URL`, set by Render) is always allowed b
 
 ## Staying awake
 
-A free Render instance sleeps after 15 minutes without traffic and needs ~50 s to wake up. To
-keep the game instantly playable for anyone who opens the link, something must call `/health`
-at least every 10-14 minutes (each call also touches the database):
+Three free-tier behaviours can take the game down, and each one has an answer:
+
+| Risk                                                                | Answer                                                                                             |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Render sleeps after 15 min without traffic (~50 s cold start)       | `/health` is pinged every 10 min                                                                   |
+| Aiven powers off free PostgreSQL / Valkey services that look unused | Every `/health` call runs `SELECT 1` and a Redis `PING`, so both services see traffic every 10 min |
+| GitHub disables scheduled workflows after 60 days without commits   | The workflow re-enables itself through the API (`keepalive-workflow`), no commits needed           |
 
 - **Public repository**: the included workflow [`keep-alive.yml`](../.github/workflows/keep-alive.yml)
-  pings every 10 minutes for free.
+  does the pinging for free. The repository does not need to be the one Render deploys from; it
+  only calls the public URL.
 - **Private repository**: the workflow skips itself (it would consume the monthly Actions quota).
-  Create a free HTTP monitor instead - [UptimeRobot](https://uptimerobot.com) (5-minute interval)
-  or [cron-job.org](https://cron-job.org) - pointing to
-  `https://kardux-battle.onrender.com/health`.
+- **Second layer (recommended)**: a free HTTP monitor - [UptimeRobot](https://uptimerobot.com)
+  (5-minute interval) or [cron-job.org](https://cron-job.org) - on
+  `https://kardux-battle.onrender.com/health`, which also e-mails an alert if it ever fails.
+
+Recovery is automatic: Render restarts the process when it exits or `/health` fails, Prisma and
+the Redis client reconnect on their own, and live matches are restored from the Redis snapshots.
 
 One always-on free service uses ~744 of the 750 free instance hours per month.
 

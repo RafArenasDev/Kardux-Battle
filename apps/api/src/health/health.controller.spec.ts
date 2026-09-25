@@ -12,7 +12,7 @@ async function appWith(queryRaw: () => Promise<unknown>): Promise<INestApplicati
         controllers: [HealthController],
         providers: [
             { provide: PrismaService, useValue: { $queryRaw: vi.fn(queryRaw) } },
-            { provide: MatchRuntimeService, useValue: { cacheStatus: () => 'up' } },
+            { provide: MatchRuntimeService, useValue: { cacheStatus: async () => 'up' } },
         ],
     }).compile();
     const app = moduleRef.createNestApplication();

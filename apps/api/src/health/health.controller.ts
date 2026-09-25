@@ -23,9 +23,8 @@ export interface HealthResponse {
 
 /**
  * `GET /health`: the process is up and the database answers (503 otherwise), plus whether the
- * Redis cache is connected. The uptime monitor that keeps the
- * free Render instance awake calls this every few minutes, so each ping also keeps the database
- * connection warm.
+ * Redis cache answers a `PING`. The uptime monitor that keeps the free Render instance awake
+ * calls this every few minutes, so each ping also exercises the database and the cache.
  */
 @ApiTags('health')
 @Controller('health')
@@ -48,7 +47,7 @@ export class HealthController {
         return {
             status: 'ok',
             database: 'up',
-            cache: this.runtime.cacheStatus(),
+            cache: await this.runtime.cacheStatus(),
             uptimeSeconds: Math.round(process.uptime()),
             timestamp: new Date().toISOString(),
         };
