@@ -23,6 +23,9 @@ export const matchConfigShape = {
     turnTimeoutMs: z.number().int().min(0).default(30_000),
     onTurnTimeout: z.enum(TURN_TIMEOUT_POLICIES).default('random_attr'),
     packs: z.number().int().min(1).default(4),
+    /** Cards dealt to each player; 0 = every card that divides evenly (the original rule). The
+     *  cards left over stay in the deck, out of play. */
+    cardsPerPlayer: z.number().int().min(0).max(48).default(0),
     cardsPerPack: z.number().int().min(1).max(26).default(8),
     attributeCount: z.number().int().min(1).max(6).default(4),
     /** Who leads the first round: whoever holds the lowest card code (the original rule:

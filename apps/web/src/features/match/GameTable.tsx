@@ -378,7 +378,14 @@ function Pile({ playerId, count }: { playerId: string; count: number }): JSX.Ele
 function DeckSpot({ count, dealing }: { count: number; dealing: boolean }): JSX.Element {
     const { t } = useTranslation();
     return (
-        <div className="spot spot--deck" data-deck-anchor data-tip={t('table.deckHint')}>
+        // The deck only stays on the table when the deal left cards over; after an exact deal
+        // it fades away, keeping its place so the rest of the table never shifts.
+        <div
+            className={`spot spot--deck ${dealing || count > 0 ? '' : 'spot--gone'}`}
+            data-deck-anchor
+            data-tip={dealing || count > 0 ? t('table.deckHint') : undefined}
+            aria-hidden={!dealing && count === 0}
+        >
             <div className="spot__stack">
                 {count > 0 ? (
                     Array.from({ length: Math.min(4, Math.ceil(count / 8)) }, (_, index) => (
@@ -626,6 +633,7 @@ function PlayArea({
     const [stageRef, stage] = useElementSize<HTMLDivElement>();
     const playersById = new Map(state.players.map((player) => [player.id, player]));
     const result = reveal?.result ?? null;
+    // The winning card only lights up once every card is face up.
     const showOutcome = reveal !== null && reveal.stage !== 'landing' && reveal.stage !== 'flip';
     const attributeKey = reveal?.attribute ?? state.round?.attribute ?? null;
     const attribute = attributeKey ? attributeMeta('pokeapi', attributeKey) : null;
@@ -714,7 +722,7 @@ function PlayArea({
                                         card={faceUpCard}
                                         outcome={outcome}
                                         attribute={attributeKey}
-                                        delay={index * 0.22}
+                                        delay={(index * TABLE_TIMING.flipStaggerMs) / 1000}
                                         startFaceUp={false}
                                     />
                                 ) : (
@@ -861,7 +869,11 @@ function FlipCard({
                 className="flip__inner"
                 initial={{ rotateY: startFaceUp ? 0 : 180 }}
                 animate={{ rotateY: 0 }}
-                transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
+                transition={{
+                    duration: TABLE_TIMING.flipMs / 1000,
+                    delay,
+                    ease: [0.22, 1, 0.36, 1],
+                }}
             >
                 <div className="flip__face">
                     <PlayingCard
@@ -890,19 +902,13 @@ function RoundResultBanner({
     reveal: RevealState;
 }): JSX.Element {
     const { t } = useTranslation();
-    const { l } = useLocale();
     const { result } = reveal;
     const winner = state.players.find((player) => player.id === result.winnerId);
-    const attribute = attributeMeta('pokeapi', result.attribute);
-    const winningCard = result.winnerId ? result.cards[result.winnerId] : undefined;
     const tone = result.isTie ? 'tie' : result.winnerId === state.yourId ? 'win' : 'lose';
-    const title = result.isTie
-        ? t('table.result.tie')
-        : tone === 'win'
-          ? t('table.result.youWin')
-          : t('table.result.theyWin', { name: winner?.nickname ?? '' });
-    const detail = result.isTie
-        ? t('table.result.tieDetail', { count: Object.keys(result.cards).length })
+    // One sentence: who takes the cards, and how many. The attribute was already shown when
+    // the cards were compared.
+    const message = result.isTie
+        ? t('table.result.tie', { count: Object.keys(result.cards).length })
         : tone === 'win'
           ? t('table.result.youTake', { count: result.potSize })
           : t('table.result.winDetail', { name: winner?.nickname ?? '', count: result.potSize });
@@ -934,16 +940,7 @@ function RoundResultBanner({
                         }
                     />
                 </span>
-                <strong className="round-result__title">{title}</strong>
-                <span className="round-result__detail">{detail}</span>
-                <span className="round-result__stat">
-                    <Icon name={attribute.icon} /> {l(attribute.label)}
-                    {winningCard ? (
-                        <b className="tabular">
-                            {formatStat(winningCard.stats[result.attribute] ?? 0, attribute.unit)}
-                        </b>
-                    ) : null}
-                </span>
+                <strong className="round-result__title">{message}</strong>
             </motion.div>
         </motion.div>
     );

@@ -5,29 +5,21 @@ import { Trans, useTranslation } from 'react-i18next';
 import { crestUrl } from '../brand/Brand';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
-
-/** Chrome/Edge/Android's install event - not in the standard DOM typings yet. */
-interface BeforeInstallPromptEvent extends Event {
-    prompt: () => Promise<void>;
-    userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
+import {
+    installEvent,
+    isIos,
+    isStandalone,
+    onInstallChange,
+    promptInstall,
+    wasInstalled,
+} from '../../lib/install';
 
 const DISMISSED_KEY = 'kardux.installDismissedAt';
 const REMIND_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
+/** A short pause after reaching the home screen, so the invitation never pops up mid-transition. */
+const SHOW_AFTER_MS = 1_800;
 
 type Platform = 'native' | 'ios' | null;
-
-function isStandalone(): boolean {
-    return (
-        window.matchMedia('(display-mode: standalone)').matches ||
-        (navigator as Navigator & { standalone?: boolean }).standalone === true
-    );
-}
-
-function isIos(): boolean {
-    const ua = navigator.userAgent;
-    return /iPad|iPhone|iPod/.test(ua) || (ua.includes('Mac') && navigator.maxTouchPoints > 1);
-}
 
 function recentlyDismissed(): boolean {
     try {
@@ -39,39 +31,28 @@ function recentlyDismissed(): boolean {
 }
 
 /**
- * Invites the player to install Kardux as an app. Browsers never surface this on their own in a
- * noticeable way: Chromium fires `beforeinstallprompt` (we keep it and show our own card),
- * iOS Safari has no API at all (we explain "Compartir → Agregar a inicio"). Hidden when already
- * running installed, and after a dismissal for a few days (a per-device convenience only).
+ * Invites the player to install Kardux as an app. Chromium's `beforeinstallprompt` is caught
+ * at startup (`lib/install.ts`) and offered here with our own card; iOS Safari has no API, so we
+ * explain "Share → Add to Home Screen". Only shown when `enabled` (signed in, outside a match),
+ * never when already installed, and not again for a few days after a dismissal.
  */
-export function InstallPrompt(): JSX.Element | null {
+export function InstallPrompt({ enabled }: { enabled: boolean }): JSX.Element | null {
     const { t } = useTranslation();
-    const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
+    const [available, setAvailable] = useState(() => installEvent() !== null);
     const [platform, setPlatform] = useState<Platform>(null);
 
+    useEffect(() => onInstallChange(() => setAvailable(installEvent() !== null)), []);
+
     useEffect(() => {
-        if (isStandalone() || recentlyDismissed()) return;
-
-        function onPrompt(event: Event): void {
-            event.preventDefault();
-            setDeferred(event as BeforeInstallPromptEvent);
-            setPlatform('native');
-        }
-        function onInstalled(): void {
+        if (!enabled || isStandalone() || wasInstalled() || recentlyDismissed()) {
             setPlatform(null);
-            setDeferred(null);
+            return;
         }
-        window.addEventListener('beforeinstallprompt', onPrompt);
-        window.addEventListener('appinstalled', onInstalled);
-
-        const iosTimer = isIos() ? window.setTimeout(() => setPlatform('ios'), 2_500) : undefined;
-
-        return () => {
-            window.removeEventListener('beforeinstallprompt', onPrompt);
-            window.removeEventListener('appinstalled', onInstalled);
-            window.clearTimeout(iosTimer);
-        };
-    }, []);
+        const next: Platform = available ? 'native' : isIos() ? 'ios' : null;
+        if (!next) return;
+        const timer = window.setTimeout(() => setPlatform(next), SHOW_AFTER_MS);
+        return () => window.clearTimeout(timer);
+    }, [enabled, available]);
 
     function dismiss(): void {
         try {
@@ -83,11 +64,7 @@ export function InstallPrompt(): JSX.Element | null {
     }
 
     async function install(): Promise<void> {
-        if (!deferred) return;
-        await deferred.prompt();
-        const { outcome } = await deferred.userChoice;
-        setDeferred(null);
-        if (outcome === 'accepted') setPlatform(null);
+        if (await promptInstall()) setPlatform(null);
         else dismiss();
     }
 

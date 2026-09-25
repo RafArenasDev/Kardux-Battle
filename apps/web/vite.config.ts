@@ -15,18 +15,51 @@ export default defineConfig({
         react(),
         VitePWA({
             registerType: 'autoUpdate',
-            includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'favicon-32x32.png'],
+            includeAssets: [
+                'favicon.ico',
+                'apple-touch-icon.png',
+                'favicon-32x32.png',
+                'favicon-16x16.png',
+                'logo.png',
+            ],
             manifest: {
+                id: '/',
                 name: 'Kardux Battle',
                 short_name: 'Kardux',
-                description: 'Elige el atributo. Gánate la mesa. Duelos de cartas en vivo.',
+                description:
+                    'Duelos de cartas Pokémon en vivo: elige el atributo, gánate la mesa. De 2 a 7 jugadores.',
                 lang: 'es',
+                dir: 'ltr',
+                categories: ['games', 'entertainment'],
                 start_url: '/',
                 scope: '/',
                 display: 'standalone',
                 orientation: 'any',
                 theme_color: '#07060a',
                 background_color: '#07060a',
+                screenshots: [
+                    {
+                        src: '/screenshots/mobile-choose.png',
+                        sizes: '372x779',
+                        type: 'image/png',
+                        form_factor: 'narrow',
+                        label: 'Elige con qué atributo competir',
+                    },
+                    {
+                        src: '/screenshots/mobile-round-result.png',
+                        sizes: '372x779',
+                        type: 'image/png',
+                        form_factor: 'narrow',
+                        label: 'Resultado de la ronda sobre la mesa',
+                    },
+                    {
+                        src: '/screenshots/mobile-ranking.png',
+                        sizes: '372x779',
+                        type: 'image/png',
+                        form_factor: 'narrow',
+                        label: 'Ranking con podio',
+                    },
+                ],
                 icons: [
                     { src: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
                     { src: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
@@ -41,6 +74,8 @@ export default defineConfig({
             workbox: {
                 // App shell offline; the API and sockets always go to the network.
                 globPatterns: ['**/*.{js,css,html,png,webp,ico,woff2,svg}'],
+                // Store screenshots are only for the install dialog, never needed offline.
+                globIgnores: ['screenshots/**'],
                 navigateFallback: '/index.html',
                 navigateFallbackDenylist: [/^\/api/],
             },

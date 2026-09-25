@@ -7,8 +7,9 @@ export interface DealResult {
 }
 
 /**
- * docs/SPEC.md rule 4: shuffle the whole deck, discard whatever doesn't divide evenly
- * (`floor(total / players) * players`), then deal the rest round-robin. Shuffling before
+ * docs/SPEC.md rule 4: shuffle the whole deck, keep out whatever doesn't divide evenly
+ * (`floor(total / players) * players`) - or, when the match sets `cardsPerPlayer`, everything
+ * beyond that many cards each - then deal round-robin. The rest stays in the deck, out of play. Shuffling before
  * truncating is what makes the discard "aleatorio" - which specific cards fall past the
  * cutoff depends entirely on the shuffle, never on their original position in the deck.
  *
@@ -18,9 +19,13 @@ export function dealDeck(
     deck: readonly Card[],
     playerIds: readonly string[],
     rng: RngState,
+    /** Cards per player; `0` deals every card that divides evenly (the original rule). */
+    cardsPerPlayer = 0,
 ): DealResult {
     const [shuffled, nextRng] = shuffle(deck, rng);
-    const playableCount = Math.floor(shuffled.length / playerIds.length) * playerIds.length;
+    const evenShare = Math.floor(shuffled.length / playerIds.length);
+    const share = cardsPerPlayer > 0 ? Math.min(cardsPerPlayer, evenShare) : evenShare;
+    const playableCount = share * playerIds.length;
     const usable = shuffled.slice(0, playableCount);
 
     const piles: Record<string, Card[]> = {};

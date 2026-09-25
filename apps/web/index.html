@@ -20,8 +20,65 @@
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <style>
+            /* Splash while the app loads (also the launch screen of the installed app on iOS). */
+            html,
+            body {
+                margin: 0;
+                background: #07060a;
+            }
+            #splash {
+                position: fixed;
+                inset: 0;
+                z-index: 999;
+                display: grid;
+                place-items: center;
+                align-content: center;
+                gap: 22px;
+                background: radial-gradient(circle at 50% 42%, #1c1526, #07060a 70%);
+                transition: opacity 0.45s ease;
+            }
+            #splash img {
+                width: min(46vw, 220px);
+                height: auto;
+                filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.7));
+                animation: splash-pulse 1.8s ease-in-out infinite;
+            }
+            #splash span {
+                width: 34px;
+                height: 34px;
+                border-radius: 50%;
+                border: 3px solid rgba(240, 201, 107, 0.25);
+                border-top-color: #f0c96b;
+                animation: splash-spin 0.9s linear infinite;
+            }
+            #splash.is-done {
+                opacity: 0;
+                pointer-events: none;
+            }
+            @keyframes splash-pulse {
+                50% {
+                    transform: scale(1.04);
+                }
+            }
+            @keyframes splash-spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                #splash img,
+                #splash span {
+                    animation: none;
+                }
+            }
+        </style>
     </head>
     <body>
+        <div id="splash" aria-hidden="true">
+            <img src="/logo.png" alt="" width="500" height="500" />
+            <span></span>
+        </div>
         <div id="root"></div>
         <script type="module" src="/src/main.tsx"></script>
     </body>

@@ -34,7 +34,7 @@
         "features": {
             "battle": {
                 "title": "Pokémon battles",
-                "text": "Over a thousand Pokémon with their real stats. Pick the strongest attribute and win the round."
+                "text": "Over a thousand Pokémon with their real stats. Choose which attribute to compete with and beat your rivals on that stat."
             },
             "ranking": {
                 "title": "A real ranking",
@@ -263,7 +263,10 @@
             "speed": "Quickness: decides who acts first in battle.",
             "special-attack": "Power of its special (elemental) attacks.",
             "special-defense": "Resistance to special attacks."
-        }
+        },
+        "cardsPerPlayer": "Cards per player",
+        "cardsPerPlayerHint": "any left over stay in the deck",
+        "allCards": "All"
     },
     "join": {
         "room": "Room {{code}}",
@@ -329,24 +332,21 @@
         "line": {
             "dealing": "Shuffling and dealing…",
             "comparing": "Comparing {{attribute}}…",
-            "yourTurn": "Your turn! Pick your card’s strongest attribute",
+            "yourTurn": "Your turn! Choose which attribute to compete with",
             "choosing": "{{name}} is choosing an attribute…",
             "playing": "Playing",
             "setting": "Setting the table…"
         },
         "result": {
-            "youWin": "You win the round!",
-            "theyWin": "{{name}} wins",
-            "tie": "Tie!",
             "winDetail_one": "{{name}} takes {{count}} card",
             "winDetail_other": "{{name}} takes {{count}} cards",
-            "tieDetail_one": "{{count}} card goes to the pot",
-            "tieDetail_other": "{{count}} cards go to the pot",
             "youTake_one": "You take {{count}} card",
-            "youTake_other": "You take {{count}} cards"
+            "youTake_other": "You take {{count}} cards",
+            "tie_one": "Tie! {{count}} card goes to the pot",
+            "tie_other": "Tie! {{count}} cards go to the pot"
         },
         "hint": {
-            "choose": "Tap the attribute you want to play.",
+            "choose": "Tap the attribute you want to compete with. The highest value on the table wins.",
             "playing": "Cards are laid down in turn…",
             "watch": "Watch the round resolve.",
             "getReady": "Get ready: you choose.",

@@ -7,6 +7,7 @@ import './styles/layout.css';
 import './styles/cards.css';
 import './styles/game.css';
 import './i18n';
+import './lib/install';
 
 import { MotionConfig } from 'framer-motion';
 import { StrictMode } from 'react';
@@ -37,3 +38,13 @@ createRoot(container).render(
         </MotionConfig>
     </StrictMode>,
 );
+
+// The app is on screen: fade the startup splash out (index.html) and drop it.
+requestAnimationFrame(() => {
+    const splash = document.getElementById('splash');
+    if (!splash) return;
+    window.setTimeout(() => {
+        splash.classList.add('is-done');
+        window.setTimeout(() => splash.remove(), 500);
+    }, 350);
+});

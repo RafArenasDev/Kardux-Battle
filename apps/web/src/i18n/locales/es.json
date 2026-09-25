@@ -34,7 +34,7 @@
         "features": {
             "battle": {
                 "title": "Batallas Pokémon",
-                "text": "Más de mil Pokémon con sus estadísticas reales. Elige el atributo más fuerte y gana la ronda."
+                "text": "Más de mil Pokémon con sus estadísticas reales. Elige con qué atributo competir y supera a tus rivales en esa estadística."
             },
             "ranking": {
                 "title": "Ranking de verdad",
@@ -263,7 +263,10 @@
             "speed": "Rapidez: decide quién actúa primero en combate.",
             "special-attack": "Poder de sus ataques especiales (elementales).",
             "special-defense": "Resistencia frente a ataques especiales."
-        }
+        },
+        "cardsPerPlayer": "Cartas por jugador",
+        "cardsPerPlayerHint": "las que sobren quedan en el mazo",
+        "allCards": "Todas"
     },
     "join": {
         "room": "Sala {{code}}",
@@ -329,24 +332,21 @@
         "line": {
             "dealing": "Barajando y repartiendo…",
             "comparing": "Comparando {{attribute}}…",
-            "yourTurn": "¡Tu turno! Elige el atributo más fuerte de tu carta",
+            "yourTurn": "¡Tu turno! Elige con qué atributo competir",
             "choosing": "{{name}} está eligiendo atributo…",
             "playing": "Se juega",
             "setting": "Preparando la mesa…"
         },
         "result": {
-            "youWin": "¡Ganas la ronda!",
-            "theyWin": "Gana {{name}}",
-            "tie": "¡Empate!",
             "winDetail_one": "{{name}} se lleva {{count}} carta",
             "winDetail_other": "{{name}} se lleva {{count}} cartas",
-            "tieDetail_one": "{{count}} carta va al pozo",
-            "tieDetail_other": "{{count}} cartas van al pozo",
             "youTake_one": "Te llevas {{count}} carta",
-            "youTake_other": "Te llevas {{count}} cartas"
+            "youTake_other": "Te llevas {{count}} cartas",
+            "tie_one": "¡Empate! {{count}} carta va al pozo",
+            "tie_other": "¡Empate! {{count}} cartas van al pozo"
         },
         "hint": {
-            "choose": "Toca el atributo con el que quieres jugar.",
+            "choose": "Toca el atributo con el que quieres competir. Gana el valor más alto de la mesa.",
             "playing": "Las cartas se lanzan en orden…",
             "watch": "Mira cómo se resuelve la ronda.",
             "getReady": "Prepárate: eliges tú.",

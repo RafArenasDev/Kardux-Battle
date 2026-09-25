@@ -79,4 +79,22 @@ describe('dealDeck', () => {
 
         expect(new Set(allCodes).size).toBe(allCodes.length);
     });
+
+    it('deals only cardsPerPlayer each when the match sets it, leaving the rest in the deck', () => {
+        const deck = Array.from({ length: 32 }, (_, index) =>
+            card(`${index + 1}A`, 'A', { power: index }),
+        );
+        const { piles } = dealDeck(deck, ['a', 'b', 'c'], createRngState('five-each'), 5);
+
+        expect(Object.values(piles).map((pile) => pile.length)).toEqual([5, 5, 5]);
+    });
+
+    it('never deals more than an even share, even if cardsPerPlayer asks for more', () => {
+        const deck = Array.from({ length: 10 }, (_, index) =>
+            card(`${index + 1}A`, 'A', { power: index }),
+        );
+        const { piles } = dealDeck(deck, ['a', 'b', 'c'], createRngState('capped'), 8);
+
+        expect(Object.values(piles).map((pile) => pile.length)).toEqual([3, 3, 3]);
+    });
 });

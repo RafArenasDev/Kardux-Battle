@@ -6,7 +6,7 @@ import type {
     RedactedMatchState,
     RoundResult,
 } from '@kardux/contracts';
-import { TABLE_TIMING } from '@kardux/contracts';
+import { TABLE_TIMING, revealSchedule } from '@kardux/contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import i18n from '../../i18n';
 import { errorMessage, isErrorPayload } from '../../lib/errors';
@@ -15,21 +15,15 @@ import type { GameSocket } from '../../lib/socket';
 import { getGameSocket, whenConnected } from '../../lib/socket';
 
 /**
- * Round choreography, in ms after the server resolves a round. Strictly one step after the
- * other, and all of it inside `TABLE_TIMING.revealMs` - the window the server waits before it
- * opens the next turn, so a new round can never start while this one is still on screen:
- *   0         the last card lands on the table (still face down)
- *   FLIP      every face-down card flips face up, one after another
- *   RESULT    the result banner covers the table
- *   COLLECT   the banner clears and the cards fly to the winner (or into the pot on a tie)
- *   CLEAR     the table is empty again
+ * Round choreography, one clear beat after another (`revealSchedule` in `@kardux/contracts`,
+ * the same schedule the server waits for before it opens the next turn):
+ *   landing   the last card lands on the table, face down like every other card
+ *   flip      the cards flip face up, one player after another
+ *   compare   the winning card glows on the chosen attribute, the rest dim
+ *   result    the result banner covers the table: who takes the cards, and how many
+ *   collect   the cards fly to the winner (or into the pot on a tie)
  */
-const FLIP_AT = 800;
-const RESULT_AT = 2_300;
-const COLLECT_AT = 4_300;
-const CLEAR_AT = TABLE_TIMING.revealMs - 300;
-
-export type RevealStage = 'landing' | 'flip' | 'result' | 'collect';
+export type RevealStage = 'landing' | 'flip' | 'compare' | 'result' | 'collect';
 
 export interface RevealState {
     attribute: string;
@@ -151,7 +145,8 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
                 }
             },
             'round:resolved': (result: RoundResult) => {
-                revealEndsAt.current = Date.now() + TABLE_TIMING.revealMs;
+                const schedule = revealSchedule(Object.keys(result.cards).length);
+                revealEndsAt.current = Date.now() + schedule.doneAt;
                 const before = stateRef.current;
                 if (before) {
                     setFrozen({
@@ -170,17 +165,14 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
                     result,
                     stage: 'landing',
                 });
-                later(FLIP_AT, () =>
-                    setReveal((current) => current && { ...current, stage: 'flip' }),
-                );
-                later(RESULT_AT, () =>
-                    setReveal((current) => current && { ...current, stage: 'result' }),
-                );
-                later(COLLECT_AT, () =>
-                    setReveal((current) => current && { ...current, stage: 'collect' }),
-                );
-                later(COLLECT_AT + 1_000, () => setFrozen(null));
-                later(CLEAR_AT, () => {
+                const stage = (next: RevealStage) => () =>
+                    setReveal((current) => current && { ...current, stage: next });
+                later(schedule.flipAt, stage('flip'));
+                later(schedule.compareAt, stage('compare'));
+                later(schedule.resultAt, stage('result'));
+                later(schedule.collectAt, stage('collect'));
+                later(schedule.collectAt + 900, () => setFrozen(null));
+                later(schedule.doneAt - 200, () => {
                     setReveal(null);
                     setMyPlayedCard(null);
                 });

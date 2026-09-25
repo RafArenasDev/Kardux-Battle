@@ -332,7 +332,7 @@ function activePlayerIds(state: MatchState): string[] {
 function beginMatch(state: MatchState, deck: readonly Card[], now: number): MatchState {
     const players = activePlayerIds(state);
     const turnOrder = buildTurnOrder(state.players.filter((player) => !player.isSpectator));
-    const dealt = dealDeck(deck, players, state.rng);
+    const dealt = dealDeck(deck, players, state.rng, state.config.cardsPerPlayer);
     const dealtCount = Object.values(dealt.piles).reduce((sum, pile) => sum + pile.length, 0);
     const firstTurnPlayerId =
         (state.config.firstTurn === 'first_joined'

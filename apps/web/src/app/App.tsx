@@ -68,7 +68,7 @@ export default function App(): JSX.Element {
 
     return (
         <Suspense fallback={<Loading />}>
-            <InstallPrompt />
+            <InstallPrompt enabled={isAuthenticated() && !location.pathname.startsWith('/match')} />
             <Routes location={location} key={location.pathname}>
                 <Route
                     path="/"

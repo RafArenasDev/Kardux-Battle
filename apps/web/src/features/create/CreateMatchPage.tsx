@@ -38,6 +38,7 @@ export default function CreateMatchPage(): JSX.Element {
     const [packs, setPacks] = useState(4);
     const [cardsPerPack, setCardsPerPack] = useState(8);
     const [attributeCount, setAttributeCount] = useState(4);
+    const [cardsPerPlayer, setCardsPerPlayer] = useState(0);
     const [matchDurationMs, setMatchDurationMs] = useState(60 * 60_000);
     const [turnTimeoutMs, setTurnTimeoutMs] = useState(30_000);
     const [busy, setBusy] = useState(false);
@@ -58,7 +59,9 @@ export default function CreateMatchPage(): JSX.Element {
     }, [minPlayers, maxPlayers]);
 
     const totalCards = packs * cardsPerPack;
-    const perPlayer = Math.floor(totalCards / maxPlayers);
+    const evenShare = Math.floor(totalCards / maxPlayers);
+    const perPlayer = cardsPerPlayer > 0 ? Math.min(cardsPerPlayer, evenShare) : evenShare;
+    const maxCardsPerPlayer = Math.max(1, Math.floor(totalCards / minPlayers));
     const leftover = totalCards - perPlayer * maxPlayers;
     const config: CreateMatchRequest = {
         deckSources: ['pokeapi'],
@@ -69,6 +72,7 @@ export default function CreateMatchPage(): JSX.Element {
         packs,
         cardsPerPack,
         attributeCount,
+        cardsPerPlayer,
         matchDurationMs,
         turnTimeoutMs,
         onTurnTimeout: 'random_attr',
@@ -287,6 +291,22 @@ export default function CreateMatchPage(): JSX.Element {
                                     min={2}
                                     max={maxFamilies}
                                     onChange={setCardsPerPack}
+                                />
+                            </ConfigRow>
+                            <ConfigRow
+                                label={t('create.cardsPerPlayer')}
+                                hint={t('create.cardsPerPlayerHint')}
+                                wide
+                            >
+                                <Stepper
+                                    label={t('create.cardsPerPlayer')}
+                                    value={Math.min(cardsPerPlayer, maxCardsPerPlayer)}
+                                    min={0}
+                                    max={maxCardsPerPlayer}
+                                    onChange={setCardsPerPlayer}
+                                    format={(value) =>
+                                        value === 0 ? t('create.allCards') : String(value)
+                                    }
                                 />
                             </ConfigRow>
                             <ConfigRow label={t('create.duration')} wide>

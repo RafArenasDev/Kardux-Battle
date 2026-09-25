@@ -1,6 +1,6 @@
 import type { EngineEvent } from './events.js';
 import type { Card, MatchConfig, MatchState, Player, RoundResult } from '@kardux/contracts';
-import { TABLE_TIMING } from '@kardux/contracts';
+import { revealSchedule } from '@kardux/contracts';
 
 /** `null` when `turnTimeoutMs` is 0 (no limit configured for this match). `now` is when the
  *  turn opens: callers pass a later moment when the table is still animating. */
@@ -8,9 +8,10 @@ export function computeTurnDeadline(config: MatchConfig, now: number): number | 
     return config.turnTimeoutMs > 0 ? now + config.turnTimeoutMs : null;
 }
 
-/** The next turn opens once the reveal of the round that just resolved has played out. */
-export function afterReveal(now: number): number {
-    return now + TABLE_TIMING.revealMs;
+/** The next turn opens once the reveal of the round that just resolved (with `cardCount`
+ *  cards on the table) has played out at the table. */
+export function afterReveal(now: number, cardCount: number): number {
+    return now + revealSchedule(cardCount).doneAt;
 }
 
 function standingsOf(players: readonly Player[]): Player[] {
@@ -82,8 +83,11 @@ export function resolveRound(
             phase: 'AWAITING_ATTRIBUTE',
             pot: newPot,
             round: null,
-            turnOpensAt: afterReveal(now),
-            turnDeadline: computeTurnDeadline(state.config, afterReveal(now)),
+            turnOpensAt: afterReveal(now, participantIds.length),
+            turnDeadline: computeTurnDeadline(
+                state.config,
+                afterReveal(now, participantIds.length),
+            ),
         };
 
         return {
@@ -182,8 +186,8 @@ export function resolveRound(
         currentTurnIndex: newTurnOrder.indexOf(winnerId),
         round: null,
         pot: [],
-        turnOpensAt: afterReveal(now),
-        turnDeadline: computeTurnDeadline(state.config, afterReveal(now)),
+        turnOpensAt: afterReveal(now, participantIds.length),
+        turnDeadline: computeTurnDeadline(state.config, afterReveal(now, participantIds.length)),
     };
 
     return { state: nextState, events: [revealedEvent, resolvedEvent] };
