@@ -418,19 +418,25 @@
     background: linear-gradient(180deg, #bfeaff, #3f9fcf);
 }
 
-/* Opponents */
+/* Opponents: seated around the upper arc of the table (see `seatArc` in GameTable.tsx), not
+   stacked in a row - each seat's position is set inline, in percentages of `.table`. */
 .opponents {
     list-style: none;
     margin: 0;
-    padding: 0 150px 0 0;
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: clamp(8px, 1.4vw, 18px);
+    padding: 0;
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
 }
 
 .opponent {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
     transition:
+        left 0.5s var(--ease-out),
+        top 0.5s var(--ease-out),
         opacity 0.6s var(--ease-out),
         filter 0.6s var(--ease-out);
 }
@@ -948,14 +954,19 @@
     }
 }
 
-/* Tablets: the tools sit above the rivals instead of beside them. */
-.table--tablet .opponents {
-    padding: 44px 0 0;
+/* Phones: no room to seat rivals around an oval, so they go back to a plain, scrollable strip
+   above the board - this overrides the arc positioning from `.opponents`/`.opponent` above. */
+.table--mobile .opponents {
+    position: static;
+    inset: auto;
+    display: flex;
+    justify-content: center;
+    padding: 0 140px 0 0;
 }
 
-/* Phones: rivals share the top row with the tools. */
-.table--mobile .opponents {
-    padding: 0 140px 0 0;
+.table--mobile .opponent {
+    position: static;
+    transform: none;
 }
 
 /* Phones: my card is chosen in the middle of the table, so my area is a slim bar (seat and

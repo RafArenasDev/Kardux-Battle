@@ -1,7 +1,7 @@
 import type { Card, Player, RedactedMatchState } from '@kardux/contracts';
 import { TABLE_TIMING } from '@kardux/contracts';
 import { AnimatePresence, motion } from 'framer-motion';
-import type { JSX, MutableRefObject, ReactNode, RefObject } from 'react';
+import type { CSSProperties, JSX, MutableRefObject, ReactNode, RefObject } from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CardBack, PlayingCard } from '../../components/cards/PlayingCard';
@@ -475,6 +475,28 @@ function seatStatus(
     return isLeader ? t('table.status.leader') : '';
 }
 
+/**
+ * Seats opponents around the upper two-thirds of the table's oval edge, like real seats around
+ * a card table - "you" already own the bottom third (`.my-zone`). A single opponent (a duel)
+ * sits straight across, at the top; more opponents fan out evenly toward the sides. Pure
+ * percentage math so it stays correct at any table size without measuring anything.
+ */
+function seatArc(index: number, total: number): CSSProperties {
+    if (total <= 0) return {};
+    const startDeg = -112;
+    const endDeg = 112;
+    const angleDeg = total === 1 ? 0 : startDeg + (index * (endDeg - startDeg)) / (total - 1);
+    const theta = (angleDeg * Math.PI) / 180;
+    const cx = 50;
+    const cy = 30;
+    const rx = 43;
+    const ry = 27;
+    return {
+        left: `${cx + rx * Math.sin(theta)}%`,
+        top: `${cy - ry * Math.cos(theta)}%`,
+    };
+}
+
 function OpponentRow({
     state,
     opponents,
@@ -494,8 +516,12 @@ function OpponentRow({
             className={`opponents ${compact ? 'opponents--compact' : ''}`}
             aria-label={t('table.rivals')}
         >
-            {opponents.map((player) => (
-                <li key={player.id} className={`opponent ${player.isEliminated ? 'is-out' : ''}`}>
+            {opponents.map((player, index) => (
+                <li
+                    key={player.id}
+                    className={`opponent ${player.isEliminated ? 'is-out' : ''}`}
+                    style={compact ? undefined : seatArc(index, opponents.length)}
+                >
                     <Seat
                         player={player}
                         count={countOf(player)}
