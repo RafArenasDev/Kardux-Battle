@@ -1071,10 +1071,6 @@
     gap: 8px;
 }
 
-.table--mobile .my-zone__card {
-    order: -1;
-}
-
 .table--mobile .my-zone__seat {
     justify-self: center;
 }
