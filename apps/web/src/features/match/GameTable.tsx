@@ -172,7 +172,8 @@ export function GameTable({
                         tableRef={tableRef}
                         compact={compact}
                         handCard={compact && hand.showCard ? handCard : null}
-                        handTimerActive={compact && hand.choosing}
+                        hand={hand}
+                        isLeader={leaderId === state.yourId}
                         myCard={compact && hand.showCard ? hand.card : null}
                         myPlayedCard={myPlayedCard}
                         faceRect={myFaceRect}
@@ -664,7 +665,8 @@ function PlayArea({
     tableRef,
     compact,
     handCard,
-    handTimerActive,
+    hand,
+    isLeader,
     myCard,
     myPlayedCard,
     faceRect,
@@ -675,9 +677,10 @@ function PlayArea({
     compact: boolean;
     /** On phones my card is chosen right here, in the middle of the table. */
     handCard: JSX.Element | null;
-    /** Phones: the countdown belongs right above the card I'm choosing with, not down in my
-     *  seat bar where it would be disconnected from the card entirely. */
-    handTimerActive: boolean;
+    /** Phones: the countdown and the "why can(not) I act" hint belong right by the card I'm
+     *  choosing with, not down in my seat bar where they'd be disconnected from it. */
+    hand: HandState;
+    isLeader: boolean;
     /** Phones: my top card, still in my hands, waiting in my seat at the table. */
     myCard: Card | null;
     /** The card I just laid down, so it can be seen turning face down on its way. */
@@ -722,8 +725,14 @@ function PlayArea({
             {slotIds.length === 0 ? (
                 handCard ? (
                     <div className="play-area__hand">
-                        <TurnTimer state={state} active={handTimerActive} />
+                        <TurnTimer state={state} active={hand.choosing} />
                         {handCard}
+                        <HandHint
+                            hand={hand}
+                            state={state}
+                            isLeader={isLeader}
+                            className="play-area__hint"
+                        />
                     </div>
                 ) : (
                     <div className="play-area__empty" aria-hidden>
@@ -1130,7 +1139,9 @@ function HandCard({
                 {hand.showCard && hand.card ? (
                     <motion.div
                         key={hand.card.code}
-                        className="my-card"
+                        // Not my turn to pick: the card dims, so it never looks like a live
+                        // button waiting for a tap that would silently do nothing.
+                        className={`my-card ${hand.choosing ? '' : 'my-card--waiting'}`}
                         {...(shared ? { layoutId: 'my-top-card' } : {})}
                         initial={{ opacity: 0, y: 50, rotateY: 80 }}
                         animate={{ opacity: 1, y: 0, rotateY: 0 }}
@@ -1160,6 +1171,36 @@ function HandCard({
             </AnimatePresence>
             <div className="my-card my-card--empty" aria-hidden />
         </div>
+    );
+}
+
+/** Why I can(not) act right now, in one short line. Shown twice on phones - once right next to
+ *  the card itself (`play-area__hand`), once in my seat bar - so the explanation is never
+ *  further from the card than a glance away. */
+function HandHint({
+    hand,
+    state,
+    isLeader,
+    className,
+}: {
+    hand: HandState;
+    state: RedactedMatchState;
+    isLeader: boolean;
+    className: string;
+}): JSX.Element {
+    const { t } = useTranslation();
+    return (
+        <p className={className}>
+            {hand.choosing
+                ? t('table.hint.choose')
+                : state.phase === 'AWAITING_CARDS'
+                  ? t('table.hint.playing')
+                  : hand.busy
+                    ? t('table.hint.watch')
+                    : isLeader
+                      ? t('table.hint.getReady')
+                      : t('table.hint.wait')}
+        </p>
     );
 }
 
@@ -1211,17 +1252,7 @@ function MyZone({
 
                 {handCard}
 
-                <p className="my-zone__hint">
-                    {hand.choosing
-                        ? t('table.hint.choose')
-                        : state.phase === 'AWAITING_CARDS'
-                          ? t('table.hint.playing')
-                          : hand.busy
-                            ? t('table.hint.watch')
-                            : isLeader
-                              ? t('table.hint.getReady')
-                              : t('table.hint.wait')}
-                </p>
+                <HandHint hand={hand} state={state} isLeader={isLeader} className="my-zone__hint" />
             </div>
         </section>
     );

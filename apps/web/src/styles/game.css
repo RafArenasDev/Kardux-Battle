@@ -886,6 +886,16 @@
 
 .my-card {
     z-index: 1;
+    transition:
+        opacity var(--dur) var(--ease-out),
+        filter var(--dur) var(--ease-out);
+}
+
+/* Someone else is choosing, or my card is already on its way: dimmed and desaturated, so it
+   never reads as a live button waiting for a tap that would silently do nothing. */
+.my-card--waiting {
+    opacity: 0.55;
+    filter: saturate(0.55);
 }
 
 .my-card--empty {
@@ -902,6 +912,16 @@
     font-weight: 700;
     color: var(--gold-200);
     font-size: clamp(0.8rem, 1.8dvh, 0.95rem);
+}
+
+/* Phones: the same explanation, right under the card itself - not just down in the seat bar,
+   which the player may not even be looking at. */
+.play-area__hint {
+    margin: 0;
+    text-align: center;
+    font-weight: 700;
+    color: var(--gold-200);
+    font-size: 0.85rem;
 }
 
 .my-zone--spectator {
