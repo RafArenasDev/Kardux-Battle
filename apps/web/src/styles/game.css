@@ -534,11 +534,14 @@
     white-space: nowrap;
 }
 
-/* Board: deck spot, play area, pot spot */
+/* Board: deck spot, play area, pot spot. One row now that the status line moved inside
+   .play-area - a leftover second ("auto") row track used to win the single child by grid
+   auto-placement, shrinking board__row to fit its content instead of filling the table, which
+   pushed the play area (and everything centered in it) down away from the table's true
+   center. */
 .board {
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: clamp(6px, 1.2dvh, 12px);
+    grid-template-rows: minmax(0, 1fr);
     min-height: 0;
 }
 
