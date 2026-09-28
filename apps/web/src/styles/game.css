@@ -551,10 +551,17 @@
     padding-inline: clamp(4px, 3vw, 48px);
 }
 
+/* Centered in the play area - the same central space the cards themselves land in - never
+   pinned to the table's top edge, where it would sit over a seat. */
 .status-slot {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
     display: grid;
     place-items: center;
-    min-height: clamp(32px, 5dvh, 44px);
+    max-width: calc(100% - 16px);
 }
 
 .status-line {

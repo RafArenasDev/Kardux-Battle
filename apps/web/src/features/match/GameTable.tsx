@@ -158,17 +158,13 @@ export function GameTable({
             />
 
             <div className="board">
-                <StatusLine
-                    state={state}
-                    reveal={reveal}
-                    dealing={deal.counts !== null}
-                    leaderId={leaderId}
-                />
                 <div className="board__row">
                     <DeckSpot count={deckSize} dealing={deal.counts !== null} />
                     <PlayArea
                         state={state}
                         reveal={reveal}
+                        dealing={deal.counts !== null}
+                        leaderId={leaderId}
                         tableRef={tableRef}
                         compact={compact}
                         handCard={compact && hand.showCard ? handCard : null}
@@ -490,9 +486,9 @@ function seatArc(index: number, total: number): CSSProperties {
     const angleDeg = total === 1 ? 0 : startDeg + (index * (endDeg - startDeg)) / (total - 1);
     const theta = (angleDeg * Math.PI) / 180;
     const cx = 50;
-    const cy = 26;
+    const cy = 18;
     const rx = 42;
-    const ry = 20;
+    const ry = 13;
     return {
         left: `${cx + rx * Math.sin(theta)}%`,
         top: `${cy - ry * Math.cos(theta)}%`,
@@ -662,6 +658,8 @@ function StatusLine({
 function PlayArea({
     state,
     reveal,
+    dealing,
+    leaderId,
     tableRef,
     compact,
     handCard,
@@ -673,6 +671,8 @@ function PlayArea({
 }: {
     state: RedactedMatchState;
     reveal: RevealState | null;
+    dealing: boolean;
+    leaderId: string | null;
     tableRef: RefObject<HTMLDivElement>;
     compact: boolean;
     /** On phones my card is chosen right here, in the middle of the table. */
@@ -722,6 +722,14 @@ function PlayArea({
                 gridTemplateColumns: `repeat(${fit.columns}, auto)`,
             }}
         >
+            {/* Who's choosing, what's being played, "comparando...": always in the same
+                central space the cards themselves land in - never near a seat, which sits
+                out on the table's arc, nowhere close to here. Skipped on phones exactly while
+                play-area__hand is showing its own hint right under the card - same message,
+                no need to say it twice in the same box. */}
+            {compact && handCard ? null : (
+                <StatusLine state={state} reveal={reveal} dealing={dealing} leaderId={leaderId} />
+            )}
             {slotIds.length === 0 ? (
                 handCard ? (
                     <div className="play-area__hand">
