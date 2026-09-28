@@ -111,6 +111,17 @@ screen with no scrolling, and card sizes are computed from the space actually av
   <img src="docs/media/devices/desktop-result.png" width="860" alt="Round result on a desktop" />
 </p>
 
+### Full table, live in production
+
+A room at the max of 7 concurrent players, played to completion in production to check for lag,
+desync or crashes as the seat count grows. Every tab stayed in lockstep: round results, card
+counts and turn ownership matched across all seven at once, and the leader-picks-the-attribute
+rule held correctly as the win passed from player to player round after round.
+
+<p align="center">
+  <img src="docs/media/devices/desktop-full-table.jpg" width="860" alt="A full 7-player table in production" />
+</p>
+
 ## 3. Origin: from a first project to a production system
 
 Kardux Battle began years ago as one of my first projects, back when I was just starting out as a

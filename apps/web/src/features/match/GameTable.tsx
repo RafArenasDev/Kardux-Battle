@@ -488,9 +488,9 @@ function seatArc(index: number, total: number): CSSProperties {
     const angleDeg = total === 1 ? 0 : startDeg + (index * (endDeg - startDeg)) / (total - 1);
     const theta = (angleDeg * Math.PI) / 180;
     const cx = 50;
-    const cy = 30;
-    const rx = 43;
-    const ry = 27;
+    const cy = 26;
+    const rx = 42;
+    const ry = 20;
     return {
         left: `${cx + rx * Math.sin(theta)}%`,
         top: `${cy - ry * Math.cos(theta)}%`,
