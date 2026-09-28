@@ -1125,6 +1125,31 @@ function useHand(
     };
 }
 
+/** Not in the generated icon set - a small, self-contained padlock so "not your turn" never
+ *  reads as merely dim/loading. */
+function LockIcon(): JSX.Element {
+    return (
+        <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" aria-hidden>
+            <rect
+                x="5"
+                y="11"
+                width="14"
+                height="10"
+                rx="2"
+                stroke="currentColor"
+                strokeWidth="2"
+            />
+            <path
+                d="M8 11V7a4 4 0 0 1 8 0v4"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+            />
+            <circle cx="12" cy="16" r="1.6" fill="currentColor" />
+        </svg>
+    );
+}
+
 /** My spot: the top card face up while it is in my hands, and the back of the next card of my
  *  pile once it has been laid down, so the spot always shows a card while I have one. The
  *  face-up card leaves without fading: the card on the table takes off from its exact box. */
@@ -1162,6 +1187,13 @@ function HandCard({
                                 {...(hand.choosing ? { onSelectAttribute } : {})}
                             />
                         </TrackedFace>
+                        {/* The dim alone can read as "loading" rather than "not yours to tap" -
+                            a lock badge over the card leaves no room to misread it. */}
+                        {hand.choosing ? null : (
+                            <div className="my-card__lock" aria-hidden>
+                                <LockIcon />
+                            </div>
+                        )}
                     </motion.div>
                 ) : hand.showBack ? (
                     <motion.div

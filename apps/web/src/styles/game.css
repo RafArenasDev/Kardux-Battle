@@ -908,6 +908,7 @@
 }
 
 .my-card {
+    position: relative;
     z-index: 1;
     transition:
         opacity var(--dur) var(--ease-out),
@@ -919,6 +920,24 @@
 .my-card--waiting {
     opacity: 0.55;
     filter: saturate(0.55);
+}
+
+/* The dim by itself can read as "still loading" - a padlock badge removes any doubt that the
+   card is genuinely not tappable right now. */
+.my-card__lock {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+}
+
+.my-card__lock svg {
+    width: clamp(32px, 22%, 56px);
+    height: clamp(32px, 22%, 56px);
+    color: var(--gold-100);
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
 }
 
 .my-card--empty {
