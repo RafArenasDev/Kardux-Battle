@@ -369,27 +369,41 @@
 }
 
 /* ---------- Toasts ---------- */
+/* Centered on the whole screen over a blurred backdrop, like any other alert - never a pill
+   docked at the top edge where it can end up jammed against other UI. The backdrop itself
+   only renders while at least one toast is up (`.toasts--visible`), so an empty toast layer
+   never dims the screen. */
 .toasts {
     position: fixed;
+    inset: 0;
     z-index: 100;
-    left: 50%;
-    top: calc(16px + var(--safe-top));
-    transform: translateX(-50%);
     display: grid;
-    gap: 10px;
-    width: min(92vw, 420px);
+    place-items: center;
+    padding: 20px;
     pointer-events: none;
 }
 
-.toast {
+.toasts--visible {
+    background: rgba(7, 6, 10, 0.55);
+    backdrop-filter: blur(10px) saturate(0.8);
+    -webkit-backdrop-filter: blur(10px) saturate(0.8);
+}
+
+.toasts__stack {
+    display: grid;
+    gap: 10px;
+    width: min(92vw, 420px);
     pointer-events: auto;
+}
+
+.toast {
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
     gap: 12px;
-    padding: 14px 18px;
-    border-radius: var(--r-pill);
+    padding: 16px 20px;
+    border-radius: var(--r-lg);
     background: var(--surface-2);
     border: 1px solid var(--hairline-strong);
     box-shadow: var(--shadow-3);

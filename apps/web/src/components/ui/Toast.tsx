@@ -43,35 +43,40 @@ export function ToastProvider({ children }: { children: ReactNode }): JSX.Elemen
     return (
         <ToastContext.Provider value={api}>
             {children}
-            <div className="toasts" role="status" aria-live="polite">
-                <AnimatePresence initial={false}>
-                    {items.map((item) => (
-                        <motion.div
-                            key={item.id}
-                            className={`toast toast--${item.tone}`}
-                            // Appears lower on screen and glides up into place at the top.
-                            initial={{ opacity: 0, y: 120, scale: 0.9 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -24, scale: 0.96 }}
-                            transition={{ type: 'spring', bounce: 0.15, duration: 0.6 }}
-                            layout
-                        >
-                            <Icon
-                                name={TONE_ICON[item.tone]}
-                                className="toast__icon"
-                                style={{
-                                    color:
-                                        item.tone === 'error'
-                                            ? 'var(--lose)'
-                                            : item.tone === 'success'
-                                              ? 'var(--win)'
-                                              : 'var(--gold-300)',
-                                }}
-                            />
-                            <span>{item.message}</span>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
+            <div
+                className={`toasts ${items.length > 0 ? 'toasts--visible' : ''}`}
+                role="status"
+                aria-live="polite"
+            >
+                <div className="toasts__stack">
+                    <AnimatePresence initial={false}>
+                        {items.map((item) => (
+                            <motion.div
+                                key={item.id}
+                                className={`toast toast--${item.tone}`}
+                                initial={{ opacity: 0, scale: 0.92 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.96 }}
+                                transition={{ type: 'spring', bounce: 0.15, duration: 0.5 }}
+                                layout
+                            >
+                                <Icon
+                                    name={TONE_ICON[item.tone]}
+                                    className="toast__icon"
+                                    style={{
+                                        color:
+                                            item.tone === 'error'
+                                                ? 'var(--lose)'
+                                                : item.tone === 'success'
+                                                  ? 'var(--win)'
+                                                  : 'var(--gold-300)',
+                                    }}
+                                />
+                                <span>{item.message}</span>
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
+                </div>
             </div>
         </ToastContext.Provider>
     );

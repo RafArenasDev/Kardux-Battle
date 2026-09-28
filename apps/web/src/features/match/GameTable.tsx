@@ -172,6 +172,7 @@ export function GameTable({
                         tableRef={tableRef}
                         compact={compact}
                         handCard={compact && hand.showCard ? handCard : null}
+                        handTimerActive={compact && hand.choosing}
                         myCard={compact && hand.showCard ? hand.card : null}
                         myPlayedCard={myPlayedCard}
                         faceRect={myFaceRect}
@@ -663,6 +664,7 @@ function PlayArea({
     tableRef,
     compact,
     handCard,
+    handTimerActive,
     myCard,
     myPlayedCard,
     faceRect,
@@ -673,6 +675,9 @@ function PlayArea({
     compact: boolean;
     /** On phones my card is chosen right here, in the middle of the table. */
     handCard: JSX.Element | null;
+    /** Phones: the countdown belongs right above the card I'm choosing with, not down in my
+     *  seat bar where it would be disconnected from the card entirely. */
+    handTimerActive: boolean;
     /** Phones: my top card, still in my hands, waiting in my seat at the table. */
     myCard: Card | null;
     /** The card I just laid down, so it can be seen turning face down on its way. */
@@ -716,7 +721,10 @@ function PlayArea({
         >
             {slotIds.length === 0 ? (
                 handCard ? (
-                    <div className="play-area__hand">{handCard}</div>
+                    <div className="play-area__hand">
+                        <TurnTimer state={state} active={handTimerActive} />
+                        {handCard}
+                    </div>
                 ) : (
                     <div className="play-area__empty" aria-hidden>
                         <Icon name="sword-clash" />
@@ -1187,7 +1195,9 @@ function MyZone({
             className={`my-zone ${hand.choosing ? 'my-zone--active' : ''} ${handCard ? '' : 'my-zone--bar'}`}
             aria-label={t('table.myZone')}
         >
-            <TurnTimer state={state} active={hand.choosing} />
+            {/* On phones the card (and its timer) already sits in the middle of the table -
+                see `play-area__hand` - so this zone is just the seat bar. */}
+            {handCard ? <TurnTimer state={state} active={hand.choosing} /> : null}
             <div className="my-zone__row">
                 <div className="my-zone__seat">
                     <Seat

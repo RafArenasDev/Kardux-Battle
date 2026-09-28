@@ -270,19 +270,38 @@
     }
 }
 
+/* A destructive confirmation is a real modal: centered on the whole screen, over a blurred
+   backdrop - never docked in the toolbar where it fights for space with the table. */
+.dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(7, 6, 10, 0.6);
+    backdrop-filter: blur(10px) saturate(0.8);
+    -webkit-backdrop-filter: blur(10px) saturate(0.8);
+}
+
 .leave-confirm {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 8px 8px 8px 16px;
-    border-radius: var(--r-lg);
+    display: grid;
+    justify-items: center;
+    gap: 16px;
+    padding: 26px 24px;
+    border-radius: var(--r-xl);
     background: var(--surface-2);
     border: 1px solid rgba(255, 93, 108, 0.4);
-    box-shadow: var(--shadow-2);
+    box-shadow: var(--shadow-3);
     font-weight: 700;
-    font-size: 0.88rem;
-    max-width: min(460px, calc(100vw - 24px));
+    font-size: 0.95rem;
+    text-align: center;
+    max-width: min(420px, calc(100vw - 24px));
+}
+
+.leave-confirm__actions {
+    display: flex;
+    gap: 10px;
 }
 
 .hud {
@@ -653,6 +672,7 @@
 .play-area__hand {
     display: grid;
     place-items: center;
+    gap: 10px;
 }
 
 .table .play-area .pcard--lg {

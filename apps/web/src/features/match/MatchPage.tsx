@@ -180,26 +180,30 @@ export default function MatchPage(): JSX.Element {
                                 </span>
                             ) : null}
                             {confirmLeave ? (
-                                <div
-                                    className="leave-confirm"
-                                    role="alertdialog"
-                                    aria-label={t('table.leave.confirm')}
-                                >
-                                    <span>
-                                        {state.players.filter((p) => !p.isSpectator).length <= 2
-                                            ? t('table.leave.duel')
-                                            : t('table.leave.table')}
-                                    </span>
-                                    <Button size="sm" variant="ruby" onClick={leave}>
-                                        {t('table.leave.yes')}
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => setConfirmLeave(false)}
+                                <div className="dialog-overlay">
+                                    <div
+                                        className="leave-confirm"
+                                        role="alertdialog"
+                                        aria-label={t('table.leave.confirm')}
                                     >
-                                        {t('table.leave.no')}
-                                    </Button>
+                                        <span>
+                                            {state.players.filter((p) => !p.isSpectator).length <= 2
+                                                ? t('table.leave.duel')
+                                                : t('table.leave.table')}
+                                        </span>
+                                        <div className="leave-confirm__actions">
+                                            <Button size="sm" variant="ruby" onClick={leave}>
+                                                {t('table.leave.yes')}
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => setConfirmLeave(false)}
+                                            >
+                                                {t('table.leave.no')}
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </div>
                             ) : (
                                 <Button
