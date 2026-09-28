@@ -355,7 +355,13 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    /* Two rows for two in-flow children now: .board (fills what's left) then .my-zone
+       (fits its own content). .opponents used to be a third, leading "auto" row here, but
+       it's position:absolute now (seated around the arc, not in flow) - a leftover leading
+       row meant grid auto-placement gave .board that "auto" track instead of the "1fr" one,
+       collapsing it to a sliver and handing the rest of the table to .my-zone. Same bug as
+       .board's, one level up. */
+    grid-template-rows: minmax(0, 1fr) auto;
     gap: clamp(4px, 1dvh, 12px);
     padding: clamp(10px, 1.6dvh, 18px) clamp(12px, 2vw, 28px)
         calc(clamp(8px, 1.4dvh, 16px) + var(--safe-bottom));
@@ -554,17 +560,24 @@
     padding-inline: clamp(4px, 3vw, 48px);
 }
 
-/* Centered in the play area - the same central space the cards themselves land in - never
-   pinned to the table's top edge, where it would sit over a seat. */
+/* Positioned straight on .table (not nested in .play-area, whose own box height depends on
+   round state) at a fixed 40% down - comfortably past seatArc's worst case (~34-37% of table
+   height for the outermost seat's bottom edge, across the breakpoints and player counts this
+   was checked against) so it can never land on a seat, at any resolution or player count. */
 .status-slot {
     position: absolute;
-    top: 6px;
+    top: 40%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -50%);
     z-index: 5;
     display: grid;
     place-items: center;
     max-width: calc(100% - 16px);
+    pointer-events: none;
+}
+
+.status-slot .status-line {
+    pointer-events: auto;
 }
 
 .status-line {

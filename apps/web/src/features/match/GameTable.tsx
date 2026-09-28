@@ -157,14 +157,25 @@ export function GameTable({
                 compact={breakpoint === 'mobile'}
             />
 
+            {/* Positioned straight on .table, at a fixed clearance below the seat arc's own
+                worst case (see seatArc) - not nested inside .play-area, whose own box keeps
+                reshuffling with round state. Skipped on phones exactly while play-area__hand
+                is already showing the same message as its own hint, right under the card. */}
+            {compact && hand.showCard ? null : (
+                <StatusLine
+                    state={state}
+                    reveal={reveal}
+                    dealing={deal.counts !== null}
+                    leaderId={leaderId}
+                />
+            )}
+
             <div className="board">
                 <div className="board__row">
                     <DeckSpot count={deckSize} dealing={deal.counts !== null} />
                     <PlayArea
                         state={state}
                         reveal={reveal}
-                        dealing={deal.counts !== null}
-                        leaderId={leaderId}
                         tableRef={tableRef}
                         compact={compact}
                         handCard={compact && hand.showCard ? handCard : null}
@@ -658,8 +669,6 @@ function StatusLine({
 function PlayArea({
     state,
     reveal,
-    dealing,
-    leaderId,
     tableRef,
     compact,
     handCard,
@@ -671,8 +680,6 @@ function PlayArea({
 }: {
     state: RedactedMatchState;
     reveal: RevealState | null;
-    dealing: boolean;
-    leaderId: string | null;
     tableRef: RefObject<HTMLDivElement>;
     compact: boolean;
     /** On phones my card is chosen right here, in the middle of the table. */
@@ -722,14 +729,6 @@ function PlayArea({
                 gridTemplateColumns: `repeat(${fit.columns}, auto)`,
             }}
         >
-            {/* Who's choosing, what's being played, "comparando...": always in the same
-                central space the cards themselves land in - never near a seat, which sits
-                out on the table's arc, nowhere close to here. Skipped on phones exactly while
-                play-area__hand is showing its own hint right under the card - same message,
-                no need to say it twice in the same box. */}
-            {compact && handCard ? null : (
-                <StatusLine state={state} reveal={reveal} dealing={dealing} leaderId={leaderId} />
-            )}
             {slotIds.length === 0 ? (
                 handCard ? (
                     <div className="play-area__hand">
