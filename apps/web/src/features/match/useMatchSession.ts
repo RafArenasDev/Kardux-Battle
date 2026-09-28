@@ -3,16 +3,23 @@ import type {
     ChatMessagePayload,
     ErrorPayload,
     MatchFinishedPayload,
+    PongLatencyPayload,
     RedactedMatchState,
     RoundResult,
 } from '@kardux/contracts';
 import { TABLE_TIMING, revealSchedule } from '@kardux/contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import i18n from '../../i18n';
+import { recordServerTime } from '../../lib/clock';
 import { errorMessage, isErrorPayload } from '../../lib/errors';
 import { getToken } from '../../lib/session';
 import type { GameSocket } from '../../lib/socket';
 import { getGameSocket, whenConnected } from '../../lib/socket';
+
+/** Delays (ms) of the calibration pings sent right after joining: a quick burst so the offset
+ *  is usable within ~2 s of landing on the table, not just after the first 30 s tick. */
+const LATENCY_PING_BURST_MS = [0, 700, 1_600];
+const LATENCY_PING_INTERVAL_MS = 30_000;
 
 /**
  * Round choreography, one clear beat after another (`revealSchedule` in `@kardux/contracts`,
@@ -93,9 +100,26 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
     useEffect(() => {
         let disposed = false;
         let socket: GameSocket | null = null;
+        let latencyIntervalId: number | null = null;
 
         const later = (ms: number, run: () => void): void => {
             timers.current.push(window.setTimeout(run, ms));
+        };
+
+        /** One clock-calibration round trip: the offset (`recordServerTime`) is what lets
+         *  `turnOpen` in `useHand` open for the round leader even when the device clock is
+         *  skewed from the server's - see docs/PENDING-WORK.md, "the leader could not choose
+         *  the attribute". */
+        const pingLatency = (target: GameSocket): void => {
+            target.emit('ping:latency', { t: Date.now() });
+        };
+
+        const startLatencyPings = (target: GameSocket): void => {
+            for (const delay of LATENCY_PING_BURST_MS) later(delay, () => pingLatency(target));
+            latencyIntervalId = window.setInterval(
+                () => pingLatency(target),
+                LATENCY_PING_INTERVAL_MS,
+            );
         };
 
         const rejoin = async (target: GameSocket): Promise<void> => {
@@ -113,6 +137,7 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
                     return;
                 }
                 setStatus('ready');
+                startLatencyPings(target);
             } catch (error) {
                 if (!disposed) setFatalError(errorMessage(error));
             }
@@ -122,7 +147,16 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
             connect: () => {
                 if (socket) void rejoin(socket);
             },
-            disconnect: () => setStatus('lost'),
+            disconnect: () => {
+                setStatus('lost');
+                if (latencyIntervalId !== null) {
+                    window.clearInterval(latencyIntervalId);
+                    latencyIntervalId = null;
+                }
+            },
+            'pong:latency': (payload: PongLatencyPayload) => {
+                recordServerTime(payload.t, payload.serverTime);
+            },
             'match:state': (next: RedactedMatchState) => {
                 if (next.matchId !== matchId) return;
                 const previous = stateRef.current;
@@ -131,6 +165,17 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
                 stateRef.current = next;
                 setState(next);
                 setStatus('ready');
+                // Safety net: the server has already moved on to a new round (it opens the
+                // next turn on its own schedule, independent of our client-side reveal
+                // choreography), but a backgrounded tab can have its `setTimeout` clearing
+                // `reveal`/`myPlayedCard` throttled well past `doneAt`. Left uncleared, `busy`
+                // stays true and the round leader never sees their attribute buttons enable -
+                // the same failure mode as the clock-skew bug, from a different cause.
+                if (next.phase === 'AWAITING_ATTRIBUTE') {
+                    setReveal(null);
+                    setFrozen(null);
+                    setMyPlayedCard(null);
+                }
             },
             'match:started': () => {
                 setDealing(true);
@@ -212,6 +257,7 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
             disposed = true;
             for (const timer of timers.current) window.clearTimeout(timer);
             timers.current = [];
+            if (latencyIntervalId !== null) window.clearInterval(latencyIntervalId);
             if (socket) {
                 for (const [event, handler] of Object.entries(handlers)) {
                     socket.off(event as never, handler as never);

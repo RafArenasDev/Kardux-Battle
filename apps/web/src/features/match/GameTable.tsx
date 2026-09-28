@@ -10,6 +10,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { Icon } from '../../components/ui/Icon';
 import type { Breakpoint } from '../../hooks/useBreakpoint';
 import { useNow } from '../../hooks/useNow';
+import { serverNow } from '../../lib/clock';
 import { attributeMeta, formatStat } from '../../lib/deck-meta';
 import { useLocale } from '../../lib/i18n';
 import type { FrozenCounts, RevealState } from './useMatchSession';
@@ -1056,9 +1057,9 @@ function useHand(
         remaining,
     }: { busy: boolean; isLeader: boolean; myPlayedCard: Card | null; remaining: number },
 ): HandState {
-    const now = useNow(250, state.turnOpensAt !== null && state.turnOpensAt > Date.now());
+    const now = useNow(250, state.turnOpensAt !== null && state.turnOpensAt > serverNow());
     const card = state.yourTopCard;
-    const turnOpen = state.turnOpensAt === null || Math.max(now, Date.now()) >= state.turnOpensAt;
+    const turnOpen = state.turnOpensAt === null || Math.max(now, serverNow()) >= state.turnOpensAt;
     // My card stays in my hands while the attribute is chosen (by me or by the leader) and
     // until the moment it is laid down - it never vanishes before it flies to the table.
     const laidDown =

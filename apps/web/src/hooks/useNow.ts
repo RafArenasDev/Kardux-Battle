@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
+import { serverNow } from '../lib/clock';
 
-/** Current timestamp, refreshed every `intervalMs` while `active`. Drives countdowns. */
+/** Best estimate of the server's clock, refreshed every `intervalMs` while `active`. Drives
+ *  countdowns and turn-open checks against server-issued deadlines (`turnOpensAt`,
+ *  `turnDeadline`) - using the raw device clock here is what let a skewed phone clock keep
+ *  the round leader from ever seeing their turn open. */
 export function useNow(intervalMs = 250, active = true): number {
-    const [now, setNow] = useState(() => Date.now());
+    const [now, setNow] = useState(() => serverNow());
 
     useEffect(() => {
         if (!active) return;
-        const timer = window.setInterval(() => setNow(Date.now()), intervalMs);
+        const timer = window.setInterval(() => setNow(serverNow()), intervalMs);
         return () => window.clearInterval(timer);
     }, [intervalMs, active]);
 
