@@ -33,5 +33,11 @@ jobs:
 
             # GitHub disables scheduled workflows after 60 days without commits in a public
             # repository; this re-enables the workflow through the API, without committing.
+            # A third-party action (gautamkrishnar/keepalive-workflow) used to do this, but its
+            # repository is blocked by GitHub for a ToS violation, which failed every run of this
+            # job - calling the REST API directly needs nothing beyond the actions:write
+            # permission already granted above.
             - name: Keep the schedule enabled
-              uses: gautamkrishnar/keepalive-workflow@v2
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh api --method PUT "repos/${{ github.repository }}/actions/workflows/keep-alive.yml/enable"
