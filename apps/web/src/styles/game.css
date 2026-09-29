@@ -552,10 +552,6 @@
     display: grid;
     grid-template-rows: minmax(0, 1fr);
     min-height: 0;
-    /* .my-zone is a floating overlay (position: absolute) at the bottom of .table, so .board
-       has no natural way to know how tall it is - reserve exactly that much room, measured
-       live (see --my-zone-h on .table), so the in-play cards above it are never covered. */
-    padding-bottom: var(--my-zone-h, 0px);
 }
 
 .board__row {
@@ -1070,7 +1066,18 @@
 /* Phones: compact rivals, a big readable card, everything stacked. */
 .table--mobile {
     --pile-w: 26px;
+    /* .my-zone floats over the bottom as its own overlay (see .my-zone), so .board never knows
+       it is there. Reserve room for the seat bar it always shows here (the card itself moves
+       into .play-area__hand on phones), or it lands on top of .play-area__hand right above
+       it. Desktop/tablet deliberately do NOT reserve room the same way - .board's height (and
+       the table's true center inside it) must never move; the choosing card is kept small
+       enough there to fit without needing to steal space from .board. */
+    --my-zone-bar-h: clamp(52px, 9dvh, 76px);
     padding-inline: 8px;
+}
+
+.table--mobile .board {
+    padding-bottom: var(--my-zone-bar-h);
 }
 
 .table--mobile .table__felt {

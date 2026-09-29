@@ -69,21 +69,36 @@ const SLOT_LABEL_PX = 30;
 const SLOT_GAP_PX = 12;
 
 /**
- * Cards in play always sit in a single row, at any player count from 2 to 7 - never wrapping
- * to a second line. Width is purely available width divided by count (so 7 players are
- * naturally smaller than 2), capped by `maxWidth` and by what the row's height allows.
+ * How many columns the in-play cards use, by breakpoint and player count. Desktop/tablet
+ * always sit in a single row (confirmed good, unchanged). Mobile gets its own arrangement per
+ * count instead of squeezing into an ever-thinner strip: 2 stacks one above the other, 3 sits
+ * in one row, 4-7 cluster into a compact block (roughly two rows) toward the table's center.
+ */
+function columnsFor(breakpoint: Breakpoint, count: number): number {
+    if (count <= 1) return 1;
+    if (breakpoint !== 'mobile') return count;
+    if (count === 2) return 1;
+    if (count === 3) return 3;
+    return Math.ceil(count / 2);
+}
+
+/**
+ * The card size that fits `count` cards laid out in `columns` (wrapping to more rows as
+ * needed) inside a `width` x `height` box, capped by `maxWidth`.
  */
 function fitCards(
     count: number,
+    columns: number,
     width: number,
     height: number,
     maxWidth: number,
 ): { columns: number; cardWidth: number } {
     if (count <= 0) return { columns: 1, cardWidth: 0 };
-    const byWidth = (width - (count - 1) * SLOT_GAP_PX) / count;
-    const byHeight = (height - SLOT_LABEL_PX) / 1.4;
+    const rows = Math.ceil(count / columns);
+    const byWidth = (width - (columns - 1) * SLOT_GAP_PX) / columns;
+    const byHeight = (height - rows * SLOT_LABEL_PX - (rows - 1) * SLOT_GAP_PX) / rows / 1.4;
     const cardWidth = Math.floor(Math.max(0, Math.min(maxWidth, byWidth, byHeight)));
-    return { columns: count, cardWidth };
+    return { columns, cardWidth };
 }
 
 /** Center of `target` relative to the table's top-left corner. */
@@ -147,17 +162,9 @@ export function GameTable({
             onSelectAttribute={onSelectAttribute}
         />
     );
-    /** .my-zone floats over the table as its own overlay, so .board never knows how tall it
-     *  really is on its own - measured live so .board can reserve exactly that much room and
-     *  the in-play cards above never sit under it, at any breakpoint or card size. */
-    const [myZoneRef, myZoneSize] = useElementSize<HTMLElement>();
 
     return (
-        <div
-            className={`table table--${breakpoint}`}
-            ref={tableRef}
-            style={{ ['--my-zone-h' as string]: `${myZoneSize.height}px` }}
-        >
+        <div className={`table table--${breakpoint}`} ref={tableRef}>
             <div className="table__felt" aria-hidden />
 
             <OpponentRow
@@ -203,7 +210,6 @@ export function GameTable({
             </div>
 
             <MyZone
-                rootRef={myZoneRef}
                 state={state}
                 me={me}
                 count={me ? countOf(me) : 0}
@@ -647,7 +653,7 @@ function Seat({
                 <strong className="seat__name">
                     {you ? t('common.youSuffix', { name: player.nickname }) : player.nickname}
                 </strong>
-                <span className="seat__status">{status || ' '}</span>
+                {you ? null : <span className="seat__status">{status || ' '}</span>}
             </div>
             <Pile playerId={player.id} count={count} />
         </div>
@@ -781,11 +787,15 @@ function PlayArea({
     // Mobile is the opposite complaint - already tight on width, a lower cap there only made
     // cards read as too small, so it keeps closer to what it had.
     const inPlayMaxWidth = breakpoint === 'mobile' ? 220 : 150;
-    const fit = fitCards(slotIds.length, stage.width, stage.height, inPlayMaxWidth);
-    // Smaller than before on purpose: a big choosing card was pushing .my-zone tall enough to
-    // overlap the in-play cards above it, and read as oversized on its own.
+    const columns = columnsFor(breakpoint, slotIds.length);
+    const fit = fitCards(slotIds.length, columns, stage.width, stage.height, inPlayMaxWidth);
+    // Desktop/tablet: small enough that .my-zone (floating over the bottom of the table) never
+    // needs to reach up into .board - .board's height, and the table's true center inside it,
+    // must never move to make room for it (that shifted the whole table off-center once
+    // already this session). Mobile is unaffected: the choosing card there renders in
+    // .play-area__hand, at the table's own center, not stacked below it in .my-zone.
     const handWidth = Math.floor(
-        Math.min(compact ? 230 : 190, stage.width * 0.9, (stage.height - 8) / 1.4),
+        Math.min(compact ? 230 : 150, stage.width * 0.9, (stage.height - 8) / 1.4),
     );
 
     return (
@@ -1298,7 +1308,6 @@ function HandHint({
 }
 
 function MyZone({
-    rootRef,
     state,
     me,
     count,
@@ -1306,9 +1315,6 @@ function MyZone({
     isLeader,
     handCard,
 }: {
-    /** Measures the zone's real rendered height so `.board` can reserve exactly that much
-     *  room - see `--my-zone-h` on `.table`. */
-    rootRef: RefObject<HTMLElement>;
     state: RedactedMatchState;
     me: Player | undefined;
     count: number;
@@ -1321,7 +1327,7 @@ function MyZone({
 
     if (!me || me.isSpectator || me.isEliminated) {
         return (
-            <section ref={rootRef} className="my-zone my-zone--spectator">
+            <section className="my-zone my-zone--spectator">
                 <Icon name="hooded-figure" size={34} />
                 <p>{me?.isEliminated ? t('table.spectator.out') : t('table.spectator.watching')}</p>
             </section>
@@ -1330,7 +1336,6 @@ function MyZone({
 
     return (
         <section
-            ref={rootRef}
             className={`my-zone ${hand.choosing ? 'my-zone--active' : ''} ${handCard ? '' : 'my-zone--bar'}`}
             aria-label={t('table.myZone')}
         >
