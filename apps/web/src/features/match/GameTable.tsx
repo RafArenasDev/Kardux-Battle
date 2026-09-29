@@ -122,6 +122,30 @@ export function GameTable({
     onSelectAttribute,
 }: GameTableProps): JSX.Element {
     const tableRef = useRef<HTMLDivElement>(null);
+    // Real top edge of whatever .play-area is actually showing (the in-play cards - 1 or 2 rows
+    // depending on breakpoint/count, my choosing card, or the empty-table icon), relative to
+    // .table - lets StatusLine sit just above it, at any row count, instead of a fixed pixel
+    // guess that only happened to clear a single row. A first attempt at this measured .board's
+    // OWN top edge instead (which spans the table's full height, not where content actually
+    // starts) and put the pill off-screen - this measures the real rendered content instead.
+    // Re-measured after every render (cheap DOM read) since .play-area's content swaps identity
+    // every round, plus on window resize, which doesn't otherwise touch this component's state.
+    const [statusTop, setStatusTop] = useState<number | null>(null);
+    useLayoutEffect(() => {
+        const table = tableRef.current;
+        if (!table) return undefined;
+        const measure = (): void => {
+            const content = table.querySelector<HTMLElement>('.play-area > *');
+            if (!content) return;
+            const contentBox = content.getBoundingClientRect();
+            const tableBox = table.getBoundingClientRect();
+            if (contentBox.width === 0 && contentBox.height === 0) return;
+            setStatusTop(contentBox.top - tableBox.top);
+        };
+        measure();
+        window.addEventListener('resize', measure);
+        return () => window.removeEventListener('resize', measure);
+    });
     // Sorted by `seat` (assigned at join time, same order `turnOrder`/`playOrder` rotate
     // through) rather than trusting `state.players`'s own wire order - the seat arc must always
     // agree with the real play sequence, so "whoever's to my right" is always who actually
@@ -199,16 +223,16 @@ export function GameTable({
 
             {/* Positioned straight on .table (not nested in .play-area, whose own box keeps
                 reshuffling with round state), anchored by its own bottom edge just above the
-                40% line instead of centered on it - a small, fixed step up so it clears the
-                in-play cards below without any live measurement to get wrong. Skipped on phones
-                exactly while play-area__hand is already showing the same message as its own
-                hint, right under the card. */}
+                real measured top of whatever .play-area is showing (see statusTop) - holds at 1
+                row or 2, any player count. Skipped on phones exactly while play-area__hand is
+                already showing the same message as its own hint, right under the card. */}
             {compact && hand.showCard ? null : (
                 <StatusLine
                     state={state}
                     reveal={reveal}
                     dealing={deal.counts !== null}
                     leaderId={leaderId}
+                    top={statusTop}
                 />
             )}
 
@@ -528,70 +552,31 @@ function seatStatus(
     return isLeader ? t('table.status.leader') : '';
 }
 
-const SEAT_ARC_START_DEG = -112;
-const SEAT_ARC_END_DEG = 112;
 const SEAT_ARC_CX = 50;
-const SEAT_ARC_CY = 18;
-const SEAT_ARC_RX = 42;
-const SEAT_ARC_RY = 13;
+const SEAT_ARC_CY = 34;
+const SEAT_ARC_RX = 44;
+const SEAT_ARC_RY = 30;
 
 /**
- * Arc-length table for the opponents' seat ellipse, sampled once at module load. Equal steps
- * in *angle* bunch seats together near the flatter parts of a wide, short ellipse like this one
- * (rx=42, ry=13) - two adjacent opponents in a 7-seat table both landing near the same visual
- * spot was exactly that bug. Equal steps in *arc length* (this table, inverted by
- * `thetaAtArcFraction`) keep the on-screen distance between seats even at any player count.
+ * Opponents sit at the vertices of a regular polygon around the table's oval - a heptagon at 7
+ * total players, a hexagon at 6, a rhombus at 4, a vertical pair at 2, and so on - with ME as
+ * the implied vertex that always points straight down (`.my-zone` owns that spot; this function
+ * only ever places opponents, index 0..opponentCount-1). Explicit ask: equal points ("puntas
+ * iguales"), on tablet/laptop/desktop only - mobile keeps its own compact list, unaffected.
+ * Equal angular steps around a full circle is exactly what a regular polygon already is, so
+ * this needs no arc-length correction the way a partial arc did.
  */
-const SEAT_ARC_SAMPLES = 720;
-const seatArcLengthTable: { theta: number; length: number }[] = (() => {
-    const table: { theta: number; length: number }[] = [];
-    let length = 0;
-    let prevX = 0;
-    let prevY = 0;
-    for (let i = 0; i <= SEAT_ARC_SAMPLES; i++) {
-        const deg =
-            SEAT_ARC_START_DEG + ((SEAT_ARC_END_DEG - SEAT_ARC_START_DEG) * i) / SEAT_ARC_SAMPLES;
-        const theta = (deg * Math.PI) / 180;
-        const x = SEAT_ARC_RX * Math.sin(theta);
-        const y = -SEAT_ARC_RY * Math.cos(theta);
-        if (i > 0) length += Math.hypot(x - prevX, y - prevY);
-        table.push({ theta, length });
-        prevX = x;
-        prevY = y;
-    }
-    return table;
-})();
-
-function thetaAtArcFraction(fraction: number): number {
-    const totalLength = seatArcLengthTable[seatArcLengthTable.length - 1]!.length;
-    const target = fraction * totalLength;
-    let lo = 0;
-    let hi = seatArcLengthTable.length - 1;
-    while (lo < hi) {
-        const mid = (lo + hi) >> 1;
-        if (seatArcLengthTable[mid]!.length < target) lo = mid + 1;
-        else hi = mid;
-    }
-    if (lo === 0) return seatArcLengthTable[0]!.theta;
-    const a = seatArcLengthTable[lo - 1]!;
-    const b = seatArcLengthTable[lo]!;
-    const t = b.length === a.length ? 0 : (target - a.length) / (b.length - a.length);
-    return a.theta + (b.theta - a.theta) * t;
-}
-
-/**
- * Seats opponents around the upper two-thirds of the table's oval edge, like real seats around
- * a card table - "you" already own the bottom third (`.my-zone`). A single opponent (a duel)
- * sits straight across, at the top; more opponents fan out evenly toward the sides, spaced by
- * arc length so no two seats ever crowd together regardless of player count.
- */
-function seatArc(index: number, total: number): CSSProperties {
-    if (total <= 0) return {};
-    const fraction = total === 1 ? 0.5 : index / (total - 1);
-    const theta = thetaAtArcFraction(fraction);
+function seatArc(index: number, opponentCount: number): CSSProperties {
+    const total = opponentCount + 1; // +1 for me, the implied vertex at the bottom
+    if (total <= 1) return {};
+    const stepDeg = 360 / total;
+    // Starts one step clockwise from straight down (me) - `opponents` is already ordered so
+    // index 0 is the next player in turn order, who reads as sitting to my right.
+    const angleDeg = 90 - (index + 1) * stepDeg;
+    const theta = (angleDeg * Math.PI) / 180;
     return {
-        left: `${SEAT_ARC_CX + SEAT_ARC_RX * Math.sin(theta)}%`,
-        top: `${SEAT_ARC_CY - SEAT_ARC_RY * Math.cos(theta)}%`,
+        left: `${SEAT_ARC_CX + SEAT_ARC_RX * Math.cos(theta)}%`,
+        top: `${SEAT_ARC_CY + SEAT_ARC_RY * Math.sin(theta)}%`,
     };
 }
 
@@ -691,11 +676,16 @@ function StatusLine({
     reveal,
     dealing,
     leaderId,
+    top,
 }: {
     state: RedactedMatchState;
     reveal: RevealState | null;
     dealing: boolean;
     leaderId: string | null;
+    /** Measured top of whatever .play-area is showing right now, relative to .table (see
+     *  GameTable) - `null` until the first measurement lands, when the 40% CSS fallback holds
+     *  instead. */
+    top: number | null;
 }): JSX.Element {
     const { t } = useTranslation();
     const { l } = useLocale();
@@ -732,7 +722,11 @@ function StatusLine({
     }
 
     return (
-        <div className="status-slot" aria-live="polite">
+        <div
+            className="status-slot"
+            aria-live="polite"
+            style={top !== null ? { top: `${top}px` } : undefined}
+        >
             <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                     key={

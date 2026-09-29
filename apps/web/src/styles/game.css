@@ -569,28 +569,21 @@
 }
 
 /* Positioned straight on .table (not nested in .play-area, whose own box height depends on
-   round state) at a fixed 40% down - comfortably past seatArc's worst case (~34-37% of table
-   height for the outermost seat's bottom edge, across the breakpoints and player counts this
-   was checked against) so it can never land on a seat, at any resolution or player count.
-   Anchored by its own BOTTOM edge (not centered) so the whole pill sits just above that line -
-   a small, fixed clearance from the in-play cards below, which start around there. */
+   round state). `top` is set inline from JS (GameTable's statusTop) to the real measured top
+   edge of whatever .play-area is showing right now - the actual top row of cards, at 1 row or
+   2, any player count - so this only needs a small, constant padding above that real edge, not
+   a guessed percentage. The 40% here is only the first-paint fallback before that measurement
+   lands (or the fallback if .play-area is ever genuinely empty to measure). */
 .status-slot {
     position: absolute;
     top: 40%;
     left: 50%;
-    transform: translate(-50%, calc(-100% - 44px));
+    transform: translate(-50%, calc(-100% - 18px));
     z-index: 5;
     display: grid;
     place-items: center;
     max-width: calc(100% - 16px);
     pointer-events: none;
-}
-
-/* Tablet can lay 5-7 in-play cards out in two rows (see columnsFor), which reaches higher up
-   than the single row this base clearance was tuned against - extra headroom so the pill
-   clears the top row's own top edge too, not just where a single row would have started. */
-.table--tablet .status-slot {
-    transform: translate(-50%, calc(-100% - 84px));
 }
 
 /* The real fix for "the choosing card is too small to read on tablet": it renders inside
