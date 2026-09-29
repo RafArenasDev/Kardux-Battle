@@ -277,8 +277,13 @@
     inset: 0;
     z-index: 200;
     display: grid;
-    place-items: center;
+    /* `safe center`: on a short viewport where the modal is taller than the screen, plain
+       `center` splits the overflow evenly on both sides and clips the top out of scroll
+       reach - `safe` falls back to start-aligned (scrollable from the top) instead. */
+    align-items: safe center;
+    justify-items: center;
     padding: 20px;
+    overflow-y: auto;
     background: rgba(7, 6, 10, 0.6);
     backdrop-filter: blur(10px) saturate(0.8);
     -webkit-backdrop-filter: blur(10px) saturate(0.8);
@@ -802,8 +807,10 @@
     inset: 0;
     z-index: 20;
     display: grid;
-    place-items: center;
+    align-items: safe center;
+    justify-items: center;
     padding: 16px;
+    overflow-y: auto;
     background: rgba(7, 6, 10, 0.55);
     backdrop-filter: blur(10px) saturate(0.8);
     -webkit-backdrop-filter: blur(10px) saturate(0.8);
@@ -922,22 +929,33 @@
     filter: saturate(0.55);
 }
 
-/* The dim by itself can read as "still loading" - a padlock badge removes any doubt that the
-   card is genuinely not tappable right now. */
+/* The dim by itself can read as "still loading". Naming who's choosing - not just a lock icon
+   - removes the "can I tap this or not?" guess entirely. */
 .my-card__lock {
     position: absolute;
     inset: 0;
     z-index: 2;
     display: grid;
     place-items: center;
+    gap: 10px;
+    padding: 16px;
+    text-align: center;
+    background: rgba(6, 5, 9, 0.55);
     pointer-events: none;
 }
 
 .my-card__lock svg {
-    width: clamp(32px, 22%, 56px);
-    height: clamp(32px, 22%, 56px);
+    width: clamp(28px, 18%, 44px);
+    height: clamp(28px, 18%, 44px);
     color: var(--gold-100);
     filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
+}
+
+.my-card__lock-text {
+    font-weight: 800;
+    font-size: clamp(0.78rem, 2.4dvh, 0.95rem);
+    color: var(--gold-100);
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
 }
 
 .my-card--empty {

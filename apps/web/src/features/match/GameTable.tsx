@@ -136,12 +136,14 @@ export function GameTable({
     /** Last on-screen box of my face-up card, so it can be launched from exactly there even
      *  when the element is gone by the time the card is played (phones re-layout the table). */
     const myFaceRect = useRef<DOMRect | null>(null);
+    const leaderName = state.players.find((player) => player.id === leaderId)?.nickname ?? null;
     const handCard = (
         <HandCard
             hand={hand}
             faceRect={myFaceRect}
             shared={compact}
             onSelectAttribute={onSelectAttribute}
+            leaderName={leaderName}
         />
     );
 
@@ -1158,13 +1160,18 @@ function HandCard({
     faceRect,
     shared,
     onSelectAttribute,
+    leaderName,
 }: {
     hand: HandState;
     faceRect: MutableRefObject<DOMRect | null>;
     /** Phones: the card can move to my seat at the table, so it animates between both. */
     shared: boolean;
     onSelectAttribute: (attribute: string) => void;
+    /** Whoever leads this round, so the overlay can say *who* is holding things up instead of
+     *  just "locked" - a name explains itself, an icon alone doesn't. */
+    leaderName: string | null;
 }): JSX.Element {
+    const { t } = useTranslation();
     return (
         <div className="my-zone__card" data-my-card>
             <AnimatePresence initial={false}>
@@ -1187,11 +1194,17 @@ function HandCard({
                                 {...(hand.choosing ? { onSelectAttribute } : {})}
                             />
                         </TrackedFace>
-                        {/* The dim alone can read as "loading" rather than "not yours to tap" -
-                            a lock badge over the card leaves no room to misread it. */}
+                        {/* The dim alone can read as "loading" rather than "not yours to tap".
+                            Naming who's actually holding things up explains itself - a bare
+                            lock icon makes a player guess. */}
                         {hand.choosing ? null : (
-                            <div className="my-card__lock" aria-hidden>
+                            <div className="my-card__lock">
                                 <LockIcon />
+                                <span className="my-card__lock-text">
+                                    {leaderName
+                                        ? t('table.line.choosing', { name: leaderName })
+                                        : t('table.hint.watch')}
+                                </span>
                             </div>
                         )}
                     </motion.div>
