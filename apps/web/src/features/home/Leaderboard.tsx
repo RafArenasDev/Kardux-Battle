@@ -56,33 +56,14 @@ export function Leaderboard({ meId }: { meId: string | null }): JSX.Element {
                     size="sm"
                     variant="ghost"
                     icon="info"
-                    aria-expanded={explain}
-                    onClick={() => setExplain((value) => !value)}
+                    aria-haspopup="dialog"
+                    onClick={() => setExplain(true)}
                 >
                     {t('ranking.howItWorks')}
                 </Button>
             </div>
 
-            <AnimatePresence initial={false}>
-                {explain ? (
-                    <motion.div
-                        key="explain"
-                        className="leaderboard__explain"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
-                    >
-                        <ul>
-                            <li>{t('ranking.explain.start')}</li>
-                            <li>{t('ranking.explain.placement')}</li>
-                            <li>{t('ranking.explain.rivals')}</li>
-                            <li>{t('ranking.explain.leave')}</li>
-                            <li>{t('ranking.explain.unranked')}</li>
-                        </ul>
-                    </motion.div>
-                ) : null}
-            </AnimatePresence>
+            <HowScoredDialog open={explain} onClose={() => setExplain(false)} />
 
             {entries === null ? (
                 <div className="empty-state">
@@ -173,5 +154,68 @@ export function Leaderboard({ meId }: { meId: string | null }): JSX.Element {
                 </ol>
             )}
         </div>
+    );
+}
+
+/** How points move - a modal, like the rules dialog, instead of an in-place expand: a fixed
+ *  title/close button with the explanation scrolling underneath. */
+function HowScoredDialog({ open, onClose }: { open: boolean; onClose: () => void }): JSX.Element {
+    const { t } = useTranslation();
+
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (event: KeyboardEvent): void => {
+            if (event.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [open, onClose]);
+
+    return (
+        <AnimatePresence>
+            {open ? (
+                <motion.div
+                    className="dialog-scrim"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={onClose}
+                >
+                    <motion.div
+                        className="dialog panel panel--pad"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="how-scored-title"
+                        initial={{ opacity: 0, y: 24, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 24, scale: 0.97 }}
+                        transition={{ type: 'spring', bounce: 0.2, duration: 0.45 }}
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="row row--between">
+                            <h2 id="how-scored-title">
+                                <Icon name="info" /> {t('ranking.howItWorks')}
+                            </h2>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                icon="cancel"
+                                aria-label={t('common.close')}
+                                onClick={onClose}
+                            />
+                        </div>
+                        <div className="dialog__body">
+                            <ul className="leaderboard__explain">
+                                <li>{t('ranking.explain.start')}</li>
+                                <li>{t('ranking.explain.placement')}</li>
+                                <li>{t('ranking.explain.rivals')}</li>
+                                <li>{t('ranking.explain.leave')}</li>
+                                <li>{t('ranking.explain.unranked')}</li>
+                            </ul>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            ) : null}
+        </AnimatePresence>
     );
 }

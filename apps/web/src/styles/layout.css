@@ -740,10 +740,6 @@
 }
 
 .leaderboard__explain {
-    overflow: hidden;
-}
-
-.leaderboard__explain ul {
     margin: 0;
     padding: 12px 14px 12px 30px;
     display: grid;

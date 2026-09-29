@@ -69,9 +69,9 @@ const SLOT_LABEL_PX = 30;
 const SLOT_GAP_PX = 12;
 
 /**
- * The biggest card size that fits `count` cards in a `width` x `height` box: tries every number
- * of columns and keeps the one that gives the widest card (height is always 1.4 x width).
- * On a phone a duel becomes one card above the other; on a wide screen, one row.
+ * Cards in play always sit in a single row, at any player count from 2 to 7 - never wrapping
+ * to a second line. Width is purely available width divided by count (so 7 players are
+ * naturally smaller than 2), capped by `maxWidth` and by what the row's height allows.
  */
 function fitCards(
     count: number,
@@ -79,15 +79,11 @@ function fitCards(
     height: number,
     maxWidth: number,
 ): { columns: number; cardWidth: number } {
-    let best = { columns: Math.max(1, count), cardWidth: 0 };
-    for (let columns = 1; columns <= Math.max(1, count); columns++) {
-        const rows = Math.ceil(count / columns);
-        const byWidth = (width - (columns - 1) * SLOT_GAP_PX) / columns;
-        const byHeight = (height - rows * SLOT_LABEL_PX - (rows - 1) * SLOT_GAP_PX) / rows / 1.4;
-        const cardWidth = Math.floor(Math.min(maxWidth, byWidth, byHeight));
-        if (cardWidth > best.cardWidth) best = { columns, cardWidth };
-    }
-    return best;
+    if (count <= 0) return { columns: 1, cardWidth: 0 };
+    const byWidth = (width - (count - 1) * SLOT_GAP_PX) / count;
+    const byHeight = (height - SLOT_LABEL_PX) / 1.4;
+    const cardWidth = Math.floor(Math.max(0, Math.min(maxWidth, byWidth, byHeight)));
+    return { columns: count, cardWidth };
 }
 
 /** Center of `target` relative to the table's top-left corner. */
@@ -204,7 +200,6 @@ export function GameTable({
                 count={me ? countOf(me) : 0}
                 hand={hand}
                 isLeader={leaderId === state.yourId}
-                leaderName={leaderName}
                 handCard={compact ? null : handCard}
             />
 
@@ -494,25 +489,70 @@ function seatStatus(
     return isLeader ? t('table.status.leader') : '';
 }
 
+const SEAT_ARC_START_DEG = -112;
+const SEAT_ARC_END_DEG = 112;
+const SEAT_ARC_CX = 50;
+const SEAT_ARC_CY = 18;
+const SEAT_ARC_RX = 42;
+const SEAT_ARC_RY = 13;
+
+/**
+ * Arc-length table for the opponents' seat ellipse, sampled once at module load. Equal steps
+ * in *angle* bunch seats together near the flatter parts of a wide, short ellipse like this one
+ * (rx=42, ry=13) - two adjacent opponents in a 7-seat table both landing near the same visual
+ * spot was exactly that bug. Equal steps in *arc length* (this table, inverted by
+ * `thetaAtArcFraction`) keep the on-screen distance between seats even at any player count.
+ */
+const SEAT_ARC_SAMPLES = 720;
+const seatArcLengthTable: { theta: number; length: number }[] = (() => {
+    const table: { theta: number; length: number }[] = [];
+    let length = 0;
+    let prevX = 0;
+    let prevY = 0;
+    for (let i = 0; i <= SEAT_ARC_SAMPLES; i++) {
+        const deg =
+            SEAT_ARC_START_DEG + ((SEAT_ARC_END_DEG - SEAT_ARC_START_DEG) * i) / SEAT_ARC_SAMPLES;
+        const theta = (deg * Math.PI) / 180;
+        const x = SEAT_ARC_RX * Math.sin(theta);
+        const y = -SEAT_ARC_RY * Math.cos(theta);
+        if (i > 0) length += Math.hypot(x - prevX, y - prevY);
+        table.push({ theta, length });
+        prevX = x;
+        prevY = y;
+    }
+    return table;
+})();
+
+function thetaAtArcFraction(fraction: number): number {
+    const totalLength = seatArcLengthTable[seatArcLengthTable.length - 1]!.length;
+    const target = fraction * totalLength;
+    let lo = 0;
+    let hi = seatArcLengthTable.length - 1;
+    while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (seatArcLengthTable[mid]!.length < target) lo = mid + 1;
+        else hi = mid;
+    }
+    if (lo === 0) return seatArcLengthTable[0]!.theta;
+    const a = seatArcLengthTable[lo - 1]!;
+    const b = seatArcLengthTable[lo]!;
+    const t = b.length === a.length ? 0 : (target - a.length) / (b.length - a.length);
+    return a.theta + (b.theta - a.theta) * t;
+}
+
 /**
  * Seats opponents around the upper two-thirds of the table's oval edge, like real seats around
  * a card table - "you" already own the bottom third (`.my-zone`). A single opponent (a duel)
- * sits straight across, at the top; more opponents fan out evenly toward the sides. Pure
- * percentage math so it stays correct at any table size without measuring anything.
+ * sits straight across, at the top; more opponents fan out evenly toward the sides, spaced by
+ * arc length so no two seats ever crowd together regardless of player count.
  */
 function seatArc(index: number, total: number): CSSProperties {
     if (total <= 0) return {};
-    const startDeg = -112;
-    const endDeg = 112;
-    const angleDeg = total === 1 ? 0 : startDeg + (index * (endDeg - startDeg)) / (total - 1);
-    const theta = (angleDeg * Math.PI) / 180;
-    const cx = 50;
-    const cy = 18;
-    const rx = 42;
-    const ry = 13;
+    const fraction = total === 1 ? 0.5 : index / (total - 1);
+    const theta = thetaAtArcFraction(fraction);
     return {
-        left: `${cx + rx * Math.sin(theta)}%`,
-        top: `${cy - ry * Math.cos(theta)}%`,
+        left: `${SEAT_ARC_CX + SEAT_ARC_RX * Math.sin(theta)}%`,
+        top: `${SEAT_ARC_CY - SEAT_ARC_RY * Math.cos(theta)}%`,
     };
 }
 
@@ -728,10 +768,11 @@ function PlayArea({
         ...inPlay.filter((id) => id === state.yourId),
     ];
 
-    // Cards in play read too small on a roomy desktop and too big on tablet once .play-area
-    // gained the table's full height - tablet and desktop need their own cap, not one shared
-    // "not compact" bucket.
-    const inPlayMaxWidth = breakpoint === 'mobile' ? 240 : breakpoint === 'tablet' ? 190 : 300;
+    // One shared cap for tablet and desktop: with `fitCards` now always sizing by
+    // width ÷ count (a single row, no wrapping), the actual constraint at 7 players comes from
+    // the division itself, not this cap - this only ceilings how big cards get at low counts
+    // on a roomy screen.
+    const inPlayMaxWidth = breakpoint === 'mobile' ? 240 : 220;
     const fit = fitCards(slotIds.length, stage.width, stage.height, inPlayMaxWidth);
     const handWidth = Math.floor(
         Math.min(compact ? 300 : 250, stage.width * 0.9, (stage.height - 8) / 1.4),
@@ -1134,10 +1175,11 @@ function useHand(
     const laidDown =
         myPlayedCard !== null || (state.round?.playedBy.includes(state.yourId) ?? false);
     const inRound = state.phase === 'AWAITING_ATTRIBUTE' || state.phase === 'AWAITING_CARDS';
-    // Face up only for whoever is actually choosing this round - everyone else sees the back
-    // of their own card too, exactly like every other player's card. A dimmed, locked face-up
-    // card still invited a tap and still gave away the stats; the back doesn't.
-    const showCard = card !== null && !busy && !laidDown && inRound && isLeader;
+    // My own card is always face up while it's in my hands, whether or not it's my turn to
+    // choose - it's my card, I can read it. Only the leader gets `onSelectAttribute` wired in
+    // (see HandCard), which is what actually gates interaction; everyone else just sees a
+    // plain, non-interactive card (PlayingCard renders static rows, no button, no dimming).
+    const showCard = card !== null && !busy && !laidDown && inRound;
     return {
         card,
         showCard,
@@ -1245,7 +1287,6 @@ function MyZone({
     count,
     hand,
     isLeader,
-    leaderName,
     handCard,
 }: {
     state: RedactedMatchState;
@@ -1253,7 +1294,6 @@ function MyZone({
     count: number;
     hand: HandState;
     isLeader: boolean;
-    leaderName: string | null;
     /** Desktop and tablets: my card sits here. Phones: it moves to the middle of the table. */
     handCard: JSX.Element | null;
 }): JSX.Element {
@@ -1288,14 +1328,6 @@ function MyZone({
                 </div>
 
                 {handCard}
-
-                <HandHint
-                    hand={hand}
-                    state={state}
-                    isLeader={isLeader}
-                    leaderName={leaderName}
-                    className="my-zone__hint"
-                />
             </div>
         </section>
     );

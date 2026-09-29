@@ -59,14 +59,18 @@ export function RulesDialog({
                                 onClick={onClose}
                             />
                         </div>
-                        <ol className="rules">
-                            {RULES.map((rule) => (
-                                <li key={rule}>
-                                    <strong>{t(`rules.items.${rule}.title`)}</strong>
-                                    <span className="text-2">{t(`rules.items.${rule}.text`)}</span>
-                                </li>
-                            ))}
-                        </ol>
+                        <div className="dialog__body">
+                            <ol className="rules">
+                                {RULES.map((rule) => (
+                                    <li key={rule}>
+                                        <strong>{t(`rules.items.${rule}.title`)}</strong>
+                                        <span className="text-2">
+                                            {t(`rules.items.${rule}.text`)}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ol>
+                        </div>
                     </motion.div>
                 </motion.div>
             ) : null}

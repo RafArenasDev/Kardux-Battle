@@ -941,27 +941,12 @@
         filter var(--dur) var(--ease-out);
 }
 
-/* Someone else is choosing, or my card is already on its way: dimmed and desaturated, so it
-   never reads as a live button waiting for a tap that would silently do nothing. */
-.my-card--waiting {
-    opacity: 0.55;
-    filter: saturate(0.55);
-}
-
 .my-card--empty {
     z-index: 0;
     width: var(--card-lg);
     height: calc(var(--card-lg) * 1.4);
     border-radius: calc(var(--card-lg) * 0.09);
     border: 2px dashed rgba(240, 201, 107, 0.16);
-}
-
-.my-zone__hint {
-    justify-self: start;
-    max-width: 240px;
-    font-weight: 700;
-    color: var(--gold-200);
-    font-size: clamp(0.8rem, 1.8dvh, 0.95rem);
 }
 
 /* Phones: the same explanation, right under the card itself - not just down in the seat bar,
@@ -1151,10 +1136,6 @@
 
 .table--mobile .my-zone__seat {
     justify-self: center;
-}
-
-.table--mobile .my-zone__hint {
-    display: none;
 }
 
 /* Short landscape phones: shrink the hand card so nothing is cut off. */
@@ -1451,8 +1432,8 @@
 .dialog {
     width: min(100%, 620px);
     max-height: min(86dvh, 760px);
-    overflow-y: auto;
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: 14px;
 }
 
@@ -1464,6 +1445,17 @@
 
 .dialog h2 svg {
     color: var(--gold-300);
+}
+
+/* Title and close button (the `row row--between` right above this) stay fixed - only the
+   body scrolls, so a long rules/scoring list never carries them off screen. `min-height: 0`
+   is required for a flex child to actually shrink and scroll instead of stretching its
+   parent. */
+.dialog__body {
+    overflow-y: auto;
+    min-height: 0;
+    display: grid;
+    gap: 14px;
 }
 
 .rules {
