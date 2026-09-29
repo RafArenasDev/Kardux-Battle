@@ -718,10 +718,15 @@
     color: rgba(240, 201, 107, 0.2);
 }
 
+/* Fixed width regardless of content - an empty slot (waiting for that player's card, see
+   GameTable.tsx) must reserve exactly the same column width a filled one does, or the grid's
+   "auto" columns shrink it to nothing and the whole row reflows/re-spaces itself unevenly each
+   time a card actually lands. */
 .slot {
     display: grid;
     justify-items: center;
     gap: 5px;
+    width: var(--slot-w);
 }
 
 /* Sized like a real card so the grid cell never jumps once the actual card animates in, but no
