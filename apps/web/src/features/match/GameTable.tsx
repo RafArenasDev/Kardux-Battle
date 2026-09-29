@@ -815,31 +815,14 @@ function PlayArea({
     const inPlayMaxWidth = breakpoint === 'mobile' ? 220 : breakpoint === 'tablet' ? 170 : 150;
     const columns = columnsFor(breakpoint, slotIds.length);
     const fit = fitCards(slotIds.length, columns, stage.width, stage.height, inPlayMaxWidth);
-    // Desktop: the card I choose with matches the same size the in-play cards actually render
-    // at (its layout is always a single row, so fitCards's shared math sizes it sanely) - a
-    // separate cap kept drifting apart from theirs and reading oversized next to them. Sized
-    // off the full seat count (stable) rather than `slotIds.length` (0 while I'm still
-    // choosing, which would collapse it to nothing).
-    const totalSeats = state.players.filter(
-        (player) => !player.isSpectator || player.isEliminated,
-    ).length;
-    const handFit = fitCards(
-        totalSeats,
-        columnsFor(breakpoint, totalSeats),
-        stage.width,
-        stage.height,
-        inPlayMaxWidth,
-    );
-    // Mobile and tablet both size the choosing card on its own, not through fitCards's grid
-    // math - it renders alone (in .play-area__hand on mobile, in .my-zone on tablet/desktop),
-    // never actually sharing space with a multi-row cluster of everyone else's cards the way
-    // fitCards's height division assumes. Using that math for tablet was the real bug behind
-    // "too small to read" - dividing available height by a 2-row cluster's worth of rows that
-    // this single card was never actually part of.
-    const handWidth =
-        compact || breakpoint === 'tablet'
-            ? Math.floor(Math.min(compact ? 230 : 240, stage.width * 0.9, (stage.height - 8) / 1.4))
-            : handFit.cardWidth || fit.cardWidth;
+    // Only mobile's choosing card actually renders inside .play-area (.play-area__hand) - on
+    // tablet/desktop it renders in .my-zone, a sibling of this element, which never sees a
+    // custom property set here (they only cascade to descendants). --card-lg for that case is
+    // plain CSS on .table/.table--tablet instead - computing a JS value here for it that no
+    // rendered element could ever actually read was dead weight.
+    const handWidth = compact
+        ? Math.floor(Math.min(230, stage.width * 0.9, (stage.height - 8) / 1.4))
+        : null;
 
     return (
         <div
@@ -847,7 +830,9 @@ function PlayArea({
             className="play-area"
             style={{
                 ['--slot-w' as string]: `${Math.max(56, fit.cardWidth)}px`,
-                ['--card-lg' as string]: `${Math.max(120, handWidth)}px`,
+                ...(handWidth !== null
+                    ? { ['--card-lg' as string]: `${Math.max(120, handWidth)}px` }
+                    : {}),
                 gridTemplateColumns: `repeat(${fit.columns}, auto)`,
             }}
         >

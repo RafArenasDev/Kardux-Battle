@@ -355,6 +355,11 @@
 .table {
     /* Card sizes follow both width and height, so every screen gets readable cards. */
     --card-lg: clamp(120px, min(13vw, 20dvh), 190px);
+    /* .my-zone (where this renders on tablet/desktop) is a floating overlay with its own
+       z-index, well above everything else - it doesn't need to compete with .play-area's box
+       for room the way --slot-w does. Tablet overrides this below with a much bigger value:
+       this is the only card the player actually has to read stat rows on and tap to choose an
+       attribute, so it needs to be legible on its own terms, not just "whatever's left over". */
     --pile-w: clamp(30px, 4.6dvh, 42px);
     position: relative;
     flex: 1;
@@ -586,6 +591,16 @@
    clears the top row's own top edge too, not just where a single row would have started. */
 .table--tablet .status-slot {
     transform: translate(-50%, calc(-100% - 84px));
+}
+
+/* The real fix for "the choosing card is too small to read on tablet": it renders inside
+   .my-zone, not .play-area, so it was never actually reached by GameTable's JS-computed
+   --card-lg (that's set on .play-area's own element - custom properties only cascade to
+   descendants, and .my-zone is a sibling, not one). This is the value that has always actually
+   applied there; the JS calculation for it was dead weight this whole session. Generous on
+   purpose - see the note on .table's own --card-lg above. */
+.table--tablet {
+    --card-lg: clamp(220px, 30vw, 300px);
 }
 
 .status-slot .status-line {
