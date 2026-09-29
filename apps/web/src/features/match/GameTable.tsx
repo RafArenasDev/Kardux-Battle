@@ -130,7 +130,9 @@ export function GameTable({
         [state.players],
     );
     const me = state.players.find((player) => player.id === state.yourId);
-    const opponents = seated.filter((player) => player.id !== state.yourId);
+    // Reversed: seatArc's index 0 lands at the arc's leftmost point, but the *next* player in
+    // turn order (the first opponent here) needs to read as sitting to MY right, not my left.
+    const opponents = seated.filter((player) => player.id !== state.yourId).reverse();
     const leaderId = currentLeaderId(state);
     const deal = useDealCounts(state, dealing);
 
