@@ -14,8 +14,8 @@ export const TABLE_TIMING = {
     flipStaggerMs: 300,
     /** The winning card glows (the rest dim) before anything is announced. */
     compareMs: 1_300,
-    /** The result banner stays on the table. */
-    bannerMs: 1_900,
+    /** The result banner stays on the table before the cards fly to the winner. */
+    bannerMs: 2_600,
     /** The cards fly to the winner's pile (or into the pot). */
     collectMs: 1_100,
     /** A breather between one stage settling and the next one starting, so each beat (land,
