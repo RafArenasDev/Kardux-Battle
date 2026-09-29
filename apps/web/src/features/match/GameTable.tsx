@@ -136,10 +136,18 @@ export function GameTable({
     /** Last on-screen box of my face-up card, so it can be launched from exactly there even
      *  when the element is gone by the time the card is played (phones re-layout the table). */
     const myFaceRect = useRef<DOMRect | null>(null);
-    const leaderName = state.players.find((player) => player.id === leaderId)?.nickname ?? null;
+    // Only meaningful when someone ELSE leads - if I'm the leader myself (just waiting the
+    // instant it takes turnOpensAt to catch up), the lock has no business naming me as the
+    // reason I can't tap my own card yet.
+    const leaderName =
+        leaderId && leaderId !== state.yourId
+            ? (state.players.find((player) => player.id === leaderId)?.nickname ?? null)
+            : null;
     const handCard = (
         <HandCard
             hand={hand}
+            state={state}
+            isLeader={leaderId === state.yourId}
             faceRect={myFaceRect}
             shared={compact}
             onSelectAttribute={onSelectAttribute}
@@ -183,6 +191,7 @@ export function GameTable({
                         handCard={compact && hand.showCard ? handCard : null}
                         hand={hand}
                         isLeader={leaderId === state.yourId}
+                        leaderName={leaderName}
                         myCard={compact && hand.showCard ? hand.card : null}
                         myPlayedCard={myPlayedCard}
                         faceRect={myFaceRect}
@@ -197,6 +206,7 @@ export function GameTable({
                 count={me ? countOf(me) : 0}
                 hand={hand}
                 isLeader={leaderId === state.yourId}
+                leaderName={leaderName}
                 handCard={compact ? null : handCard}
             />
 
@@ -676,6 +686,7 @@ function PlayArea({
     handCard,
     hand,
     isLeader,
+    leaderName,
     myCard,
     myPlayedCard,
     faceRect,
@@ -690,6 +701,7 @@ function PlayArea({
      *  choosing with, not down in my seat bar where they'd be disconnected from it. */
     hand: HandState;
     isLeader: boolean;
+    leaderName: string | null;
     /** Phones: my top card, still in my hands, waiting in my seat at the table. */
     myCard: Card | null;
     /** The card I just laid down, so it can be seen turning face down on its way. */
@@ -740,6 +752,7 @@ function PlayArea({
                             hand={hand}
                             state={state}
                             isLeader={isLeader}
+                            leaderName={leaderName}
                             className="play-area__hint"
                         />
                     </div>
@@ -1157,12 +1170,16 @@ function LockIcon(): JSX.Element {
  *  face-up card leaves without fading: the card on the table takes off from its exact box. */
 function HandCard({
     hand,
+    state,
+    isLeader,
     faceRect,
     shared,
     onSelectAttribute,
     leaderName,
 }: {
     hand: HandState;
+    state: RedactedMatchState;
+    isLeader: boolean;
     faceRect: MutableRefObject<DOMRect | null>;
     /** Phones: the card can move to my seat at the table, so it animates between both. */
     shared: boolean;
@@ -1201,9 +1218,7 @@ function HandCard({
                             <div className="my-card__lock">
                                 <LockIcon />
                                 <span className="my-card__lock-text">
-                                    {leaderName
-                                        ? t('table.line.choosing', { name: leaderName })
-                                        : t('table.hint.watch')}
+                                    {handWaitText(t, hand, state, isLeader, leaderName)}
                                 </span>
                             </div>
                         )}
@@ -1226,6 +1241,24 @@ function HandCard({
     );
 }
 
+/** Why I can(not) act right now, shared by the hint text and the lock overlay so the two can
+ *  never disagree. `leaderName` (someone else's, never my own) upgrades the generic "wait your
+ *  turn" into naming exactly who's holding things up. */
+function handWaitText(
+    t: ReturnType<typeof useTranslation>['t'],
+    hand: HandState,
+    state: RedactedMatchState,
+    isLeader: boolean,
+    leaderName: string | null,
+): string {
+    if (hand.choosing) return t('table.hint.choose');
+    if (state.phase === 'AWAITING_CARDS') return t('table.hint.playing');
+    if (hand.busy) return t('table.hint.watch');
+    if (isLeader) return t('table.hint.getReady');
+    if (leaderName) return t('table.line.choosing', { name: leaderName });
+    return t('table.hint.wait');
+}
+
 /** Why I can(not) act right now, in one short line. Shown twice on phones - once right next to
  *  the card itself (`play-area__hand`), once in my seat bar - so the explanation is never
  *  further from the card than a glance away. */
@@ -1233,27 +1266,17 @@ function HandHint({
     hand,
     state,
     isLeader,
+    leaderName,
     className,
 }: {
     hand: HandState;
     state: RedactedMatchState;
     isLeader: boolean;
+    leaderName: string | null;
     className: string;
 }): JSX.Element {
     const { t } = useTranslation();
-    return (
-        <p className={className}>
-            {hand.choosing
-                ? t('table.hint.choose')
-                : state.phase === 'AWAITING_CARDS'
-                  ? t('table.hint.playing')
-                  : hand.busy
-                    ? t('table.hint.watch')
-                    : isLeader
-                      ? t('table.hint.getReady')
-                      : t('table.hint.wait')}
-        </p>
-    );
+    return <p className={className}>{handWaitText(t, hand, state, isLeader, leaderName)}</p>;
 }
 
 function MyZone({
@@ -1262,6 +1285,7 @@ function MyZone({
     count,
     hand,
     isLeader,
+    leaderName,
     handCard,
 }: {
     state: RedactedMatchState;
@@ -1269,6 +1293,7 @@ function MyZone({
     count: number;
     hand: HandState;
     isLeader: boolean;
+    leaderName: string | null;
     /** Desktop and tablets: my card sits here. Phones: it moves to the middle of the table. */
     handCard: JSX.Element | null;
 }): JSX.Element {
@@ -1304,7 +1329,13 @@ function MyZone({
 
                 {handCard}
 
-                <HandHint hand={hand} state={state} isLeader={isLeader} className="my-zone__hint" />
+                <HandHint
+                    hand={hand}
+                    state={state}
+                    isLeader={isLeader}
+                    leaderName={leaderName}
+                    className="my-zone__hint"
+                />
             </div>
         </section>
     );

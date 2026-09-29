@@ -360,13 +360,11 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    /* Two rows for two in-flow children now: .board (fills what's left) then .my-zone
-       (fits its own content). .opponents used to be a third, leading "auto" row here, but
-       it's position:absolute now (seated around the arc, not in flow) - a leftover leading
-       row meant grid auto-placement gave .board that "auto" track instead of the "1fr" one,
-       collapsing it to a sliver and handing the rest of the table to .my-zone. Same bug as
-       .board's, one level up. */
-    grid-template-rows: minmax(0, 1fr) auto;
+    /* .board is the only in-flow child now: .opponents is seated around the arc and .my-zone
+       is a floating bottom overlay, both position:absolute (see their own rules) - so .board
+       gets the table's full height, and cards-in-play center on the table for real instead of
+       splitting it with whatever .my-zone happens to be showing. */
+    grid-template-rows: minmax(0, 1fr);
     gap: clamp(4px, 1dvh, 12px);
     padding: clamp(10px, 1.6dvh, 18px) clamp(12px, 2vw, 28px)
         calc(clamp(8px, 1.4dvh, 16px) + var(--safe-bottom));
@@ -882,12 +880,28 @@
     font-weight: 400;
 }
 
-/* Me */
+/* Me: a floating overlay pinned to the bottom of the table, like a poker HUD for your own
+   hole cards - never a row the table's own grid has to make room for. My-zone used to be a
+   real grid row competing with .board for the table's height, so whenever my card grew (the
+   whole point of it, to be readable while choosing) the cards-in-play area shrank and drifted
+   off-center. Now it can grow or shrink freely without ever moving anything else on the
+   table. */
 .my-zone {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 8;
     display: grid;
     gap: clamp(6px, 1.2dvh, 12px);
     justify-items: center;
+    padding-bottom: clamp(6px, 1dvh, 12px);
     min-height: 0;
+    pointer-events: none;
+}
+
+.my-zone > * {
+    pointer-events: auto;
 }
 
 .my-zone__row {
