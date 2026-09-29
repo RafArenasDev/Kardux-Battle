@@ -165,13 +165,17 @@ export function useMatchSession(matchId: string, onError: (message: string) => v
                 stateRef.current = next;
                 setState(next);
                 setStatus('ready');
-                // Safety net: the server has already moved on to a new round (it opens the
-                // next turn on its own schedule, independent of our client-side reveal
-                // choreography), but a backgrounded tab can have its `setTimeout` clearing
-                // `reveal`/`myPlayedCard` throttled well past `doneAt`. Left uncleared, `busy`
-                // stays true and the round leader never sees their attribute buttons enable -
-                // the same failure mode as the clock-skew bug, from a different cause.
-                if (next.phase === 'AWAITING_ATTRIBUTE') {
+                // Safety net: the server always flips phase to AWAITING_ATTRIBUTE the instant a
+                // round resolves (`resolveRound` in @kardux/engine sets it in the same reduce()
+                // call, well before `turnOpensAt`) - so `match:state` for the *same* round we
+                // just started animating arrives right behind `round:resolved`, every round, not
+                // just on a stale/backgrounded tab. Only force-clear the reveal once real time
+                // has actually passed `revealEndsAt` (the staged choreography's own doneAt) - a
+                // foreground tab reaches that naturally through its own `later(...)` timers
+                // below, so this only fires for the throttled-tab case it was written for.
+                // Clearing unconditionally here raced the choreography's very first frame and
+                // wiped it before a single stage ever rendered - no flip, no banner, nothing.
+                if (next.phase === 'AWAITING_ATTRIBUTE' && Date.now() >= revealEndsAt.current) {
                     setReveal(null);
                     setFrozen(null);
                     setMyPlayedCard(null);
