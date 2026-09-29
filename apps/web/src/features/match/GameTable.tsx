@@ -69,14 +69,18 @@ const SLOT_LABEL_PX = 30;
 const SLOT_GAP_PX = 12;
 
 /**
- * How many columns the in-play cards use, by breakpoint and player count. Desktop/tablet
- * always sit in a single row (confirmed good, unchanged). Mobile gets its own arrangement per
- * count instead of squeezing into an ever-thinner strip: 2 stacks one above the other, 3 sits
- * in one row, 4-7 cluster into a compact block (roughly two rows) toward the table's center.
+ * How many columns the in-play cards use, by breakpoint and player count. Desktop always sits
+ * in a single row (confirmed good, unchanged - it has the width for it). Mobile gets its own
+ * arrangement per count instead of squeezing into an ever-thinner strip: 2 stacks one above the
+ * other, 3 sits in one row, 4-7 cluster into a compact block (roughly two rows) toward the
+ * table's center. Tablet is narrower than desktop but roomier than mobile: single row up to 4,
+ * then the same two-row clustering mobile uses for 5-7 (a tablet held upright genuinely can't
+ * fit 7 in one row the way a laptop/monitor can).
  */
 function columnsFor(breakpoint: Breakpoint, count: number): number {
     if (count <= 1) return 1;
-    if (breakpoint !== 'mobile') return count;
+    if (breakpoint === 'desktop') return count;
+    if (breakpoint === 'tablet') return count <= 4 ? count : Math.ceil(count / 2);
     if (count === 2) return 1;
     if (count === 3) return 3;
     return Math.ceil(count / 2);
@@ -797,11 +801,23 @@ function PlayArea({
         : state.phase === 'AWAITING_CARDS'
           ? (state.round?.playOrder ?? [])
           : [];
-    // Table order always follows real play order: the leader, then each player to their right
-    // in turn (`playOrder`/`reveal.cards` are already in that sequence) - never reshuffled to
-    // put my own card in any particular spot, so the row always reads as "who chose, then who
-    // threw next" left to right, at any seat.
-    const slotIds = inPlay;
+    // `inPlay` (from playOrder) is anchored at whoever leads THIS round, not at me - a
+    // different reference point than the seat arc (anchored at me, see `opponents` in
+    // GameTable), which made the row's left-to-right order disagree with the arc and read as
+    // random whenever I wasn't the leader. Re-anchored here at my own seat, same as the arc,
+    // so the table always reads as one consistent "starting from my right" sequence regardless
+    // of who's actually choosing.
+    const seatOrder = [...state.players]
+        .filter((player) => !player.isSpectator || player.isEliminated)
+        .sort((a, b) => a.seat - b.seat);
+    const mySeatIndex = seatOrder.findIndex((player) => player.id === state.yourId);
+    const egocentricIds =
+        mySeatIndex === -1
+            ? seatOrder.map((player) => player.id)
+            : [...seatOrder.slice(mySeatIndex), ...seatOrder.slice(0, mySeatIndex)].map(
+                  (player) => player.id,
+              );
+    const slotIds = egocentricIds.filter((id) => inPlay.includes(id));
 
     // Desktop confirmed good at 150 (a big duel was reading as oversized there). Tablet gets
     // its own value instead of sharing desktop's - same single-row layout and order logic, just
@@ -811,12 +827,15 @@ function PlayArea({
     const inPlayMaxWidth = breakpoint === 'mobile' ? 220 : breakpoint === 'tablet' ? 170 : 150;
     const columns = columnsFor(breakpoint, slotIds.length);
     const fit = fitCards(slotIds.length, columns, stage.width, stage.height, inPlayMaxWidth);
-    // Desktop/tablet: the card I choose with matches the same size the in-play cards actually
-    // render at - a separate size cap kept drifting apart from theirs and reading oversized
-    // next to them. Sized off the full seat count (stable) rather than `slotIds.length` (0
+    // Desktop: the card I choose with matches the same size the in-play cards actually render
+    // at - a separate cap kept drifting apart from theirs and reading oversized next to them.
+    // Tablet needs its OWN, bigger cap instead - the stat rows are what I actually have to tap
+    // to choose an attribute, and matching the (smaller, clustered) in-play card size there made
+    // it hard to hit. Sized off the full seat count (stable) rather than `slotIds.length` (0
     // while I'm still choosing, which would collapse it to nothing). Mobile is unaffected: the
     // choosing card there renders in .play-area__hand, at the table's own center, not stacked
     // below it in .my-zone, so it never competes with the in-play cards for space.
+    const handMaxWidth = breakpoint === 'tablet' ? 240 : inPlayMaxWidth;
     const totalSeats = state.players.filter(
         (player) => !player.isSpectator || player.isEliminated,
     ).length;
@@ -825,7 +844,7 @@ function PlayArea({
         columnsFor(breakpoint, totalSeats),
         stage.width,
         stage.height,
-        inPlayMaxWidth,
+        handMaxWidth,
     );
     const handWidth = compact
         ? Math.floor(Math.min(230, stage.width * 0.9, (stage.height - 8) / 1.4))
