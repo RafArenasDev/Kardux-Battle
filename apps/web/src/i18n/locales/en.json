@@ -355,7 +355,8 @@
             "playing": "Cards are laid down in turn…",
             "watch": "Watch the round resolve.",
             "getReady": "Get ready: you choose.",
-            "wait": "Wait for your turn."
+            "wait": "Wait for your turn.",
+            "blind": "Only the leader sees their card. You throw blind."
         },
         "spectator": {
             "out": "You ran out of cards. You keep watching the match.",

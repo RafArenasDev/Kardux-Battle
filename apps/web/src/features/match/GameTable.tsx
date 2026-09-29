@@ -1171,10 +1171,14 @@ function RoundResultBanner({
 
 interface HandState {
     card: Card | null;
-    /** The top card is visible face up: from the moment it is mine until it is laid down. */
+    /** The top card is visible face up: from the moment it is mine until it is laid down, and
+     *  only when it's actually my turn to choose - see `blind`. */
     showCard: boolean;
     /** Otherwise the next card of my pile shows its back, so my spot is never empty. */
     showBack: boolean;
+    /** Someone else leads this round and I haven't thrown my card yet: I don't get to see it
+     *  either - I find out its stats the same moment everyone else does, at the reveal. */
+    blind: boolean;
     /** I lead and the turn is open: the attribute rows are buttons. */
     choosing: boolean;
     busy: boolean;
@@ -1197,19 +1201,19 @@ function useHand(
     const laidDown =
         myPlayedCard !== null || (state.round?.playedBy.includes(state.yourId) ?? false);
     const inRound = state.phase === 'AWAITING_ATTRIBUTE' || state.phase === 'AWAITING_CARDS';
-    // My own card is always face up while it's in my hands, whether or not it's my turn to
-    // choose - it's my card, I can read it. Only the leader gets `onSelectAttribute` wired in
-    // (see HandCard), which is what actually gates interaction; everyone else just sees a
-    // plain, non-interactive card (PlayingCard renders static rows, no button, no dimming).
-    const showCard = card !== null && !busy && !laidDown && inRound;
+    // Face up only for whoever actually leads this round - everyone else throws blind, same as
+    // every other player's card (see `blind` below for what they see instead).
+    const showCard = card !== null && !busy && !laidDown && inRound && isLeader;
+    const blind = card !== null && !busy && !laidDown && inRound && !isLeader;
     // The spot sits empty from the moment my card leaves for the table until the round is
     // fully done (reveal, compare, banner, collect) - it never shows a "next" card while my
     // played one is still being compared, only once there actually is a next one to draw.
-    const showBack = !showCard && !busy && remaining > 0;
+    const showBack = !showCard && !blind && !busy && remaining > 0;
     return {
         card,
         showCard,
         showBack,
+        blind,
         choosing: state.phase === 'AWAITING_ATTRIBUTE' && isLeader && !busy && turnOpen,
         busy,
     };
@@ -1230,10 +1234,22 @@ function HandCard({
     shared: boolean;
     onSelectAttribute: (attribute: string) => void;
 }): JSX.Element {
+    const { t } = useTranslation();
     return (
         <div className="my-zone__card" data-my-card>
             <AnimatePresence initial={false}>
-                {hand.showCard && hand.card ? (
+                {hand.blind ? (
+                    <motion.p
+                        key="blind"
+                        className="my-card__blind"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0, transition: { duration: 0 } }}
+                        transition={{ duration: 0.2 }}
+                    >
+                        {t('table.hint.blind')}
+                    </motion.p>
+                ) : hand.showCard && hand.card ? (
                     <motion.div
                         key={hand.card.code}
                         className="my-card"
@@ -1264,7 +1280,7 @@ function HandCard({
                     </motion.div>
                 ) : null}
             </AnimatePresence>
-            <div className="my-card my-card--empty" aria-hidden />
+            {hand.blind ? null : <div className="my-card my-card--empty" aria-hidden />}
         </div>
     );
 }

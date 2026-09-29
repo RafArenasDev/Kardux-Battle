@@ -355,7 +355,8 @@
             "playing": "Las cartas se lanzan en orden…",
             "watch": "Mira cómo se resuelve la ronda.",
             "getReady": "Prepárate: eliges tú.",
-            "wait": "Espera tu turno."
+            "wait": "Espera tu turno.",
+            "blind": "Solo quien elige ve su carta. Tú lanzas a ciegas."
         },
         "spectator": {
             "out": "Te quedaste sin cartas. Sigues mirando la partida.",

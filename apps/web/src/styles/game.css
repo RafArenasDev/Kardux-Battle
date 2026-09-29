@@ -948,6 +948,16 @@
     border: 2px dashed rgba(240, 201, 107, 0.16);
 }
 
+.my-card__blind {
+    max-width: min(var(--card-lg), 220px);
+    margin: 0;
+    padding: 10px 14px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--text-2);
+}
+
 /* Phones: the same explanation, right under the card itself - not just down in the seat bar,
    which the player may not even be looking at. */
 .play-area__hint {
