@@ -553,27 +553,70 @@ function seatStatus(
 }
 
 const SEAT_ARC_CX = 50;
-const SEAT_ARC_CY = 34;
-const SEAT_ARC_RX = 44;
-const SEAT_ARC_RY = 30;
+const SEAT_ARC_CY = 33;
+const SEAT_ARC_RX = 40;
+const SEAT_ARC_RY = 26;
 
 /**
- * Opponents sit at the vertices of a regular polygon around the table's oval - a heptagon at 7
- * total players, a hexagon at 6, a rhombus at 4, a vertical pair at 2, and so on - with ME as
- * the implied vertex that always points straight down (`.my-zone` owns that spot; this function
- * only ever places opponents, index 0..opponentCount-1). Explicit ask: equal points ("puntas
- * iguales"), on tablet/laptop/desktop only - mobile keeps its own compact list, unaffected.
- * Equal angular steps around a full circle is exactly what a regular polygon already is, so
- * this needs no arc-length correction the way a partial arc did.
+ * Arc-length table for the FULL ellipse (all 360°) opponents are seated around, sampled once at
+ * module load, starting at theta=90° (straight down - my own implied vertex) and walking
+ * clockwise from my right. A regular polygon's vertices are equally spaced by ANGLE by
+ * definition, but this ellipse isn't a circle (rx=40 != ry=26) - equal angle steps bunch up near
+ * the flatter curvature (the sides, since rx > ry) and spread out near the ends (top/bottom,
+ * closest to me), which is exactly the unevenness reported live: more space from me to my
+ * nearest neighbors than between the seats up top. Equal steps in *arc length* (this table,
+ * inverted by `thetaAtArcFraction`) keep the on-screen distance the same between every seat,
+ * regardless of where they land on the curve.
+ */
+const SEAT_ARC_SAMPLES = 720;
+const seatArcLengthTable: { theta: number; length: number }[] = (() => {
+    const table: { theta: number; length: number }[] = [];
+    let length = 0;
+    let prevX = 0;
+    let prevY = 0;
+    for (let i = 0; i <= SEAT_ARC_SAMPLES; i++) {
+        const deg = 90 - (360 * i) / SEAT_ARC_SAMPLES;
+        const theta = (deg * Math.PI) / 180;
+        const x = SEAT_ARC_RX * Math.cos(theta);
+        const y = SEAT_ARC_RY * Math.sin(theta);
+        if (i > 0) length += Math.hypot(x - prevX, y - prevY);
+        table.push({ theta, length });
+        prevX = x;
+        prevY = y;
+    }
+    return table;
+})();
+
+function thetaAtSeatArcFraction(fraction: number): number {
+    const totalLength = seatArcLengthTable[seatArcLengthTable.length - 1]!.length;
+    const target = fraction * totalLength;
+    let lo = 0;
+    let hi = seatArcLengthTable.length - 1;
+    while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (seatArcLengthTable[mid]!.length < target) lo = mid + 1;
+        else hi = mid;
+    }
+    if (lo === 0) return seatArcLengthTable[0]!.theta;
+    const a = seatArcLengthTable[lo - 1]!;
+    const b = seatArcLengthTable[lo]!;
+    const t = b.length === a.length ? 0 : (target - a.length) / (b.length - a.length);
+    return a.theta + (b.theta - a.theta) * t;
+}
+
+/**
+ * Opponents sit at equally-spaced points (by real on-screen distance, see above) around the
+ * table's oval - a heptagon's worth of visual spacing at 7 total players, a hexagon's at 6, and
+ * so on - with ME as the implied vertex that always points straight down (`.my-zone` owns that
+ * spot; this function only ever places opponents, index 0..opponentCount-1). Tablet/laptop/
+ * desktop only, via the existing `compact` gate; mobile's compact list is untouched.
  */
 function seatArc(index: number, opponentCount: number): CSSProperties {
     const total = opponentCount + 1; // +1 for me, the implied vertex at the bottom
     if (total <= 1) return {};
-    const stepDeg = 360 / total;
-    // Starts one step clockwise from straight down (me) - `opponents` is already ordered so
-    // index 0 is the next player in turn order, who reads as sitting to my right.
-    const angleDeg = 90 - (index + 1) * stepDeg;
-    const theta = (angleDeg * Math.PI) / 180;
+    // `opponents` is already ordered so index 0 is the next player in turn order, who reads as
+    // sitting to my right - fraction (index+1)/total starts one step clockwise from me (0).
+    const theta = thetaAtSeatArcFraction((index + 1) / total);
     return {
         left: `${SEAT_ARC_CX + SEAT_ARC_RX * Math.cos(theta)}%`,
         top: `${SEAT_ARC_CY + SEAT_ARC_RY * Math.sin(theta)}%`,
