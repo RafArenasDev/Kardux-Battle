@@ -118,8 +118,15 @@ export function GameTable({
     onSelectAttribute,
 }: GameTableProps): JSX.Element {
     const tableRef = useRef<HTMLDivElement>(null);
+    // Sorted by `seat` (assigned at join time, same order `turnOrder`/`playOrder` rotate
+    // through) rather than trusting `state.players`'s own wire order - the seat arc must always
+    // agree with the real play sequence, so "whoever's to my right" is always who actually
+    // throws next, never just whatever order the server happened to list them in.
     const seated = useMemo(
-        () => state.players.filter((player) => !player.isSpectator || player.isEliminated),
+        () =>
+            state.players
+                .filter((player) => !player.isSpectator || player.isEliminated)
+                .sort((a, b) => a.seat - b.seat),
         [state.players],
     );
     const me = state.players.find((player) => player.id === state.yourId);
