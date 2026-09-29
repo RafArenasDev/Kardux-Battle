@@ -130,9 +130,19 @@ export function GameTable({
         [state.players],
     );
     const me = state.players.find((player) => player.id === state.yourId);
-    // Reversed: seatArc's index 0 lands at the arc's leftmost point, but the *next* player in
-    // turn order (the first opponent here) needs to read as sitting to MY right, not my left.
-    const opponents = seated.filter((player) => player.id !== state.yourId).reverse();
+    // Egocentric, on every player's own screen: rotated so it starts right after MY seat and
+    // wraps back around to just before it (seat 3 of 7 sees 4,5,6,7,1,2 - not the raw global
+    // order with 3 removed, which would only happen to look right for whoever sits in seat 1).
+    // Reversed on top of that: seatArc's index 0 lands at the arc's leftmost point, but the
+    // *next* player after me (now first in this list) needs to read as sitting to MY right.
+    const opponents = useMemo(() => {
+        const mySeatIndex = seated.findIndex((player) => player.id === state.yourId);
+        const rotated =
+            mySeatIndex === -1
+                ? seated
+                : [...seated.slice(mySeatIndex + 1), ...seated.slice(0, mySeatIndex)];
+        return [...rotated].reverse();
+    }, [seated, state.yourId]);
     const leaderId = currentLeaderId(state);
     const deal = useDealCounts(state, dealing);
 
