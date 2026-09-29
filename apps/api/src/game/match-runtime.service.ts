@@ -330,13 +330,24 @@ export class MatchRuntimeService implements OnModuleDestroy {
             // Persist durable side effects (Round/DeckSnapshot/Match/MatchEvent rows) BEFORE
             // telling any client what happened - a socket reacting to a broadcast (e.g.
             // re-querying `GET /leaderboard` right after `match:finished`) must never be able
-            // to observe a state the database doesn't have yet.
+            // to observe a state the database doesn't have yet. `persist` already catches its
+            // own errors and never throws.
             await this.persist(matchId, before, action, result.events, now);
 
-            this.broadcastEvents(matchId, result.events);
-
-            if (result.events.some((event) => event.type !== 'error')) {
-                await this.pushState(matchId, result.state);
+            // Broadcasting/pushing to sockets is best-effort: a bad socket (a stale adapter
+            // entry, a mid-flight disconnect on a real multi-tab table) must never stop the
+            // match from moving on. Before this was guarded, a single throw here skipped
+            // `autoPlayNext` below with nothing to retry it - the exact "every remaining seat
+            // stuck at Lanzando... forever" bug (docs/PENDING-WORK.md).
+            try {
+                this.broadcastEvents(matchId, result.events);
+                if (result.events.some((event) => event.type !== 'error')) {
+                    await this.pushState(matchId, result.state);
+                }
+            } catch (error) {
+                this.logger.error(
+                    `Failed to broadcast/push state for match ${matchId}: ${(error as Error).message}`,
+                );
             }
 
             this.scheduleTimer(matchId, result.state);
@@ -367,11 +378,17 @@ export class MatchRuntimeService implements OnModuleDestroy {
             void this.dispatchAction(matchId, {
                 type: 'round.playCard',
                 playerId: nextPlayerId,
-            }).catch((error: unknown) =>
+            }).catch((error: unknown) => {
                 this.logger.error(
-                    `Auto-play failed for match ${matchId}: ${(error as Error).message}`,
-                ),
-            );
+                    `Auto-play failed for match ${matchId}, player ${nextPlayerId}: ${(error as Error).message}`,
+                );
+                // A rejected dispatch never reaches the `autoPlayNext` call inside
+                // `dispatchAction` (only a successful run does) - left alone, every remaining
+                // player's card would stay face-down forever. Resume from the freshest known
+                // session state instead of trusting the stale snapshot this closure captured.
+                const current = this.sessions.get(matchId);
+                if (current) this.autoPlayNext(matchId, current);
+            });
         }, delay);
         this.autoPlays.set(matchId, timer);
     }
@@ -392,11 +409,15 @@ export class MatchRuntimeService implements OnModuleDestroy {
                 type: 'round.selectAttribute',
                 playerId: leaderId,
                 attribute,
-            }).catch((error: unknown) =>
+            }).catch((error: unknown) => {
                 this.logger.error(
-                    `Auto-select failed for match ${matchId}: ${(error as Error).message}`,
-                ),
-            );
+                    `Auto-select failed for match ${matchId}, player ${leaderId}: ${(error as Error).message}`,
+                );
+                // Same self-healing as `autoPlayNext`: a rejected dispatch here would otherwise
+                // leave the bot leader permanently stuck on AWAITING_ATTRIBUTE.
+                const current = this.sessions.get(matchId);
+                if (current) this.autoSelectAttribute(matchId, current);
+            });
         }, opensIn + BOT_THINK_MS);
         this.autoSelects.set(matchId, timer);
     }
