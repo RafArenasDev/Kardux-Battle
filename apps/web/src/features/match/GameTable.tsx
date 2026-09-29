@@ -803,10 +803,12 @@ function PlayArea({
     // threw next" left to right, at any seat.
     const slotIds = inPlay;
 
-    // A big desktop/tablet duel (2 players) was reading as oversized, so its cap came down.
-    // Mobile is the opposite complaint - already tight on width, a lower cap there only made
-    // cards read as too small, so it keeps closer to what it had.
-    const inPlayMaxWidth = breakpoint === 'mobile' ? 220 : 150;
+    // Desktop confirmed good at 150 (a big duel was reading as oversized there). Tablet gets
+    // its own value instead of sharing desktop's - same single-row layout and order logic, just
+    // scaled for its own size class, not desktop's or mobile's. Mobile is the opposite
+    // complaint from desktop's - already tight on width, a lower cap there only made cards read
+    // as too small, so it keeps closer to what it had.
+    const inPlayMaxWidth = breakpoint === 'mobile' ? 220 : breakpoint === 'tablet' ? 170 : 150;
     const columns = columnsFor(breakpoint, slotIds.length);
     const fit = fitCards(slotIds.length, columns, stage.width, stage.height, inPlayMaxWidth);
     // Desktop/tablet: the card I choose with matches the same size the in-play cards actually
