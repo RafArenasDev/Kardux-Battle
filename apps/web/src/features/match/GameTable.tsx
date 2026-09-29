@@ -142,7 +142,6 @@ export function GameTable({
         busy: reveal !== null || deal.counts !== null,
         isLeader: leaderId === state.yourId,
         myPlayedCard,
-        remaining: me ? countOf(me) : 0,
     });
     /** Last on-screen box of my face-up card, so it can be launched from exactly there even
      *  when the element is gone by the time the card is played (phones re-layout the table). */
@@ -175,10 +174,12 @@ export function GameTable({
                 compact={breakpoint === 'mobile'}
             />
 
-            {/* Positioned straight on .table, at a fixed clearance below the seat arc's own
-                worst case (see seatArc) - not nested inside .play-area, whose own box keeps
-                reshuffling with round state. Skipped on phones exactly while play-area__hand
-                is already showing the same message as its own hint, right under the card. */}
+            {/* Positioned straight on .table (not nested in .play-area, whose own box keeps
+                reshuffling with round state), anchored by its own bottom edge just above the
+                40% line instead of centered on it - a small, fixed step up so it clears the
+                in-play cards below without any live measurement to get wrong. Skipped on phones
+                exactly while play-area__hand is already showing the same message as its own
+                hint, right under the card. */}
             {compact && hand.showCard ? null : (
                 <StatusLine
                     state={state}
@@ -864,6 +865,14 @@ function PlayArea({
                 // reveal: nobody sees a stat before the comparison.
                 const faceUpCard = revealed ?? null;
 
+                // Nothing shows for a slot until that player's card actually lands - no name,
+                // no avatar - the table should read as empty (just the center icon) while
+                // everyone's still choosing, filling in one player at a time as each card
+                // actually arrives. The one exception is my own slot on phones, where the card
+                // I'm choosing with already lives (see `myCard`) - that's not a premature
+                // reveal, it's just where my own card already visibly is.
+                const showSlot = played || (isMine && myCard !== null);
+
                 return (
                     <div className="slot" key={playerId}>
                         {played ? (
@@ -896,21 +905,22 @@ function PlayArea({
                                     <PlayingCard card={myCard} size="md" />
                                 </TrackedFace>
                             </motion.div>
-                        ) : (
-                            <div className="slot__empty">
-                                {player ? <Avatar seed={player.avatarSeed} size={28} /> : null}
-                            </div>
-                        )}
-                        <span className="slot__owner">
-                            <span className="slot__name">
-                                {isMine ? t('common.you') : player?.nickname}
+                        ) : null}
+                        {showSlot ? (
+                            <span className="slot__owner">
+                                <span className="slot__name">
+                                    {isMine ? t('common.you') : player?.nickname}
+                                </span>
+                                {revealed && attributeKey ? (
+                                    <strong className="slot__value tabular">
+                                        {formatStat(
+                                            revealed.stats[attributeKey] ?? 0,
+                                            attribute?.unit,
+                                        )}
+                                    </strong>
+                                ) : null}
                             </span>
-                            {revealed && attributeKey ? (
-                                <strong className="slot__value tabular">
-                                    {formatStat(revealed.stats[attributeKey] ?? 0, attribute?.unit)}
-                                </strong>
-                            ) : null}
-                        </span>
+                        ) : null}
                     </div>
                 );
             })}
@@ -1185,8 +1195,6 @@ interface HandState {
     /** The top card is visible face up: from the moment it is mine until it is laid down, and
      *  only when it's actually my turn to choose - see `blind`. */
     showCard: boolean;
-    /** Otherwise the next card of my pile shows its back, so my spot is never empty. */
-    showBack: boolean;
     /** Someone else leads this round and I haven't thrown my card yet: I don't get to see it
      *  either - I find out its stats the same moment everyone else does, at the reveal. */
     blind: boolean;
@@ -1201,8 +1209,7 @@ function useHand(
         busy,
         isLeader,
         myPlayedCard,
-        remaining,
-    }: { busy: boolean; isLeader: boolean; myPlayedCard: Card | null; remaining: number },
+    }: { busy: boolean; isLeader: boolean; myPlayedCard: Card | null },
 ): HandState {
     const now = useNow(250, state.turnOpensAt !== null && state.turnOpensAt > serverNow());
     const card = state.yourTopCard;
@@ -1216,23 +1223,19 @@ function useHand(
     // every other player's card (see `blind` below for what they see instead).
     const showCard = card !== null && !busy && !laidDown && inRound && isLeader;
     const blind = card !== null && !busy && !laidDown && inRound && !isLeader;
-    // The spot sits empty from the moment my card leaves for the table until the round is
-    // fully done (reveal, compare, banner, collect) - it never shows a "next" card while my
-    // played one is still being compared, only once there actually is a next one to draw.
-    const showBack = !showCard && !blind && !busy && remaining > 0;
+    // Nothing else shows there once my card is laid down: no back, no placeholder - my pile's
+    // count at my own seat already says how many I have left, so a second "next card" indicator
+    // here was redundant, and it read as if a card was still sitting face-down and forgotten.
     return {
         card,
         showCard,
-        showBack,
         blind,
         choosing: state.phase === 'AWAITING_ATTRIBUTE' && isLeader && !busy && turnOpen,
         busy,
     };
 }
 
-/** My spot: the top card face up while it is in my hands, and the back of the next card of my
- *  pile once it has been laid down, so the spot always shows a card while I have one. The
- *  face-up card leaves without fading: the card on the table takes off from its exact box. */
+/** My spot: the top card face up, only while it's actually my turn to choose. */
 function HandCard({
     hand,
     faceRect,
@@ -1277,17 +1280,6 @@ function HandCard({
                                 {...(hand.choosing ? { onSelectAttribute } : {})}
                             />
                         </TrackedFace>
-                    </motion.div>
-                ) : hand.showBack ? (
-                    <motion.div
-                        key="back"
-                        className="my-card"
-                        initial={{ opacity: 0, y: 18, scale: 0.85 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, transition: { duration: 0 } }}
-                        transition={cardTravel}
-                    >
-                        <CardBack size="lg" />
                     </motion.div>
                 ) : null}
             </AnimatePresence>

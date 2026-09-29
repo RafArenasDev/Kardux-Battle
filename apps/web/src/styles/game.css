@@ -566,12 +566,14 @@
 /* Positioned straight on .table (not nested in .play-area, whose own box height depends on
    round state) at a fixed 40% down - comfortably past seatArc's worst case (~34-37% of table
    height for the outermost seat's bottom edge, across the breakpoints and player counts this
-   was checked against) so it can never land on a seat, at any resolution or player count. */
+   was checked against) so it can never land on a seat, at any resolution or player count.
+   Anchored by its own BOTTOM edge (not centered) so the whole pill sits just above that line -
+   a small, fixed clearance from the in-play cards below, which start around there. */
 .status-slot {
     position: absolute;
     top: 40%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, calc(-100% - 44px));
     z-index: 5;
     display: grid;
     place-items: center;
@@ -722,14 +724,13 @@
     gap: 5px;
 }
 
+/* Sized like a real card so the grid cell never jumps once the actual card animates in, but no
+   dashed border/background chrome - just the avatar marking whose spot it is. */
 .slot__empty {
     width: var(--slot-w);
     height: calc(var(--slot-w) * 1.4);
     display: grid;
     place-items: center;
-    border-radius: calc(var(--slot-w) * 0.09);
-    border: 2px dashed rgba(240, 201, 107, 0.3);
-    background: rgba(0, 0, 0, 0.22);
 }
 
 .slot__owner {
