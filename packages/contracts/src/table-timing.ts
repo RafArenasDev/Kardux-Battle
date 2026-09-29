@@ -18,6 +18,10 @@ export const TABLE_TIMING = {
     bannerMs: 1_900,
     /** The cards fly to the winner's pile (or into the pot). */
     collectMs: 1_100,
+    /** A breather between one stage settling and the next one starting, so each beat (land,
+     *  flip, compare, banner, collect) reads as its own moment - long enough to actually read
+     *  the message that stage shows, not just notice it flashed by. */
+    stageGapMs: 600,
 } as const;
 
 /** When each step of a round's reveal starts, in ms after the round resolved. */
@@ -30,13 +34,15 @@ export interface RevealSchedule {
 }
 
 /** The reveal timeline for a round with `cardCount` cards on the table: more players, more
- *  flips, so every later step shifts accordingly. */
+ *  flips, so every later step shifts accordingly. Each step starts `stageGapMs` after the
+ *  previous one visually settles, not the instant it does. */
 export function revealSchedule(cardCount: number): RevealSchedule {
     const t = TABLE_TIMING;
-    const flipAt = t.landMs;
-    const compareAt = flipAt + t.flipMs + t.flipStaggerMs * Math.max(0, cardCount - 1);
-    const resultAt = compareAt + t.compareMs;
-    const collectAt = resultAt + t.bannerMs;
+    const flipAt = t.landMs + t.stageGapMs;
+    const compareAt =
+        flipAt + t.flipMs + t.flipStaggerMs * Math.max(0, cardCount - 1) + t.stageGapMs;
+    const resultAt = compareAt + t.compareMs + t.stageGapMs;
+    const collectAt = resultAt + t.bannerMs + t.stageGapMs;
     const doneAt = collectAt + t.collectMs;
     return { flipAt, compareAt, resultAt, collectAt, doneAt };
 }

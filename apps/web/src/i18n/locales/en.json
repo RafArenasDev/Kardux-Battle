@@ -338,12 +338,17 @@
             "setting": "Setting the table…"
         },
         "result": {
+            "headline": {
+                "win": "You won the round!",
+                "lose": "You lost the round",
+                "tie": "Tie!"
+            },
             "winDetail_one": "{{name}} takes {{count}} card",
             "winDetail_other": "{{name}} takes {{count}} cards",
             "youTake_one": "You take {{count}} card",
             "youTake_other": "You take {{count}} cards",
-            "tie_one": "Tie! {{count}} card goes to the pot",
-            "tie_other": "Tie! {{count}} cards go to the pot"
+            "tie_one": "{{count}} card goes to the pot",
+            "tie_other": "{{count}} cards go to the pot"
         },
         "hint": {
             "choose": "Tap the attribute you want to compete with. The highest value on the table wins.",

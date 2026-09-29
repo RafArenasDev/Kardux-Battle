@@ -147,9 +147,17 @@ export function GameTable({
             onSelectAttribute={onSelectAttribute}
         />
     );
+    /** .my-zone floats over the table as its own overlay, so .board never knows how tall it
+     *  really is on its own - measured live so .board can reserve exactly that much room and
+     *  the in-play cards above never sit under it, at any breakpoint or card size. */
+    const [myZoneRef, myZoneSize] = useElementSize<HTMLElement>();
 
     return (
-        <div className={`table table--${breakpoint}`} ref={tableRef}>
+        <div
+            className={`table table--${breakpoint}`}
+            ref={tableRef}
+            style={{ ['--my-zone-h' as string]: `${myZoneSize.height}px` }}
+        >
             <div className="table__felt" aria-hidden />
 
             <OpponentRow
@@ -195,6 +203,7 @@ export function GameTable({
             </div>
 
             <MyZone
+                rootRef={myZoneRef}
                 state={state}
                 me={me}
                 count={me ? countOf(me) : 0}
@@ -768,14 +777,15 @@ function PlayArea({
         ...inPlay.filter((id) => id === state.yourId),
     ];
 
-    // One shared cap for tablet and desktop: with `fitCards` now always sizing by
-    // width ÷ count (a single row, no wrapping), the actual constraint at 7 players comes from
-    // the division itself, not this cap - this only ceilings how big cards get at low counts
-    // on a roomy screen.
-    const inPlayMaxWidth = breakpoint === 'mobile' ? 240 : 220;
+    // A big desktop/tablet duel (2 players) was reading as oversized, so its cap came down.
+    // Mobile is the opposite complaint - already tight on width, a lower cap there only made
+    // cards read as too small, so it keeps closer to what it had.
+    const inPlayMaxWidth = breakpoint === 'mobile' ? 220 : 150;
     const fit = fitCards(slotIds.length, stage.width, stage.height, inPlayMaxWidth);
+    // Smaller than before on purpose: a big choosing card was pushing .my-zone tall enough to
+    // overlap the in-play cards above it, and read as oversized on its own.
     const handWidth = Math.floor(
-        Math.min(compact ? 300 : 250, stage.width * 0.9, (stage.height - 8) / 1.4),
+        Math.min(compact ? 230 : 190, stage.width * 0.9, (stage.height - 8) / 1.4),
     );
 
     return (
@@ -1104,9 +1114,10 @@ function RoundResultBanner({
     const { result } = reveal;
     const winner = state.players.find((player) => player.id === result.winnerId);
     const tone = result.isTie ? 'tie' : result.winnerId === state.yourId ? 'win' : 'lose';
-    // One sentence: who takes the cards, and how many. The attribute was already shown when
-    // the cards were compared.
-    const message = result.isTie
+    // A clear headline first (won / lost / tied), then the detail: who takes the cards, and
+    // how many. The attribute itself was already shown when the cards were compared.
+    const headline = t(`table.result.headline.${tone}`);
+    const detail = result.isTie
         ? t('table.result.tie', { count: Object.keys(result.cards).length })
         : tone === 'win'
           ? t('table.result.youTake', { count: result.potSize })
@@ -1139,7 +1150,8 @@ function RoundResultBanner({
                         }
                     />
                 </span>
-                <strong className="round-result__title">{message}</strong>
+                <strong className="round-result__title">{headline}</strong>
+                <span className="round-result__detail">{detail}</span>
             </motion.div>
         </motion.div>
     );
@@ -1180,10 +1192,14 @@ function useHand(
     // (see HandCard), which is what actually gates interaction; everyone else just sees a
     // plain, non-interactive card (PlayingCard renders static rows, no button, no dimming).
     const showCard = card !== null && !busy && !laidDown && inRound;
+    // The spot sits empty from the moment my card leaves for the table until the round is
+    // fully done (reveal, compare, banner, collect) - it never shows a "next" card while my
+    // played one is still being compared, only once there actually is a next one to draw.
+    const showBack = !showCard && !busy && remaining > 0;
     return {
         card,
         showCard,
-        showBack: !showCard && remaining > 0,
+        showBack,
         choosing: state.phase === 'AWAITING_ATTRIBUTE' && isLeader && !busy && turnOpen,
         busy,
     };
@@ -1229,10 +1245,10 @@ function HandCard({
                     <motion.div
                         key="back"
                         className="my-card"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
+                        initial={{ opacity: 0, y: 18, scale: 0.85 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, transition: { duration: 0 } }}
-                        transition={{ duration: 0.2 }}
+                        transition={cardTravel}
                     >
                         <CardBack size="lg" />
                     </motion.div>
@@ -1282,6 +1298,7 @@ function HandHint({
 }
 
 function MyZone({
+    rootRef,
     state,
     me,
     count,
@@ -1289,6 +1306,9 @@ function MyZone({
     isLeader,
     handCard,
 }: {
+    /** Measures the zone's real rendered height so `.board` can reserve exactly that much
+     *  room - see `--my-zone-h` on `.table`. */
+    rootRef: RefObject<HTMLElement>;
     state: RedactedMatchState;
     me: Player | undefined;
     count: number;
@@ -1301,7 +1321,7 @@ function MyZone({
 
     if (!me || me.isSpectator || me.isEliminated) {
         return (
-            <section className="my-zone my-zone--spectator">
+            <section ref={rootRef} className="my-zone my-zone--spectator">
                 <Icon name="hooded-figure" size={34} />
                 <p>{me?.isEliminated ? t('table.spectator.out') : t('table.spectator.watching')}</p>
             </section>
@@ -1310,6 +1330,7 @@ function MyZone({
 
     return (
         <section
+            ref={rootRef}
             className={`my-zone ${hand.choosing ? 'my-zone--active' : ''} ${handCard ? '' : 'my-zone--bar'}`}
             aria-label={t('table.myZone')}
         >
@@ -1317,6 +1338,8 @@ function MyZone({
                 see `play-area__hand` - so this zone is just the seat bar. */}
             {handCard ? <TurnTimer state={state} active={hand.choosing} /> : null}
             <div className="my-zone__row">
+                {handCard}
+
                 <div className="my-zone__seat">
                     <Seat
                         player={me}
@@ -1326,8 +1349,6 @@ function MyZone({
                         you
                     />
                 </div>
-
-                {handCard}
             </div>
         </section>
     );
