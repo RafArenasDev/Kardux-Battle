@@ -789,14 +789,25 @@ function PlayArea({
     const inPlayMaxWidth = breakpoint === 'mobile' ? 220 : 150;
     const columns = columnsFor(breakpoint, slotIds.length);
     const fit = fitCards(slotIds.length, columns, stage.width, stage.height, inPlayMaxWidth);
-    // Desktop/tablet: small enough that .my-zone (floating over the bottom of the table) never
-    // needs to reach up into .board - .board's height, and the table's true center inside it,
-    // must never move to make room for it (that shifted the whole table off-center once
-    // already this session). Mobile is unaffected: the choosing card there renders in
-    // .play-area__hand, at the table's own center, not stacked below it in .my-zone.
-    const handWidth = Math.floor(
-        Math.min(compact ? 230 : 150, stage.width * 0.9, (stage.height - 8) / 1.4),
+    // Desktop/tablet: the card I choose with matches the same size the in-play cards actually
+    // render at - a separate size cap kept drifting apart from theirs and reading oversized
+    // next to them. Sized off the full seat count (stable) rather than `slotIds.length` (0
+    // while I'm still choosing, which would collapse it to nothing). Mobile is unaffected: the
+    // choosing card there renders in .play-area__hand, at the table's own center, not stacked
+    // below it in .my-zone, so it never competes with the in-play cards for space.
+    const totalSeats = state.players.filter(
+        (player) => !player.isSpectator || player.isEliminated,
+    ).length;
+    const handFit = fitCards(
+        totalSeats,
+        columnsFor(breakpoint, totalSeats),
+        stage.width,
+        stage.height,
+        inPlayMaxWidth,
     );
+    const handWidth = compact
+        ? Math.floor(Math.min(230, stage.width * 0.9, (stage.height - 8) / 1.4))
+        : handFit.cardWidth || fit.cardWidth;
 
     return (
         <div
@@ -1280,7 +1291,6 @@ function HandCard({
                     </motion.div>
                 ) : null}
             </AnimatePresence>
-            {hand.blind ? null : <div className="my-card my-card--empty" aria-hidden />}
         </div>
     );
 }

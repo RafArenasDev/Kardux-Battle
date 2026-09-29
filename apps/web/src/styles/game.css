@@ -940,14 +940,6 @@
         filter var(--dur) var(--ease-out);
 }
 
-.my-card--empty {
-    z-index: 0;
-    width: var(--card-lg);
-    height: calc(var(--card-lg) * 1.4);
-    border-radius: calc(var(--card-lg) * 0.09);
-    border: 2px dashed rgba(240, 201, 107, 0.16);
-}
-
 .my-card__blind {
     max-width: min(var(--card-lg), 220px);
     margin: 0;
@@ -1056,12 +1048,6 @@
 .table--mobile .opponent {
     position: static;
     transform: none;
-}
-
-/* Phones: my card is chosen in the middle of the table, so my area is a slim bar (seat and
-   turn timer) and never overlaps the deck, the pot or the cards in play. */
-.table--mobile .my-card--empty {
-    display: none;
 }
 
 .my-zone--bar {
