@@ -146,12 +146,9 @@ export function GameTable({
     const handCard = (
         <HandCard
             hand={hand}
-            state={state}
-            isLeader={leaderId === state.yourId}
             faceRect={myFaceRect}
             shared={compact}
             onSelectAttribute={onSelectAttribute}
-            leaderName={leaderName}
         />
     );
 
@@ -188,6 +185,7 @@ export function GameTable({
                         reveal={reveal}
                         tableRef={tableRef}
                         compact={compact}
+                        breakpoint={breakpoint}
                         handCard={compact && hand.showCard ? handCard : null}
                         hand={hand}
                         isLeader={leaderId === state.yourId}
@@ -683,6 +681,7 @@ function PlayArea({
     reveal,
     tableRef,
     compact,
+    breakpoint,
     handCard,
     hand,
     isLeader,
@@ -695,6 +694,7 @@ function PlayArea({
     reveal: RevealState | null;
     tableRef: RefObject<HTMLDivElement>;
     compact: boolean;
+    breakpoint: Breakpoint;
     /** On phones my card is chosen right here, in the middle of the table. */
     handCard: JSX.Element | null;
     /** Phones: the countdown and the "why can(not) I act" hint belong right by the card I'm
@@ -728,9 +728,13 @@ function PlayArea({
         ...inPlay.filter((id) => id === state.yourId),
     ];
 
-    const fit = fitCards(slotIds.length, stage.width, stage.height, compact ? 240 : 230);
+    // Cards in play read too small on a roomy desktop and too big on tablet once .play-area
+    // gained the table's full height - tablet and desktop need their own cap, not one shared
+    // "not compact" bucket.
+    const inPlayMaxWidth = breakpoint === 'mobile' ? 240 : breakpoint === 'tablet' ? 190 : 300;
+    const fit = fitCards(slotIds.length, stage.width, stage.height, inPlayMaxWidth);
     const handWidth = Math.floor(
-        Math.min(compact ? 280 : 250, stage.width * 0.86, (stage.height - 8) / 1.4),
+        Math.min(compact ? 300 : 250, stage.width * 0.9, (stage.height - 8) / 1.4),
     );
 
     return (
@@ -1130,7 +1134,10 @@ function useHand(
     const laidDown =
         myPlayedCard !== null || (state.round?.playedBy.includes(state.yourId) ?? false);
     const inRound = state.phase === 'AWAITING_ATTRIBUTE' || state.phase === 'AWAITING_CARDS';
-    const showCard = card !== null && !busy && !laidDown && inRound;
+    // Face up only for whoever is actually choosing this round - everyone else sees the back
+    // of their own card too, exactly like every other player's card. A dimmed, locked face-up
+    // card still invited a tap and still gave away the stats; the back doesn't.
+    const showCard = card !== null && !busy && !laidDown && inRound && isLeader;
     return {
         card,
         showCard,
@@ -1140,64 +1147,28 @@ function useHand(
     };
 }
 
-/** Not in the generated icon set - a small, self-contained padlock so "not your turn" never
- *  reads as merely dim/loading. */
-function LockIcon(): JSX.Element {
-    return (
-        <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" aria-hidden>
-            <rect
-                x="5"
-                y="11"
-                width="14"
-                height="10"
-                rx="2"
-                stroke="currentColor"
-                strokeWidth="2"
-            />
-            <path
-                d="M8 11V7a4 4 0 0 1 8 0v4"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-            />
-            <circle cx="12" cy="16" r="1.6" fill="currentColor" />
-        </svg>
-    );
-}
-
 /** My spot: the top card face up while it is in my hands, and the back of the next card of my
  *  pile once it has been laid down, so the spot always shows a card while I have one. The
  *  face-up card leaves without fading: the card on the table takes off from its exact box. */
 function HandCard({
     hand,
-    state,
-    isLeader,
     faceRect,
     shared,
     onSelectAttribute,
-    leaderName,
 }: {
     hand: HandState;
-    state: RedactedMatchState;
-    isLeader: boolean;
     faceRect: MutableRefObject<DOMRect | null>;
     /** Phones: the card can move to my seat at the table, so it animates between both. */
     shared: boolean;
     onSelectAttribute: (attribute: string) => void;
-    /** Whoever leads this round, so the overlay can say *who* is holding things up instead of
-     *  just "locked" - a name explains itself, an icon alone doesn't. */
-    leaderName: string | null;
 }): JSX.Element {
-    const { t } = useTranslation();
     return (
         <div className="my-zone__card" data-my-card>
             <AnimatePresence initial={false}>
                 {hand.showCard && hand.card ? (
                     <motion.div
                         key={hand.card.code}
-                        // Not my turn to pick: the card dims, so it never looks like a live
-                        // button waiting for a tap that would silently do nothing.
-                        className={`my-card ${hand.choosing ? '' : 'my-card--waiting'}`}
+                        className="my-card"
                         {...(shared ? { layoutId: 'my-top-card' } : {})}
                         initial={{ opacity: 0, y: 50, rotateY: 80 }}
                         animate={{ opacity: 1, y: 0, rotateY: 0 }}
@@ -1211,17 +1182,6 @@ function HandCard({
                                 {...(hand.choosing ? { onSelectAttribute } : {})}
                             />
                         </TrackedFace>
-                        {/* The dim alone can read as "loading" rather than "not yours to tap".
-                            Naming who's actually holding things up explains itself - a bare
-                            lock icon makes a player guess. */}
-                        {hand.choosing ? null : (
-                            <div className="my-card__lock">
-                                <LockIcon />
-                                <span className="my-card__lock-text">
-                                    {handWaitText(t, hand, state, isLeader, leaderName)}
-                                </span>
-                            </div>
-                        )}
                     </motion.div>
                 ) : hand.showBack ? (
                     <motion.div
