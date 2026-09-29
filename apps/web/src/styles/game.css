@@ -581,6 +581,13 @@
     pointer-events: none;
 }
 
+/* Tablet can lay 5-7 in-play cards out in two rows (see columnsFor), which reaches higher up
+   than the single row this base clearance was tuned against - extra headroom so the pill
+   clears the top row's own top edge too, not just where a single row would have started. */
+.table--tablet .status-slot {
+    transform: translate(-50%, calc(-100% - 84px));
+}
+
 .status-slot .status-line {
     pointer-events: auto;
 }

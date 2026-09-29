@@ -801,23 +801,11 @@ function PlayArea({
         : state.phase === 'AWAITING_CARDS'
           ? (state.round?.playOrder ?? [])
           : [];
-    // `inPlay` (from playOrder) is anchored at whoever leads THIS round, not at me - a
-    // different reference point than the seat arc (anchored at me, see `opponents` in
-    // GameTable), which made the row's left-to-right order disagree with the arc and read as
-    // random whenever I wasn't the leader. Re-anchored here at my own seat, same as the arc,
-    // so the table always reads as one consistent "starting from my right" sequence regardless
-    // of who's actually choosing.
-    const seatOrder = [...state.players]
-        .filter((player) => !player.isSpectator || player.isEliminated)
-        .sort((a, b) => a.seat - b.seat);
-    const mySeatIndex = seatOrder.findIndex((player) => player.id === state.yourId);
-    const egocentricIds =
-        mySeatIndex === -1
-            ? seatOrder.map((player) => player.id)
-            : [...seatOrder.slice(mySeatIndex), ...seatOrder.slice(0, mySeatIndex)].map(
-                  (player) => player.id,
-              );
-    const slotIds = egocentricIds.filter((id) => inPlay.includes(id));
+    // Explicit correction: the row fills by ARRIVAL order, not by seat - whoever actually
+    // throws next takes the next open position (1, 2, 3...), same on every breakpoint. Seat
+    // order is for the arc (`opponents` in GameTable) only, which decides who's seated where
+    // and therefore who plays when - not how the thrown cards line up as they land.
+    const slotIds = inPlay;
 
     // Desktop confirmed good at 150 (a big duel was reading as oversized there). Tablet gets
     // its own value instead of sharing desktop's - same single-row layout and order logic, just
@@ -828,14 +816,10 @@ function PlayArea({
     const columns = columnsFor(breakpoint, slotIds.length);
     const fit = fitCards(slotIds.length, columns, stage.width, stage.height, inPlayMaxWidth);
     // Desktop: the card I choose with matches the same size the in-play cards actually render
-    // at - a separate cap kept drifting apart from theirs and reading oversized next to them.
-    // Tablet needs its OWN, bigger cap instead - the stat rows are what I actually have to tap
-    // to choose an attribute, and matching the (smaller, clustered) in-play card size there made
-    // it hard to hit. Sized off the full seat count (stable) rather than `slotIds.length` (0
-    // while I'm still choosing, which would collapse it to nothing). Mobile is unaffected: the
-    // choosing card there renders in .play-area__hand, at the table's own center, not stacked
-    // below it in .my-zone, so it never competes with the in-play cards for space.
-    const handMaxWidth = breakpoint === 'tablet' ? 240 : inPlayMaxWidth;
+    // at (its layout is always a single row, so fitCards's shared math sizes it sanely) - a
+    // separate cap kept drifting apart from theirs and reading oversized next to them. Sized
+    // off the full seat count (stable) rather than `slotIds.length` (0 while I'm still
+    // choosing, which would collapse it to nothing).
     const totalSeats = state.players.filter(
         (player) => !player.isSpectator || player.isEliminated,
     ).length;
@@ -844,11 +828,18 @@ function PlayArea({
         columnsFor(breakpoint, totalSeats),
         stage.width,
         stage.height,
-        handMaxWidth,
+        inPlayMaxWidth,
     );
-    const handWidth = compact
-        ? Math.floor(Math.min(230, stage.width * 0.9, (stage.height - 8) / 1.4))
-        : handFit.cardWidth || fit.cardWidth;
+    // Mobile and tablet both size the choosing card on its own, not through fitCards's grid
+    // math - it renders alone (in .play-area__hand on mobile, in .my-zone on tablet/desktop),
+    // never actually sharing space with a multi-row cluster of everyone else's cards the way
+    // fitCards's height division assumes. Using that math for tablet was the real bug behind
+    // "too small to read" - dividing available height by a 2-row cluster's worth of rows that
+    // this single card was never actually part of.
+    const handWidth =
+        compact || breakpoint === 'tablet'
+            ? Math.floor(Math.min(compact ? 230 : 240, stage.width * 0.9, (stage.height - 8) / 1.4))
+            : handFit.cardWidth || fit.cardWidth;
 
     return (
         <div
