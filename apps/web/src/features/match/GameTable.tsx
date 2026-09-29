@@ -1,5 +1,5 @@
 import type { Card, Player, RedactedMatchState } from '@kardux/contracts';
-import { TABLE_TIMING } from '@kardux/contracts';
+import { MAX_PLAYERS, TABLE_TIMING } from '@kardux/contracts';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { CSSProperties, JSX, MutableRefObject, ReactNode, RefObject } from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -553,20 +553,20 @@ function seatStatus(
 }
 
 const SEAT_ARC_CX = 50;
-const SEAT_ARC_CY = 33;
+const SEAT_ARC_CY = 50;
 const SEAT_ARC_RX = 40;
-const SEAT_ARC_RY = 26;
+const SEAT_ARC_RY = 46;
+/** MAX_PLAYERS (see @kardux/contracts) minus me - the table always has exactly this many
+ *  opponent seats, whether or not anyone has actually joined them yet. */
+const SEAT_SLOTS = MAX_PLAYERS - 1;
 
 /**
- * Arc-length table for the FULL ellipse (all 360°) opponents are seated around, sampled once at
- * module load, starting at theta=90° (straight down - my own implied vertex) and walking
- * clockwise from my right. A regular polygon's vertices are equally spaced by ANGLE by
- * definition, but this ellipse isn't a circle (rx=40 != ry=26) - equal angle steps bunch up near
- * the flatter curvature (the sides, since rx > ry) and spread out near the ends (top/bottom,
- * closest to me), which is exactly the unevenness reported live: more space from me to my
- * nearest neighbors than between the seats up top. Equal steps in *arc length* (this table,
- * inverted by `thetaAtArcFraction`) keep the on-screen distance the same between every seat,
- * regardless of where they land on the curve.
+ * Arc-length table for the seat ellipse (all 360°), sampled once at module load, starting at
+ * theta=90° (straight down - my own seat) and walking clockwise from my right. Equal angle
+ * steps bunch seats together near the flatter curvature (the sides, since rx > ry) and spread
+ * them apart near the top/bottom - confirmed live, visibly more space between me and my nearest
+ * neighbors than between the seats up top. Equal steps in *arc length* (this table, inverted by
+ * `thetaAtSeatArcFraction`) keep the on-screen distance the same between every seat.
  */
 const SEAT_ARC_SAMPLES = 720;
 const seatArcLengthTable: { theta: number; length: number }[] = (() => {
@@ -605,18 +605,14 @@ function thetaAtSeatArcFraction(fraction: number): number {
 }
 
 /**
- * Opponents sit at equally-spaced points (by real on-screen distance, see above) around the
- * table's oval - a heptagon's worth of visual spacing at 7 total players, a hexagon's at 6, and
- * so on - with ME as the implied vertex that always points straight down (`.my-zone` owns that
- * spot; this function only ever places opponents, index 0..opponentCount-1). Tablet/laptop/
- * desktop only, via the existing `compact` gate; mobile's compact list is untouched.
+ * Fixed position for one of the `SEAT_SLOTS` reserved opponent seats - always the same point
+ * for a given slot index, whether or not anyone has actually joined it (see OpponentRow), and
+ * always following the oval's real curve (not a straight row - a straight row doesn't follow
+ * the table's own rounded shape and can poke outside it near the top). Slot 0 is my nearest
+ * neighbor on the right, walking around clockwise from there.
  */
-function seatArc(index: number, opponentCount: number): CSSProperties {
-    const total = opponentCount + 1; // +1 for me, the implied vertex at the bottom
-    if (total <= 1) return {};
-    // `opponents` is already ordered so index 0 is the next player in turn order, who reads as
-    // sitting to my right - fraction (index+1)/total starts one step clockwise from me (0).
-    const theta = thetaAtSeatArcFraction((index + 1) / total);
+function seatSlotStyle(slotIndex: number): CSSProperties {
+    const theta = thetaAtSeatArcFraction((slotIndex + 1) / (SEAT_SLOTS + 1));
     return {
         left: `${SEAT_ARC_CX + SEAT_ARC_RX * Math.cos(theta)}%`,
         top: `${SEAT_ARC_CY + SEAT_ARC_RY * Math.sin(theta)}%`,
@@ -637,26 +633,43 @@ function OpponentRow({
     compact: boolean;
 }): JSX.Element {
     const { t } = useTranslation();
+    // Desktop/tablet: always SEAT_SLOTS <li>s, reserved whether filled or not, at fixed points -
+    // so the layout (and everything sized off it) never changes shape as players join or leave.
+    // Mobile keeps its own compact list, exactly the players actually seated, no empty ones.
+    const slots: (Player | null)[] = compact
+        ? opponents
+        : Array.from({ length: SEAT_SLOTS }, (_, i) => opponents[i] ?? null);
     return (
         <ul
             className={`opponents ${compact ? 'opponents--compact' : ''}`}
             aria-label={t('table.rivals')}
         >
-            {opponents.map((player, index) => (
-                <li
-                    key={player.id}
-                    className={`opponent ${player.isEliminated ? 'is-out' : ''}`}
-                    style={compact ? undefined : seatArc(index, opponents.length)}
-                >
-                    <Seat
-                        player={player}
-                        count={countOf(player)}
-                        isLeader={leaderId === player.id}
-                        status={seatStatus(t, state, player, leaderId === player.id)}
-                        compact={compact}
-                    />
-                </li>
-            ))}
+            {slots.map((player, index) =>
+                player ? (
+                    <li
+                        key={player.id}
+                        className={`opponent ${player.isEliminated ? 'is-out' : ''}`}
+                        style={compact ? undefined : seatSlotStyle(index)}
+                    >
+                        <Seat
+                            player={player}
+                            count={countOf(player)}
+                            isLeader={leaderId === player.id}
+                            status={seatStatus(t, state, player, leaderId === player.id)}
+                            compact={compact}
+                        />
+                    </li>
+                ) : (
+                    <li
+                        key={`empty-${index}`}
+                        className="opponent opponent--empty"
+                        style={seatSlotStyle(index)}
+                        aria-hidden
+                    >
+                        <span className="opponent__placeholder" />
+                    </li>
+                ),
+            )}
         </ul>
     );
 }

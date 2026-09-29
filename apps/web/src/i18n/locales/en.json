@@ -42,7 +42,7 @@
             },
             "friends": {
                 "title": "Private rooms",
-                "text": "From 2 to 7 players with a room code or a link to share."
+                "text": "From 2 to 6 players with a room code or a link to share."
             },
             "bot": {
                 "title": "Quick match",
@@ -136,7 +136,7 @@
         },
         "private": {
             "title": "Private room",
-            "text": "From 2 to 7 players. You set the rules and share the code with anyone.",
+            "text": "From 2 to 6 players. You set the rules and share the code with anyone.",
             "create": "Create room",
             "register": "Create an account"
         },

@@ -479,6 +479,16 @@
         filter 0.6s var(--ease-out);
 }
 
+/* A reserved seat nobody has joined yet - solid, not dashed (that reads as clutter here), just
+   faint enough to clearly read as "nobody's sitting here" rather than a real player. */
+.opponent__placeholder {
+    display: block;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+}
+
 .opponent.is-out {
     opacity: 0.45;
     filter: grayscale(1);
@@ -911,7 +921,11 @@
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 0;
+    /* position:absolute's containing block is .table's padding box, so bottom:0 used to ignore
+       .table's own bottom padding entirely and land past .board's bottom edge - the seat pill
+       poked outside the table's gold border. Anchoring to the same padding .board itself uses
+       keeps my-zone's box flush with .board's, never past it. */
+    bottom: calc(clamp(8px, 1.4dvh, 16px) + var(--safe-bottom));
     z-index: 8;
     display: grid;
     gap: clamp(6px, 1.2dvh, 12px);

@@ -53,17 +53,17 @@ victoria (`#2DD4A7`) y carmesí para derrota (`#EF4A5A`). Tipografía display **
 
 Esquema Zod único en `packages/contracts/src/match-config.ts`, validado en cliente y servidor:
 
-| Campo                                      | Por defecto     | Notas                                           |
-| ------------------------------------------ | --------------- | ----------------------------------------------- |
-| `minPlayers` / `maxPlayers`                | 2 / 7           | Rango 2-7 (`MAX_PLAYERS`)                       |
-| `autoStartPlayers`, `autoStartCountdownMs` | 7, 5 000 ms     | Entre `minPlayers` y `maxPlayers`               |
-| `matchDurationMs`                          | 1 h             | `0` = sin límite                                |
-| `turnTimeoutMs`, `onTurnTimeout`           | 30 s, aleatorio | Al vencer se elige un atributo por el jugador   |
-| `packs`, `cardsPerPack`, `attributeCount`  | 4, 8, 4         | Validados contra los límites reales del mazo    |
-| `cardsPerPlayer`                           | 0               | `0` = repartir todo lo posible                  |
-| `firstTurn`                                | `lowest_card`   | `first_joined` en la práctica contra la máquina |
-| `deckSources`                              | `['pokeapi']`   | Preparado para sumar más fuentes                |
-| `visibility`, `allowSpectators`            | privada, sí     |                                                 |
+| Campo                                      | Por defecto     | Notas                                                                                           |
+| ------------------------------------------ | --------------- | ----------------------------------------------------------------------------------------------- |
+| `minPlayers` / `maxPlayers`                | 2 / 6           | Rango 2-6 (`MAX_PLAYERS`, bajado de 7 el 2026-09-29 para permitir puestos fijos 3+3 en la mesa) |
+| `autoStartPlayers`, `autoStartCountdownMs` | 7, 5 000 ms     | Entre `minPlayers` y `maxPlayers`                                                               |
+| `matchDurationMs`                          | 1 h             | `0` = sin límite                                                                                |
+| `turnTimeoutMs`, `onTurnTimeout`           | 30 s, aleatorio | Al vencer se elige un atributo por el jugador                                                   |
+| `packs`, `cardsPerPack`, `attributeCount`  | 4, 8, 4         | Validados contra los límites reales del mazo                                                    |
+| `cardsPerPlayer`                           | 0               | `0` = repartir todo lo posible                                                                  |
+| `firstTurn`                                | `lowest_card`   | `first_joined` en la práctica contra la máquina                                                 |
+| `deckSources`                              | `['pokeapi']`   | Preparado para sumar más fuentes                                                                |
+| `visibility`, `allowSpectators`            | privada, sí     |                                                                                                 |
 
 Se rechazan combinaciones imposibles (`autoStartPlayers > maxPlayers`, `minPlayers > maxPlayers`,
 mazo insuficiente para los jugadores, etc.).

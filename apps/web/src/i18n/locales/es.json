@@ -42,7 +42,7 @@
             },
             "friends": {
                 "title": "Salas privadas",
-                "text": "De 2 a 7 jugadores con un código de sala o un enlace para compartir."
+                "text": "De 2 a 6 jugadores con un código de sala o un enlace para compartir."
             },
             "bot": {
                 "title": "Partida rápida",
@@ -136,7 +136,7 @@
         },
         "private": {
             "title": "Sala privada",
-            "text": "De 2 a 7 jugadores. Tú eliges las reglas y compartes el código con quien quieras.",
+            "text": "De 2 a 6 jugadores. Tú eliges las reglas y compartes el código con quien quieras.",
             "create": "Crear sala",
             "register": "Crea una cuenta"
         },

@@ -60,7 +60,7 @@ browser. It has a Spanish/English selector.
 | Aspect    | Summary                                                                                         |
 | --------- | ----------------------------------------------------------------------------------------------- |
 | What      | A multiplayer "Top Trumps"-style card battle with 1,025 real Pokémon and their base stats       |
-| Who plays | Guests (no sign-up) and registered accounts; 2 to 7 players per table                           |
+| Who plays | Guests (no sign-up) and registered accounts; 2 to 6 players per table                           |
 | How       | Private rooms by hex code or link, quick 1-vs-1 matchmaking, or a practice match vs the machine |
 | Real time | WebSockets (Socket.IO): every card, flip and result is pushed to every seat as it happens       |
 | Fair play | The server is authoritative and each player only ever receives their own top card               |
@@ -134,19 +134,19 @@ app and an actual deployment.
 Every one of the original rules is still there, implemented in the pure rules engine
 (`packages/engine`) and covered by tests:
 
-| Original rule                                                                   | Implementation today                                                                                                                         |
-| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| 4 packs of 8 cards, quartets `1A, 2A, 3A, 4A`…                                  | Default deck: 4 × 8 = 32 Pokémon. Each quartet letter is one Pokémon type; packs (1-6) and quartets (2-16) are configurable.                 |
-| Cards with a picture and technical specs                                        | Official artwork and base stats (HP, Attack, Defense, Speed, Sp. Attack, Sp. Defense) from PokéAPI; 3 to 6 per match.                        |
-| 2 to 7 players                                                                  | Enforced by one shared Zod schema (`MAX_PLAYERS = 7`) on client and server.                                                                  |
-| The creator receives a hexadecimal match code                                   | 6-character hex room code plus a share link (WhatsApp, Telegram, e-mail, native share).                                                      |
-| The admin starts once enough join; the 7th player starts it automatically       | "Start" once `minPlayers` is met; an auto-start countdown when `autoStartPlayers` (7 by default) are seated, cancelable by the host.         |
-| Deal every possible card; leftovers chosen at random                            | Seeded shuffle, round-robin deal; the remainder stays on the **deck spot**, marked "out of play". Optional fixed number of cards per player. |
-| Each player only sees the top card of their pile                                | Per-player state redaction on the server (`redactFor`).                                                                                      |
-| `1A` starts; otherwise `1B`, `1C`… then `2A`; then joining order                | `findFirstTurnPlayerId` + `buildTurnOrder`, tested for the fallback order.                                                                   |
-| The player on turn picks a spec; everyone lays their top card; highest wins     | Cards land face down in turn order, flip together, the winning card lights up, the winner takes the table and leads the next round.          |
-| Tie: the cards stay on the table and a new round starts                         | A **pot** spot collects tied cards; the next round's winner takes them too.                                                                  |
-| End when someone holds every card, or after 1 hour (most cards wins, else draw) | Both, with a configurable duration (10 min to 1 h, or unlimited).                                                                            |
+| Original rule                                                                   | Implementation today                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4 packs of 8 cards, quartets `1A, 2A, 3A, 4A`…                                  | Default deck: 4 × 8 = 32 Pokémon. Each quartet letter is one Pokémon type; packs (1-6) and quartets (2-16) are configurable.                                                                                    |
+| Cards with a picture and technical specs                                        | Official artwork and base stats (HP, Attack, Defense, Speed, Sp. Attack, Sp. Defense) from PokéAPI; 3 to 6 per match.                                                                                           |
+| 2 to 7 players                                                                  | Enforced by one shared Zod schema (`MAX_PLAYERS = 6`) on client and server - capped one below the brief's 7 so the table can reserve a fixed, evenly-split seat layout (3 top, 3 bottom) instead of an odd one. |
+| The creator receives a hexadecimal match code                                   | 6-character hex room code plus a share link (WhatsApp, Telegram, e-mail, native share).                                                                                                                         |
+| The admin starts once enough join; the 7th player starts it automatically       | "Start" once `minPlayers` is met; an auto-start countdown when `autoStartPlayers` (6 by default) are seated, cancelable by the host.                                                                            |
+| Deal every possible card; leftovers chosen at random                            | Seeded shuffle, round-robin deal; the remainder stays on the **deck spot**, marked "out of play". Optional fixed number of cards per player.                                                                    |
+| Each player only sees the top card of their pile                                | Per-player state redaction on the server (`redactFor`).                                                                                                                                                         |
+| `1A` starts; otherwise `1B`, `1C`… then `2A`; then joining order                | `findFirstTurnPlayerId` + `buildTurnOrder`, tested for the fallback order.                                                                                                                                      |
+| The player on turn picks a spec; everyone lays their top card; highest wins     | Cards land face down in turn order, flip together, the winning card lights up, the winner takes the table and leads the next round.                                                                             |
+| Tie: the cards stay on the table and a new round starts                         | A **pot** spot collects tied cards; the next round's winner takes them too.                                                                                                                                     |
+| End when someone holds every card, or after 1 hour (most cards wins, else draw) | Both, with a configurable duration (10 min to 1 h, or unlimited).                                                                                                                                               |
 
 **What the first version never had:** real-time multiplayer over WebSockets, quick matchmaking, a
 practice rival, accounts and a multiplayer Elo ranking, forfeit rules, reconnection, chat, a
@@ -667,7 +667,7 @@ All server settings are environment variables validated at boot by a Zod schema
 | `DISABLED_DECKS`                                   | Kill switch to hide a deck without a code change                |
 | `VITE_API_BASE_URL` (web, optional)                | API URL when the web app is hosted on another origin            |
 
-Room rules are configured from the create screen: players (2-7), minimum to start, auto-start
+Room rules are configured from the create screen: players (2-6), minimum to start, auto-start
 threshold, packs, quartets, attributes per card (3-6), cards per player, match duration and time
 per turn, all validated against the deck's real limits.
 
@@ -683,7 +683,7 @@ pnpm --filter @kardux/web i18n:check
 
 | Suite                              | What it covers                                                                                                                    |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/contracts` (40 tests)    | Config rules (2-7 players, deck limits), payload schemas                                                                          |
+| `packages/contracts` (40 tests)    | Config rules (2-6 players, deck limits), payload schemas                                                                          |
 | `packages/engine` (80 tests)       | Every original game rule, chained ties, knock-outs, all leave scenarios, turn timeouts, deal remainder, Elo, byte-for-byte replay |
 | `apps/api` (36 tests)              | Services with mocked Prisma, health, leaderboard, and a real game loop over Socket.IO against a database                          |
 | `apps/api/scripts/smoke-table.mjs` | Scripted 3-player private match against a running API: auto-start, rounds, two leavers, ranking update                            |

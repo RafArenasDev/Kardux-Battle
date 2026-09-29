@@ -2,8 +2,9 @@ import { z } from 'zod';
 import { deckSourceIdSchema } from './card.js';
 
 /** What happens when a player lets their turn clock run out. */
-/** The original brief: from 2 up to 7 players per table. */
-export const MAX_PLAYERS = 7;
+/** Capped at 6 (not the original brief's 7) so the table's seat layout can reserve fixed,
+ *  evenly-divided top/bottom slots (3 + 3, always) instead of recomputing an odd split live. */
+export const MAX_PLAYERS = 6;
 
 export const TURN_TIMEOUT_POLICIES = ['random_attr', 'highest_attr', 'skip'] as const;
 export type TurnTimeoutPolicy = (typeof TURN_TIMEOUT_POLICIES)[number];
