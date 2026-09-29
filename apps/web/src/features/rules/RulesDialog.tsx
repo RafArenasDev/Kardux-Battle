@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import type { JSX } from 'react';
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/Button';
 import { Icon } from '../../components/ui/Icon';
@@ -26,7 +27,7 @@ export function RulesDialog({
         return () => window.removeEventListener('keydown', onKey);
     }, [open, onClose]);
 
-    return (
+    return createPortal(
         <AnimatePresence>
             {open ? (
                 <motion.div
@@ -74,6 +75,7 @@ export function RulesDialog({
                     </motion.div>
                 </motion.div>
             ) : null}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body,
     );
 }
