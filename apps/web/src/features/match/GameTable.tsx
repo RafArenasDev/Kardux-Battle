@@ -778,11 +778,11 @@ function PlayArea({
         : state.phase === 'AWAITING_CARDS'
           ? (state.round?.playOrder ?? [])
           : [];
-    // Rivals' cards face them; mine always lands last, on my side of the table.
-    const slotIds = [
-        ...inPlay.filter((id) => id !== state.yourId),
-        ...inPlay.filter((id) => id === state.yourId),
-    ];
+    // Table order always follows real play order: the leader, then each player to their right
+    // in turn (`playOrder`/`reveal.cards` are already in that sequence) - never reshuffled to
+    // put my own card in any particular spot, so the row always reads as "who chose, then who
+    // threw next" left to right, at any seat.
+    const slotIds = inPlay;
 
     // A big desktop/tablet duel (2 players) was reading as oversized, so its cap came down.
     // Mobile is the opposite complaint - already tight on width, a lower cap there only made
