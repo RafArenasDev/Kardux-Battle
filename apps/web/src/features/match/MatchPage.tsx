@@ -160,6 +160,7 @@ export default function MatchPage(): JSX.Element {
                                 icon="scroll-unfurled"
                                 aria-label={t('rules.open')}
                                 data-tip={t('rules.open')}
+                                data-tip-pos="bottom"
                                 onClick={() => setRulesOpen(true)}
                             />
                             {!sideInline ? (

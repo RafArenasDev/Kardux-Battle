@@ -68,6 +68,7 @@
         "backHome": "Back to home",
         "you": "You",
         "youSuffix": "{{name}} (you)",
+        "youTag": "(you)",
         "cards_one": "{{count}} card",
         "cards_other": "{{count}} cards",
         "players_one": "{{count}} player",

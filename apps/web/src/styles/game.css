@@ -498,8 +498,8 @@
     position: relative;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 6px 16px 6px 6px;
+    gap: 8px;
+    padding: 6px 12px 6px 6px;
     border-radius: var(--r-pill);
     background: var(--surface-glass);
     border: 1px solid var(--hairline);
@@ -548,7 +548,15 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: clamp(80px, 11vw, 150px);
+    /* A fixed width, not max-width - every seat pill (opponents and my own) needs to read as
+       the same size regardless of nickname length, not shrink-to-fit around short names. Kept
+       tight to real nickname lengths on purpose - the wider this is, the wider the whole pill,
+       and the more of the table's own radius the seat-arc math has to give up to clear it.
+       font-size sized down specifically so a full "Jugador1234"/"Player1234" guest name (the
+       longest normal case) fits without hitting the ellipsis above - a real registered
+       nickname can still be very long, so overflow:hidden stays as a last-resort guard. */
+    width: clamp(72px, 8vw, 112px);
+    font-size: 0.8rem;
 }
 
 .seat__status {
@@ -766,12 +774,14 @@
 .slot__owner {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 10px;
+    gap: 5px;
+    padding: 2px 8px;
     border-radius: var(--r-pill);
     background: rgba(0, 0, 0, 0.55);
     font-weight: 800;
-    font-size: 0.76rem;
+    /* A touch smaller than before - the full nickname + attribute value badge together were
+       wider than the card slot itself, reading as cramped/cut off against the next card over. */
+    font-size: 0.7rem;
     max-width: calc(var(--slot-w) + 36px);
 }
 
@@ -923,9 +933,11 @@
     right: 0;
     /* position:absolute's containing block is .table's padding box, so bottom:0 used to ignore
        .table's own bottom padding entirely and land past .board's bottom edge - the seat pill
-       poked outside the table's gold border. Anchoring to the same padding .board itself uses
-       keeps my-zone's box flush with .board's, never past it. */
-    bottom: calc(clamp(8px, 1.4dvh, 16px) + var(--safe-bottom));
+       poked outside the table's gold border. --my-zone-bottom is set from JS (see useSeatArc in
+       GameTable) to the exact pixel offset that keeps my own seat pill flush with the same
+       SEAT_EDGE_MARGIN_PX every opponent seat keeps from the board's edge; the calc() is only
+       the first-paint fallback before that measurement lands. */
+    bottom: var(--my-zone-bottom, calc(clamp(8px, 1.4dvh, 16px) + var(--safe-bottom)));
     z-index: 8;
     display: grid;
     gap: clamp(6px, 1.2dvh, 12px);

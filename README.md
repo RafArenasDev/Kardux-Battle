@@ -754,8 +754,12 @@ environment variables, and point an uptime monitor at `/health`.
 
 - More decks from other public APIs (new `DECK_SOURCE_IDS` plus a card-pool sync).
 - Match replays from the `match_events` log.
-- Playwright end-to-end run of a full 7-player table.
+- Playwright end-to-end run of a full 6-player table.
 - Password recovery once a delivery channel is chosen.
+- Mobile breakpoint pass on the match table - tablet and desktop are done; phone layout hasn't
+  had the same seat-arc/margin pass yet.
+- The per-player card count shown while dealing doesn't reliably tick up live for every seat -
+  worth a closer look at `useDealCounts` in `GameTable.tsx`.
 
 ## 26. Credits and license
 

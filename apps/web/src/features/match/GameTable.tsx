@@ -122,6 +122,8 @@ export function GameTable({
     onSelectAttribute,
 }: GameTableProps): JSX.Element {
     const tableRef = useRef<HTMLDivElement>(null);
+    const { geometry: seatGeometry, myZoneBottom } = useSeatArc(tableRef, breakpoint);
+    const seatArcTable = useMemo(() => buildSeatArcLengthTable(seatGeometry), [seatGeometry]);
     // Real top edge of whatever .play-area is actually showing (the in-play cards - 1 or 2 rows
     // depending on breakpoint/count, my choosing card, or the empty-table icon), relative to
     // .table - lets StatusLine sit just above it, at any row count, instead of a fixed pixel
@@ -161,15 +163,16 @@ export function GameTable({
     // Egocentric, on every player's own screen: rotated so it starts right after MY seat and
     // wraps back around to just before it (seat 3 of 7 sees 4,5,6,7,1,2 - not the raw global
     // order with 3 removed, which would only happen to look right for whoever sits in seat 1).
-    // Reversed on top of that: seatArc's index 0 lands at the arc's leftmost point, but the
-    // *next* player after me (now first in this list) needs to read as sitting to MY right.
+    // seatArc's index 0 (slotIndex 0, fraction 1/6) lands on the arc's RIGHTMOST point - so the
+    // *next* player after me, first in this rotated list, needs to land there unreversed for
+    // cards to keep throwing to my right around the table, matching real turn order.
     const opponents = useMemo(() => {
         const mySeatIndex = seated.findIndex((player) => player.id === state.yourId);
         const rotated =
             mySeatIndex === -1
                 ? seated
                 : [...seated.slice(mySeatIndex + 1), ...seated.slice(0, mySeatIndex)];
-        return [...rotated].reverse();
+        return rotated;
     }, [seated, state.yourId]);
     const leaderId = currentLeaderId(state);
     const deal = useDealCounts(state, dealing);
@@ -210,15 +213,25 @@ export function GameTable({
     );
 
     return (
-        <div className={`table table--${breakpoint}`} ref={tableRef}>
+        <div
+            className={`table table--${breakpoint}`}
+            ref={tableRef}
+            style={
+                myZoneBottom !== null
+                    ? ({ '--my-zone-bottom': `${myZoneBottom}px` } as CSSProperties)
+                    : undefined
+            }
+        >
             <div className="table__felt" aria-hidden />
 
             <OpponentRow
-                state={state}
                 opponents={opponents}
                 leaderId={leaderId}
                 countOf={countOf}
                 compact={breakpoint === 'mobile'}
+                breakpoint={breakpoint}
+                seatGeometry={seatGeometry}
+                seatArcTable={seatArcTable}
             />
 
             {/* Positioned straight on .table (not nested in .play-area, whose own box keeps
@@ -535,102 +548,290 @@ function PotSpot({ count }: { count: number }): JSX.Element {
 
 // ---------------------------------------------------------------- Opponents
 
-function seatStatus(
-    t: ReturnType<typeof useTranslation>['t'],
-    state: RedactedMatchState,
-    player: Player,
-    isLeader: boolean,
-): string {
-    if (player.hasLeft) return t('table.status.left');
-    if (player.isEliminated) return t('table.status.out');
-    if (state.phase === 'AWAITING_ATTRIBUTE' && isLeader) return t('table.status.choosing');
-    if (state.phase === 'AWAITING_CARDS') {
-        return state.round?.playedBy.includes(player.id)
-            ? t('table.status.played')
-            : t('table.status.playing');
-    }
-    return isLeader ? t('table.status.leader') : '';
+/** Guest nicknames ("Jugador4821"-style) are generated server-side in Spanish only (see
+ *  apps/api's auth.service.ts) - a fixed string in the DB, not locale-aware. This swaps just the
+ *  display, in whichever language is active, without touching the stored nickname or a
+ *  registered player's own chosen name. */
+function displayNickname(nickname: string, t: ReturnType<typeof useTranslation>['t']): string {
+    const guest = /^Jugador(\d+)$/.exec(nickname);
+    return guest ? `${t('common.player')}${guest[1]}` : nickname;
 }
 
-const SEAT_ARC_CX = 50;
-const SEAT_ARC_CY = 50;
-const SEAT_ARC_RX = 40;
-const SEAT_ARC_RY = 46;
+function seatStatus(t: ReturnType<typeof useTranslation>['t'], player: Player): string {
+    // Every other status ("eligiendo", "jugando", "líder"...) is redundant with the table's own
+    // central animation/message - only what the seat itself can't show any other way (the
+    // player having left, or been eliminated) still belongs on the seat.
+    if (player.hasLeft) return t('table.status.left');
+    if (player.isEliminated) return t('table.status.out');
+    return '';
+}
+
 /** MAX_PLAYERS (see @kardux/contracts) minus me - the table always has exactly this many
  *  opponent seats, whether or not anyone has actually joined them yet. */
 const SEAT_SLOTS = MAX_PLAYERS - 1;
 
+/** .table__felt draws two gold rings via inset box-shadow - a thin one right at its own edge,
+ *  and a second, more visible one 12px further in (see game.css) - and that second ring is what
+ *  actually reads as "the table's inner border". Clearing only .table__felt's own box left seats
+ *  sitting right on top of that second ring instead of inside it. */
+const FELT_INNER_RING_PX = 12;
+
+/** Visual breathing room, in real pixels, between that inner ring and the nearest edge of a seat
+ *  pill (not its center point) - the same number on tablet and on a 27" desktop. A flat
+ *  percentage can't do this: 1% of a portrait tablet's height is a very different pixel count
+ *  than 1% of a wide desktop's. The seat pill is ~250px wide, so the ellipse radius also has to
+ *  shrink by the pill's own half-width/half-height (measured live, see useSeatArc) on top of
+ *  this gap - a first version only accounted for this gap and left half the pill poking out. */
+const SEAT_EDGE_GAP_PX = FELT_INNER_RING_PX + 14;
+
 /**
- * Arc-length table for the seat ellipse (all 360°), sampled once at module load, starting at
- * theta=90° (straight down - my own seat) and walking clockwise from my right. Equal angle
- * steps bunch seats together near the flatter curvature (the sides, since rx > ry) and spread
- * them apart near the top/bottom - confirmed live, visibly more space between me and my nearest
- * neighbors than between the seats up top. Equal steps in *arc length* (this table, inverted by
- * `thetaAtSeatArcFraction`) keep the on-screen distance the same between every seat.
+ * .table__felt isn't an ellipse - it's a rounded rect (`border-radius: 44% / 26%`, see game.css):
+ * flat runs along the middle of each edge, with an elliptical arc at each corner. A pure ellipse
+ * only ever matched its real border at the 4 cardinal points; every other seat (the 4 "diagonal"
+ * ones) sat with a different, bigger gap from the border than top/bottom got - confirmed live.
+ * Insetting a rounded rect by a fixed real-world margin (in px, both axes) gives back another
+ * rounded rect: same flat-run proportions, corner radii shrunk by that same margin - so every
+ * seat, wherever it lands, keeps the exact same distance from the border it's nearest to.
  */
-const SEAT_ARC_SAMPLES = 720;
-const seatArcLengthTable: { theta: number; length: number }[] = (() => {
-    const table: { theta: number; length: number }[] = [];
+interface SeatGeometry {
+    /** Half-extents and corner radii of the INSET boundary (the pill's center point can travel
+     *  along this boundary) - already shrunk by the pill's own half-size plus the visual gap. */
+    halfW: number;
+    halfH: number;
+    cornerRx: number;
+    cornerRy: number;
+    /** Center of the felt, in the .opponents box's own coordinate space (px). */
+    cx: number;
+    cy: number;
+    /** .opponents' own box size (px) - converts the px math above back to the % this renders
+     *  with, since .opponents (not .table__felt) is what `left`/`top` percentages are relative
+     *  to (see useSeatArc). */
+    boxW: number;
+    boxH: number;
+}
+
+/** Matches .table__felt's actual `border-radius: 44% / 26%` (see game.css) - the fraction of the
+ *  felt's own width/height each corner's arc occupies before any inset is applied. */
+const FELT_CORNER_RX_FRACTION = 0.44;
+const FELT_CORNER_RY_FRACTION = 0.26;
+
+/** Before the first live measurement lands (or if it ever fails), a reasonable desktop-shaped
+ *  fallback so nothing renders unpositioned. */
+const DEFAULT_SEAT_GEOMETRY: SeatGeometry = {
+    halfW: 460,
+    halfH: 260,
+    cornerRx: 300,
+    cornerRy: 120,
+    cx: 700,
+    cy: 350,
+    boxW: 1400,
+    boxH: 700,
+};
+
+type SeatArcSample = { x: number; y: number; length: number };
+
+/**
+ * Arc-length table walking the inset rounded rect's full perimeter once, clockwise, starting at
+ * its bottom-center point (my own seat's direction) - flat edges contribute their two endpoints
+ * (a straight run's length is exact from just those), corners are densely sampled (an elliptical
+ * arc's speed isn't constant in angle when rx != ry, same reason the old ellipse version needed
+ * this). Equal steps in *arc length* (inverted by `pointAtSeatArcFraction`) keep the on-screen
+ * gap the same between every seat, all the way around, corners included.
+ */
+const CORNER_ARC_SAMPLES = 180;
+function buildSeatArcLengthTable(geo: SeatGeometry): SeatArcSample[] {
+    const { halfW, halfH, cornerRx, cornerRy } = geo;
+    const flatHalfX = Math.max(0, halfW - cornerRx);
+    const flatHalfY = Math.max(0, halfH - cornerRy);
+
+    const points: { x: number; y: number }[] = [];
+    // Bottom edge, right half: (0, halfH) -> (flatHalfX, halfH)
+    points.push({ x: 0, y: halfH }, { x: flatHalfX, y: halfH });
+    // Bottom-right corner: center (flatHalfX, flatHalfY), 0deg -> 90deg
+    for (let i = 1; i <= CORNER_ARC_SAMPLES; i++) {
+        const phi = ((i / CORNER_ARC_SAMPLES) * Math.PI) / 2;
+        points.push({
+            x: flatHalfX + cornerRx * Math.sin(phi),
+            y: flatHalfY + cornerRy * Math.cos(phi),
+        });
+    }
+    // Right edge, full: (halfW, flatHalfY) -> (halfW, -flatHalfY)
+    points.push({ x: halfW, y: -flatHalfY });
+    // Top-right corner: center (flatHalfX, -flatHalfY), 0deg -> 90deg
+    for (let i = 1; i <= CORNER_ARC_SAMPLES; i++) {
+        const phi = ((i / CORNER_ARC_SAMPLES) * Math.PI) / 2;
+        points.push({
+            x: flatHalfX + cornerRx * Math.cos(phi),
+            y: -flatHalfY - cornerRy * Math.sin(phi),
+        });
+    }
+    // Top edge, full: (flatHalfX, -halfH) -> (-flatHalfX, -halfH)
+    points.push({ x: -flatHalfX, y: -halfH });
+    // Top-left corner: center (-flatHalfX, -flatHalfY), 0deg -> 90deg
+    for (let i = 1; i <= CORNER_ARC_SAMPLES; i++) {
+        const phi = ((i / CORNER_ARC_SAMPLES) * Math.PI) / 2;
+        points.push({
+            x: -flatHalfX - cornerRx * Math.sin(phi),
+            y: -flatHalfY - cornerRy * Math.cos(phi),
+        });
+    }
+    // Left edge, full: (-halfW, -flatHalfY) -> (-halfW, flatHalfY)
+    points.push({ x: -halfW, y: flatHalfY });
+    // Bottom-left corner: center (-flatHalfX, flatHalfY), 0deg -> 90deg
+    for (let i = 1; i <= CORNER_ARC_SAMPLES; i++) {
+        const phi = ((i / CORNER_ARC_SAMPLES) * Math.PI) / 2;
+        points.push({
+            x: -flatHalfX - cornerRx * Math.cos(phi),
+            y: flatHalfY + cornerRy * Math.sin(phi),
+        });
+    }
+    // Bottom edge, left half, back to start: (-flatHalfX, halfH) -> (0, halfH)
+    points.push({ x: 0, y: halfH });
+
+    const table: SeatArcSample[] = [];
     let length = 0;
-    let prevX = 0;
-    let prevY = 0;
-    for (let i = 0; i <= SEAT_ARC_SAMPLES; i++) {
-        const deg = 90 - (360 * i) / SEAT_ARC_SAMPLES;
-        const theta = (deg * Math.PI) / 180;
-        const x = SEAT_ARC_RX * Math.cos(theta);
-        const y = SEAT_ARC_RY * Math.sin(theta);
-        if (i > 0) length += Math.hypot(x - prevX, y - prevY);
-        table.push({ theta, length });
-        prevX = x;
-        prevY = y;
+    for (let i = 0; i < points.length; i++) {
+        const p = points[i]!;
+        if (i > 0) {
+            const prev = points[i - 1]!;
+            length += Math.hypot(p.x - prev.x, p.y - prev.y);
+        }
+        table.push({ x: p.x, y: p.y, length });
     }
     return table;
-})();
+}
 
-function thetaAtSeatArcFraction(fraction: number): number {
-    const totalLength = seatArcLengthTable[seatArcLengthTable.length - 1]!.length;
+function pointAtSeatArcFraction(
+    arcTable: SeatArcSample[],
+    fraction: number,
+): { x: number; y: number } {
+    const totalLength = arcTable[arcTable.length - 1]!.length;
     const target = fraction * totalLength;
     let lo = 0;
-    let hi = seatArcLengthTable.length - 1;
+    let hi = arcTable.length - 1;
     while (lo < hi) {
         const mid = (lo + hi) >> 1;
-        if (seatArcLengthTable[mid]!.length < target) lo = mid + 1;
+        if (arcTable[mid]!.length < target) lo = mid + 1;
         else hi = mid;
     }
-    if (lo === 0) return seatArcLengthTable[0]!.theta;
-    const a = seatArcLengthTable[lo - 1]!;
-    const b = seatArcLengthTable[lo]!;
+    if (lo === 0) return { x: arcTable[0]!.x, y: arcTable[0]!.y };
+    const a = arcTable[lo - 1]!;
+    const b = arcTable[lo]!;
     const t = b.length === a.length ? 0 : (target - a.length) / (b.length - a.length);
-    return a.theta + (b.theta - a.theta) * t;
+    return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
 }
 
 /**
  * Fixed position for one of the `SEAT_SLOTS` reserved opponent seats - always the same point
  * for a given slot index, whether or not anyone has actually joined it (see OpponentRow), and
- * always following the oval's real curve (not a straight row - a straight row doesn't follow
- * the table's own rounded shape and can poke outside it near the top). Slot 0 is my nearest
- * neighbor on the right, walking around clockwise from there.
+ * always following the table's own real rounded-rect shape (not a straight row - a straight row
+ * doesn't follow it and can poke outside near the top). Slot 0 is my nearest neighbor on the
+ * right, walking around clockwise from there.
  */
-function seatSlotStyle(slotIndex: number): CSSProperties {
-    const theta = thetaAtSeatArcFraction((slotIndex + 1) / (SEAT_SLOTS + 1));
+function seatSlotStyle(
+    geo: SeatGeometry,
+    arcTable: SeatArcSample[],
+    slotIndex: number,
+): CSSProperties {
+    const point = pointAtSeatArcFraction(arcTable, (slotIndex + 1) / (SEAT_SLOTS + 1));
     return {
-        left: `${SEAT_ARC_CX + SEAT_ARC_RX * Math.cos(theta)}%`,
-        top: `${SEAT_ARC_CY + SEAT_ARC_RY * Math.sin(theta)}%`,
+        left: `${((geo.cx + point.x) / geo.boxW) * 100}%`,
+        top: `${((geo.cy + point.y) / geo.boxH) * 100}%`,
     };
 }
 
+/**
+ * Measures .table__felt's, .opponents', and one live seat pill's real boxes, and derives the
+ * inset rounded-rect boundary (see SeatGeometry) every seat's center point travels along - inset
+ * by that pill's actual footprint, not just SEAT_EDGE_GAP_PX at its center. Radius alone
+ * (center-point-only) isn't enough: the pill is ~250px wide, so a seat placed with only its
+ * center point inset from the border still hangs half its own width past it. Live-measured (not
+ * a flat percentage) so the same gap holds on tablet and desktop alike, where 1% of a portrait
+ * tablet's height is a very different pixel count than 1% of a wide desktop's.
+ *
+ * .table__felt, not .board, is the actual visible oval (it draws the gold rings via inset
+ * box-shadow and its own border-radius: 44% / 26%) - .board is just an invisible rectangular
+ * layout box for the deck/play-area/pot row, inset from .table by its own padding, which only
+ * happens to roughly line up with the felt's shape on a wide desktop. On tablet's narrower aspect
+ * ratio the two diverge a lot, which is exactly why seats measured against .board were still
+ * poking past the real gold border there.
+ *
+ * Also reports myZoneBottom: the pixel offset that keeps my own seat pill (a separate,
+ * absolutely positioned overlay - see .my-zone) flush with that same gap instead of past it.
+ */
+function useSeatArc(
+    tableRef: RefObject<HTMLDivElement>,
+    breakpoint: string,
+): { geometry: SeatGeometry; myZoneBottom: number | null } {
+    const [geometry, setGeometry] = useState<SeatGeometry>(DEFAULT_SEAT_GEOMETRY);
+    const [myZoneBottom, setMyZoneBottom] = useState<number | null>(null);
+    useLayoutEffect(() => {
+        const table = tableRef.current;
+        if (!table) return undefined;
+        const measure = (): void => {
+            const felt = table.querySelector<HTMLElement>('.table__felt');
+            const opponents = table.querySelector<HTMLElement>('.opponents');
+            if (!felt || !opponents) return;
+            const feltBox = felt.getBoundingClientRect();
+            const opponentsBox = opponents.getBoundingClientRect();
+            const tableBox = table.getBoundingClientRect();
+            if (feltBox.width === 0 || opponentsBox.width === 0) return;
+            // Every seat pill (opponents and my own) is forced to the same size (see .seat__name
+            // and Avatar's size prop), so any one rendered pill tells us all of their footprints.
+            // Before the first one exists (nobody's joined yet), fall back to its known CSS size.
+            const pillBox = table.querySelector('.opponent .seat')?.getBoundingClientRect();
+            const halfPillW = (pillBox?.width ?? 190) / 2;
+            const halfPillH = (pillBox?.height ?? 66) / 2;
+            const cornerRx = feltBox.width * FELT_CORNER_RX_FRACTION;
+            const cornerRy = feltBox.height * FELT_CORNER_RY_FRACTION;
+            setGeometry({
+                halfW: feltBox.width / 2 - halfPillW - SEAT_EDGE_GAP_PX,
+                halfH: feltBox.height / 2 - halfPillH - SEAT_EDGE_GAP_PX,
+                cornerRx: Math.max(1, cornerRx - halfPillW - SEAT_EDGE_GAP_PX),
+                cornerRy: Math.max(1, cornerRy - halfPillH - SEAT_EDGE_GAP_PX),
+                cx: (feltBox.left + feltBox.right) / 2 - opponentsBox.left,
+                cy: (feltBox.top + feltBox.bottom) / 2 - opponentsBox.top,
+                boxW: opponentsBox.width,
+                boxH: opponentsBox.height,
+            });
+            // My own seat pill already reads right at this same inner ring's depth (confirmed
+            // live) without the extra breathing room the geometry above needs - it's a single
+            // flat bar along the bottom edge, not a point on a curve that needs the same
+            // clearance from every direction.
+            setMyZoneBottom(tableBox.bottom - feltBox.bottom + FELT_INNER_RING_PX);
+        };
+        measure();
+        window.addEventListener('resize', measure);
+        return () => window.removeEventListener('resize', measure);
+    }, [tableRef, breakpoint]);
+    return { geometry, myZoneBottom };
+}
+
+/** Tuned independently per breakpoint on purpose - changing one must never move the other.
+ *  A single shared avatar size was exactly what made a tablet fix quietly break desktop (and
+ *  back), since both breakpoints rendered through the same Seat component and same number. */
+function opponentAvatarSize(breakpoint: string): number {
+    if (breakpoint === 'mobile') return 34;
+    if (breakpoint === 'tablet') return 34;
+    return 32;
+}
+
 function OpponentRow({
-    state,
     opponents,
     leaderId,
     countOf,
     compact,
+    breakpoint,
+    seatGeometry,
+    seatArcTable,
 }: {
-    state: RedactedMatchState;
     opponents: Player[];
     leaderId: string | null;
     countOf: (player: Player) => number;
     compact: boolean;
+    breakpoint: string;
+    seatGeometry: SeatGeometry;
+    seatArcTable: SeatArcSample[];
 }): JSX.Element {
     const { t } = useTranslation();
     // Desktop/tablet: always SEAT_SLOTS <li>s, reserved whether filled or not, at fixed points -
@@ -639,6 +840,7 @@ function OpponentRow({
     const slots: (Player | null)[] = compact
         ? opponents
         : Array.from({ length: SEAT_SLOTS }, (_, i) => opponents[i] ?? null);
+    const avatarSize = opponentAvatarSize(breakpoint);
     return (
         <ul
             className={`opponents ${compact ? 'opponents--compact' : ''}`}
@@ -649,21 +851,24 @@ function OpponentRow({
                     <li
                         key={player.id}
                         className={`opponent ${player.isEliminated ? 'is-out' : ''}`}
-                        style={compact ? undefined : seatSlotStyle(index)}
+                        style={
+                            compact ? undefined : seatSlotStyle(seatGeometry, seatArcTable, index)
+                        }
                     >
                         <Seat
                             player={player}
                             count={countOf(player)}
                             isLeader={leaderId === player.id}
-                            status={seatStatus(t, state, player, leaderId === player.id)}
+                            status={seatStatus(t, player)}
                             compact={compact}
+                            avatarSize={avatarSize}
                         />
                     </li>
                 ) : (
                     <li
                         key={`empty-${index}`}
                         className="opponent opponent--empty"
-                        style={seatSlotStyle(index)}
+                        style={seatSlotStyle(seatGeometry, seatArcTable, index)}
                         aria-hidden
                     >
                         <span className="opponent__placeholder" />
@@ -681,6 +886,7 @@ function Seat({
     status,
     you = false,
     compact = false,
+    avatarSize = 34,
 }: {
     player: Player;
     count: number;
@@ -688,6 +894,9 @@ function Seat({
     status: string;
     you?: boolean;
     compact?: boolean;
+    /** Tuned per breakpoint by the caller (see opponentAvatarSize) - never a shared default that
+     *  would let a tablet-only or desktop-only tweak quietly move the other. */
+    avatarSize?: number;
 }): JSX.Element {
     const { t } = useTranslation();
     return (
@@ -704,7 +913,7 @@ function Seat({
             <div className="seat__avatar">
                 <Avatar
                     seed={player.avatarSeed}
-                    size={compact ? 34 : 44}
+                    size={avatarSize}
                     active={isLeader}
                     label={player.nickname}
                 />
@@ -715,10 +924,12 @@ function Seat({
                 ) : null}
             </div>
             <div className="seat__info">
-                <strong className="seat__name">
-                    {you ? t('common.youSuffix', { name: player.nickname }) : player.nickname}
-                </strong>
-                {you ? null : <span className="seat__status">{status || ' '}</span>}
+                <strong className="seat__name">{displayNickname(player.nickname, t)}</strong>
+                {you ? (
+                    <span className="seat__status seat__you-tag">{t('common.youTag')}</span>
+                ) : (
+                    <span className="seat__status">{status || ' '}</span>
+                )}
             </div>
             <Pile playerId={player.id} count={count} />
         </div>
@@ -936,8 +1147,12 @@ function PlayArea({
                 // everyone's still choosing, filling in one player at a time as each card
                 // actually arrives. The one exception is my own slot on phones, where the card
                 // I'm choosing with already lives (see `myCard`) - that's not a premature
-                // reveal, it's just where my own card already visibly is.
-                const showSlot = played || (isMine && myCard !== null);
+                // reveal, it's just where my own card already visibly is. And once the cards
+                // start flying off to the winner's pile (`collect`), the name has to go with the
+                // card instead of hanging behind at the now-empty slot.
+                const showSlot =
+                    (played && reveal?.stage !== 'collect') ||
+                    (!played && isMine && myCard !== null);
 
                 return (
                     <div className="slot" key={playerId}>
@@ -975,7 +1190,11 @@ function PlayArea({
                         {showSlot ? (
                             <span className="slot__owner">
                                 <span className="slot__name">
-                                    {isMine ? t('common.you') : player?.nickname}
+                                    {isMine
+                                        ? t('common.you')
+                                        : player
+                                          ? displayNickname(player.nickname, t)
+                                          : ''}
                                 </span>
                                 {revealed && attributeKey ? (
                                     <strong className="slot__value tabular">
@@ -1434,7 +1653,7 @@ function MyZone({
                         player={me}
                         count={count}
                         isLeader={isLeader}
-                        status={seatStatus(t, state, me, isLeader)}
+                        status={seatStatus(t, me)}
                         you
                     />
                 </div>

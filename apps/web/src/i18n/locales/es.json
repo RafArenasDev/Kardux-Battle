@@ -68,6 +68,7 @@
         "backHome": "Volver al inicio",
         "you": "Tú",
         "youSuffix": "{{name}} (tú)",
+        "youTag": "(tú)",
         "cards_one": "{{count}} carta",
         "cards_other": "{{count}} cartas",
         "players_one": "{{count}} jugador",
