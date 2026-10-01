@@ -1323,6 +1323,21 @@
         z-index: 1;
     }
 
+    /* .my-zone itself carries z-index: 8 (see its own base rule) - every breakpoint before this
+       one kept the status message physically clear of my-zone's own area, so that never mattered
+       until this breakpoint's much bigger choosing card started reaching up into where
+       status-slot (z-index: 5) sits. Without this, the card visually covered the message instead
+       of sitting behind it like the explicit ask wants. */
+    .table--mobile .status-slot {
+        z-index: 9;
+    }
+
+    /* The default 460px-wide timer bar read as oversized next to this table's much narrower
+       choosing card - matched to the card's own width instead. */
+    .table--mobile .turn-timer {
+        width: min(var(--card-lg), 92%);
+    }
+
     /* Avatar beside the pile/count instead of stacked above it - explicit ask: a seat here was
        reading taller than it needed to on a short screen. Same CompactSeat markup portrait's
        own horizontal-scroll strip uses, just a row instead of a column. */
