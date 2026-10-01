@@ -142,3 +142,18 @@ textarea {
     scrollbar-width: thin;
     scrollbar-color: var(--gold-700) transparent;
 }
+
+/* Touch/narrow screens: a visible scrollbar track is never needed for touch scrolling, and on
+   real Android Chrome (unlike the desktop device-emulator this was first checked against) the
+   themed gold track can render as a persistent thin bar wherever an inner row still legitimately
+   scrolls horizontally - reading as a stray gold line stuck to an edge of the screen. Scrolling
+   itself is untouched; only the visible track goes away. */
+@media (max-width: 767px), (pointer: coarse) {
+    * {
+        scrollbar-width: none;
+    }
+
+    *::-webkit-scrollbar {
+        display: none;
+    }
+}

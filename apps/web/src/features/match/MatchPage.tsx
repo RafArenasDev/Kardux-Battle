@@ -14,6 +14,7 @@ import type { Breakpoint } from '../../hooks/useBreakpoint';
 import { useBreakpoint, useMediaQuery } from '../../hooks/useBreakpoint';
 import { useDocumentTitle, useNow } from '../../hooks/useNow';
 import { formatClock } from '../../lib/format';
+import { tryLockMatchOrientation } from '../../lib/matchFullscreen';
 import { RulesDialog } from '../rules/RulesDialog';
 import { FinishOverlay } from './FinishOverlay';
 import { GameTable } from './GameTable';
@@ -128,23 +129,12 @@ export default function MatchPage(): JSX.Element {
     useEffect(() => {
         if (inLobby || tableBreakpoint !== 'mobile') return undefined;
 
-        void (async () => {
-            try {
-                if (!document.fullscreenElement) {
-                    await document.documentElement.requestFullscreen?.();
-                }
-                // `lock` is still missing from TS's lib.dom.d.ts on some TS/lib combos even
-                // though every Chromium/Android browser that supports it ships it - `unlock`
-                // (used below) is typed, `lock` isn't, hence the one-off cast.
-                await (
-                    screen.orientation as ScreenOrientation & {
-                        lock?: (orientation: string) => Promise<void>;
-                    }
-                )?.lock?.('landscape');
-            } catch {
-                // Not supported or refused - nothing to surface to the player for this.
-            }
-        })();
+        // The entry points (quick match, host start, join) already fire this themselves, inside
+        // their own click handler, which is the only place Android reliably treats the request
+        // as gesture-triggered. This call is the fallback for landing here without a fresh click
+        // - a page refresh, a direct link, a reconnect - so leaving a match still always returns
+        // to portrait below even on that path.
+        tryLockMatchOrientation();
 
         return () => {
             try {

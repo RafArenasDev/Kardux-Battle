@@ -12,6 +12,7 @@ import { useToast } from '../../components/ui/Toast';
 import { useDocumentTitle } from '../../hooks/useNow';
 import { listMyMatches } from '../../lib/api';
 import { errorMessage, isErrorPayload } from '../../lib/errors';
+import { tryLockMatchOrientation } from '../../lib/matchFullscreen';
 import { clearSession, getUser, isGuest } from '../../lib/session';
 import { extractRoomCode, readClipboardCode } from '../../lib/share';
 import { disconnectGameSocket, whenConnected } from '../../lib/socket';
@@ -57,6 +58,7 @@ export default function HomePage(): JSX.Element {
     }, [guest]);
 
     async function quickMatch(vsBot = false): Promise<void> {
+        tryLockMatchOrientation();
         setQuickBusy(vsBot ? 'bot' : 'rival');
         try {
             const socket = await whenConnected();
