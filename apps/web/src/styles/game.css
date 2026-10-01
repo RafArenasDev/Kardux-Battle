@@ -264,6 +264,57 @@
     pointer-events: none;
 }
 
+/* Phones: "cómo se juega" + "chat/posiciones" collapse into this one kebab (see ToolsMenu in
+   MatchPage.tsx), so the table's corner only ever has one floating control, not three. */
+.tools-menu {
+    position: relative;
+}
+
+.tools-menu__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 29;
+}
+
+.tools-menu__panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 30;
+    display: grid;
+    gap: 2px;
+    min-width: 180px;
+    padding: 6px;
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    border: 1px solid var(--hairline-strong);
+    box-shadow: var(--shadow-2);
+}
+
+.tools-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: var(--r-sm);
+    background: none;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tools-menu__item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.tools-menu__item .unread-dot {
+    margin-left: auto;
+}
+
 @keyframes dot-pop {
     from {
         transform: scale(0.3);
@@ -1082,11 +1133,14 @@
     }
 }
 
-/* Phones: no room to seat rivals around an oval, so they go back to a plain, scrollable strip
-   above the board - this overrides the arc positioning from `.opponents`/`.opponent` above. */
+/* Phones: no room to seat rivals around an oval, so they go back to a plain, scrollable strip -
+   still an OVERLAY though (position stays absolute, inherited from the base `.opponents` rule),
+   never an in-flow element. Making this `position: static` used to be the actual bug behind
+   "the table's center sits too low": an in-flow strip here pushed `.board` down and shrank it,
+   which is exactly the one thing every other breakpoint goes out of its way to prevent. */
 .table--mobile .opponents {
-    position: static;
-    inset: auto;
+    top: 0;
+    bottom: auto;
     display: flex;
     justify-content: center;
     padding: 0 140px 0 0;
@@ -1109,18 +1163,10 @@
 /* Phones: compact rivals, a big readable card, everything stacked. */
 .table--mobile {
     --pile-w: 26px;
-    /* .my-zone floats over the bottom as its own overlay (see .my-zone), so .board never knows
-       it is there. Reserve room for the seat bar it always shows here (the card itself moves
-       into .play-area__hand on phones), or it lands on top of .play-area__hand right above
-       it. Desktop/tablet deliberately do NOT reserve room the same way - .board's height (and
-       the table's true center inside it) must never move; the choosing card is kept small
-       enough there to fit without needing to steal space from .board. */
-    --my-zone-bar-h: clamp(52px, 9dvh, 76px);
+    /* .my-zone floats over the bottom as its own overlay (see .my-zone) and .board never
+       reserves room for it - the same rule desktop/tablet already follow, so .board's height
+       (and the table's true center inside it) never moves for anything floating over it. */
     padding-inline: 8px;
-}
-
-.table--mobile .board {
-    padding-bottom: var(--my-zone-bar-h);
 }
 
 .table--mobile .table__felt {
@@ -1141,18 +1187,45 @@
     flex: none;
 }
 
-.seat--compact {
-    gap: 6px;
-    padding: 4px 12px 4px 4px;
+/* Phones: a seat (rival or my own, see CompactSeat) is just its avatar and the real card pile -
+   nothing else competes for room here anymore. Name and status only show once tapped (see
+   SeatInfoModal in GameTable.tsx), which is exactly what used to make this row read as
+   cluttered - a name truncated to a handful of characters next to a status label nobody had
+   room to read anyway. Unifying my own seat with every rival's is on purpose too: a lone full
+   pill next to a row of bare avatars was its own kind of clutter. */
+.seat-compact {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    padding: 2px;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.seat--compact .seat__name {
-    max-width: 84px;
-    font-size: 0.82rem;
+.seat-compact__avatar {
+    position: relative;
+    display: grid;
+    place-items: center;
 }
 
-.seat--compact .seat__status {
-    font-size: 0.68rem;
+.seat-info-dialog {
+    width: min(100%, 320px);
+}
+
+.seat-info-dialog__body {
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+    padding: 8px 0 4px;
+}
+
+.seat-info-dialog__stats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
 }
 
 .table--mobile .board__row {
@@ -1183,11 +1256,25 @@
     justify-self: center;
 }
 
-/* Short landscape phones: shrink the hand card so nothing is cut off. */
+/* Short landscape phones: shrink the hand card and tighten the spacing around it so nothing
+   is cut off - the board itself needs no special-casing here, it already always fills the
+   table's real height (see .table--mobile .opponents/.my-zone above), so this is purely about
+   not wasting the little vertical room there is on gaps sized for a tall portrait screen. */
 @media (max-height: 560px) {
     .table,
     .table--mobile {
         --card-lg: clamp(120px, 42dvh, 200px);
+        --pile-w: 22px;
+    }
+
+    .table--mobile .opponents {
+        padding: 0 110px 0 0;
+        gap: 4px;
+    }
+
+    .table--mobile .my-zone {
+        gap: 4px;
+        padding-bottom: 4px;
     }
 }
 
@@ -1590,8 +1677,105 @@
     .hud {
         gap: 4px;
     }
+}
 
-    .seat--compact .seat__status {
-        display: none;
+/* Tablet and desktop/laptop alike: the card spans almost the full width instead of sitting
+   as a narrow centered column (width is 100% of the space .match-lobby's own padding already
+   leaves - NOT a vw unit, which double-counts that padding and causes horizontal overflow),
+   and the share row collapses to icon + tooltip so it never wraps to a second line. Every
+   size below that contributes real height is a dvh-aware clamp, not a flat px, so the whole
+   card always fits one screen with no scrollbar - mirroring .shell--immersive's "exactly one
+   screen tall" contract instead of .match-lobby's phone-only scroll fallback. */
+@media (min-width: 768px) {
+    .match-lobby {
+        overflow: hidden;
+        padding-block: clamp(8px, 2dvh, 36px);
+    }
+
+    .waiting {
+        width: min(100%, 1400px);
+    }
+
+    .waiting__card {
+        gap: clamp(8px, 1.6dvh, 24px);
+        padding: clamp(10px, 2.2dvh, 28px);
+    }
+
+    .waiting__head h1 {
+        font-size: clamp(1.6rem, 4.5dvh, 3.25rem);
+    }
+
+    .waiting__code {
+        padding: clamp(4px, 1dvh, 8px) clamp(18px, 4vw, 32px);
+        font-size: clamp(1.8rem, 6dvh, 3.8rem);
+    }
+}
+
+/* Icon + tooltip, never a text label, at every size - phones invite over WhatsApp/Telegram
+   just as often as anyone else, so this was never a "screens with room to spare" nicety. */
+.waiting__share {
+    flex-wrap: nowrap;
+}
+
+.waiting__share .btn {
+    width: 44px;
+    min-height: 44px;
+    padding: 0 0 2px;
+    gap: 0;
+}
+
+.waiting__share-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Tablet and desktop alike: the seat count comes from --seat-cols (set in WaitingRoom.tsx per
+   breakpoint - tablet wraps past 3, desktop always reads as one line), not from a fixed 3 or
+   6 that would leave a 2- or 4-player room reserving the same layout a full lobby needs. Bigger
+   cards fill the now-wide card instead of staying phone-sized, sized with dvh so a two-row
+   tablet lobby (double the seat height of desktop's single row) still fits without scrolling. */
+@media (min-width: 768px) {
+    .seat-grid:not(.seat-grid--duel) {
+        grid-template-columns: repeat(var(--seat-cols, 3), minmax(150px, 220px));
+        gap: clamp(8px, 1.6dvh, 20px);
+    }
+
+    .seat-slot {
+        min-height: clamp(110px, 16dvh, 172px);
+        padding: clamp(10px, 2dvh, 20px) 10px;
+    }
+
+    .seat-slot__name {
+        font-size: 1.1rem;
+    }
+
+    .seat-slot__placeholder,
+    .waiting__radar {
+        width: clamp(50px, 7dvh, 78px);
+        height: clamp(50px, 7dvh, 78px);
+    }
+
+    .seat-slot__placeholder {
+        font-size: clamp(26px, 3.6dvh, 40px);
+    }
+
+    .waiting__radar {
+        font-size: clamp(22px, 3.2dvh, 34px);
+    }
+}
+
+/* Tablet only: fewer, wider columns than desktop's six mean a fixed 220px max leaves the row
+   short of the card's width, reading as side margins that desktop doesn't have. Let the seats
+   stretch to fill it exactly instead, the same way six columns already fill desktop's row. */
+@media (min-width: 768px) and (max-width: 1099px) {
+    .seat-grid:not(.seat-grid--duel) {
+        grid-template-columns: repeat(var(--seat-cols, 3), minmax(150px, 1fr));
     }
 }

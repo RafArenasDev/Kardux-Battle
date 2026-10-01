@@ -149,16 +149,28 @@
             "submit": "Join",
             "noClipboard": "No room code found in the clipboard"
         },
-        "rooms": {
-            "title": "My private rooms",
+        "history": {
+            "title": "History",
             "new": "New",
             "guest": "As a guest you play quick matches. Create an account to have your own rooms and appear in the ranking.",
-            "empty": "No open rooms yet. Build one and challenge your friends!",
-            "open": "Open",
+            "empty": "You haven't created a private room yet. Build one and challenge your friends!",
+            "count_one": "{{count}} room",
+            "count_other": "{{count}} rooms",
+            "viewAll": "View all",
+            "modalTitle": "Room history",
+            "vs": "vs. {{name}}",
             "status": {
                 "LOBBY": "Waiting for players",
                 "IN_PROGRESS": "In play",
-                "FINISHED": "Finished"
+                "FINISHED": "Finished",
+                "CANCELLED": "Cancelled"
+            },
+            "outcome": {
+                "won": "You won",
+                "lost": "You lost",
+                "draw": "Draw",
+                "abandoned": "You left",
+                "cancelled": "Cancelled"
             }
         }
     },
@@ -274,7 +286,7 @@
         "invite": "Room invitation",
         "invites": "invites you to play",
         "seats": "{{count}}/{{max}} players",
-        "spectator": "In play: you will join as a spectator",
+        "alreadyStarted": "This match already started and isn't accepting new players.",
         "enter": "Join the room"
     },
     "lobby": {
@@ -312,6 +324,9 @@
         "entering": "Joining the table…",
         "reconnecting": "Reconnecting…",
         "hud": "Match status",
+        "tools": {
+            "more": "More options"
+        },
         "round": "Round",
         "roundNumber": "Round {{count}}",
         "timeLeft": "Time left",
@@ -373,6 +388,9 @@
             "table": "Leave? You lose and your cards are shared among the others.",
             "yes": "Leave",
             "no": "Keep playing"
+        },
+        "info": {
+            "position": "Position {{rank}} of {{total}}"
         }
     },
     "panel": {

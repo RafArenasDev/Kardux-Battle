@@ -8,7 +8,9 @@ import { AppShell } from '../../components/layout/AppShell';
 import { Button } from '../../components/ui/Button';
 import { Icon } from '../../components/ui/Icon';
 import { useToast } from '../../components/ui/Toast';
-import { useBreakpoint } from '../../hooks/useBreakpoint';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import type { Breakpoint } from '../../hooks/useBreakpoint';
+import { useBreakpoint, useMediaQuery } from '../../hooks/useBreakpoint';
 import { useDocumentTitle, useNow } from '../../hooks/useNow';
 import { formatClock } from '../../lib/format';
 import { RulesDialog } from '../rules/RulesDialog';
@@ -31,12 +33,21 @@ export default function MatchPage(): JSX.Element {
     const navigate = useNavigate();
     const toast = useToast();
     const breakpoint = useBreakpoint();
+    // A phone rotated to landscape measures wide enough to read as `tablet` by width alone -
+    // but its height is still phone-short, and tablet's layout (bigger cards, a full seat pill)
+    // assumes real headroom in both dimensions that a rotated phone never has. The table's own
+    // breakpoint downgrades to `mobile` whenever the *shorter* of the two dimensions is
+    // phone-sized, regardless of which axis that turns out to be - matching the media query
+    // above matches if EITHER axis is under the tablet threshold. Everywhere else in the app
+    // (WaitingRoom, HomePage, ...) keeps using the plain `breakpoint` above, untouched.
+    const isPhoneSized = useMediaQuery('(max-width: 767px), (max-height: 767px)');
+    const tableBreakpoint: Breakpoint = isPhoneSized ? 'mobile' : breakpoint;
     const showError = useCallback((message: string) => toast.show(message, 'error'), [toast]);
     const session = useMatchSession(matchId, showError);
     const { state, quickRematch } = session;
     const [sheetOpen, setSheetOpen] = useState(false);
-    const [confirmLeave, setConfirmLeave] = useState(false);
     const [rulesOpen, setRulesOpen] = useState(false);
+    useBodyScrollLock(sheetOpen);
     const [tab, setTab] = useState<PanelTab>('standings');
     const [seenMessages, setSeenMessages] = useState(0);
     const leftOnPurpose = useRef(false);
@@ -80,7 +91,7 @@ export default function MatchPage(): JSX.Element {
         return () => window.clearInterval(timer);
     }, [aloneInQuickLobby, quickRematch, matchId, navigate]);
 
-    const sideInline = breakpoint === 'desktop';
+    const sideInline = tableBreakpoint === 'desktop';
     const chatVisible = tab === 'chat' && (sideInline || sheetOpen);
     useEffect(() => {
         if (chatVisible) setSeenMessages(session.chat.length);
@@ -100,6 +111,50 @@ export default function MatchPage(): JSX.Element {
     }
 
     const inLobby = state?.phase === 'LOBBY' || state?.phase === 'COUNTDOWN';
+    // Chat only makes sense between real people - a practice match against the machine never
+    // gets a chat tab/button, there is nobody on the other end of it.
+    const allowChat = !state?.players.some((player) => player.id.startsWith('bot:'));
+
+    // Phones only, once the match itself is on screen (never the lobby, never anywhere else
+    // in the app): try to go fullscreen and lock landscape, the same way a video player does
+    // when you tap its own fullscreen button - never a "please rotate your device" message.
+    // Both calls need a real permission the browser can refuse (most reliably on iOS Safari,
+    // which never lets a plain web page lock orientation at all) - best effort, silent either
+    // way, since the table's own layout has to work in portrait regardless. An installed PWA
+    // already owns the whole screen, so requestFullscreen is normally a harmless no-op there.
+    useEffect(() => {
+        if (inLobby || tableBreakpoint !== 'mobile') return undefined;
+
+        void (async () => {
+            try {
+                if (!document.fullscreenElement) {
+                    await document.documentElement.requestFullscreen?.();
+                }
+                // `lock` is still missing from TS's lib.dom.d.ts on some TS/lib combos even
+                // though every Chromium/Android browser that supports it ships it - `unlock`
+                // (used below) is typed, `lock` isn't, hence the one-off cast.
+                await (
+                    screen.orientation as ScreenOrientation & {
+                        lock?: (orientation: string) => Promise<void>;
+                    }
+                )?.lock?.('landscape');
+            } catch {
+                // Not supported or refused - nothing to surface to the player for this.
+            }
+        })();
+
+        return () => {
+            try {
+                screen.orientation?.unlock?.();
+            } catch {
+                /* ignore */
+            }
+            if (document.fullscreenElement) {
+                void document.exitFullscreen?.().catch(() => undefined);
+            }
+        };
+    }, [inLobby, tableBreakpoint]);
+
     const panel = state ? (
         <SidePanel
             state={state}
@@ -122,6 +177,7 @@ export default function MatchPage(): JSX.Element {
                         state={state}
                         showCode={!isQuick}
                         revealIndex={session.reveal?.result.index ?? null}
+                        onLeave={leave}
                     />
                 ) : null
             }
@@ -149,79 +205,93 @@ export default function MatchPage(): JSX.Element {
                             frozen={session.frozen}
                             dealing={session.dealing}
                             myPlayedCard={session.myPlayedCard}
-                            breakpoint={breakpoint}
+                            breakpoint={tableBreakpoint}
                             onSelectAttribute={session.selectAttribute}
                         />
 
                         <div className="match__tools">
-                            <Button
-                                size="sm"
-                                variant="ghost"
-                                icon="scroll-unfurled"
-                                aria-label={t('rules.open')}
-                                data-tip={t('rules.open')}
-                                data-tip-pos="bottom"
-                                onClick={() => setRulesOpen(true)}
-                            />
-                            {!sideInline ? (
-                                <span className="tool-with-dot">
+                            {tableBreakpoint === 'mobile' ? (
+                                <ToolsMenu
+                                    allowChat={allowChat}
+                                    unread={unread}
+                                    onRules={() => setRulesOpen(true)}
+                                    onChat={() => setSheetOpen(true)}
+                                />
+                            ) : (
+                                <>
                                     <Button
                                         size="sm"
-                                        icon="chat-bubble"
-                                        onClick={() => setSheetOpen(true)}
-                                        aria-label={t('panel.open')}
-                                    >
-                                        {breakpoint === 'mobile' ? undefined : t('panel.open')}
-                                    </Button>
-                                    {unread > 0 ? (
-                                        <span className="unread-dot unread-dot--floating">
-                                            {unread}
-                                        </span>
-                                    ) : null}
-                                </span>
-                            ) : null}
-                            {confirmLeave ? (
-                                <div className="dialog-overlay">
-                                    <div
-                                        className="leave-confirm"
-                                        role="alertdialog"
-                                        aria-label={t('table.leave.confirm')}
-                                    >
-                                        <span>
-                                            {state.players.filter((p) => !p.isSpectator).length <= 2
-                                                ? t('table.leave.duel')
-                                                : t('table.leave.table')}
-                                        </span>
-                                        <div className="leave-confirm__actions">
-                                            <Button size="sm" variant="ruby" onClick={leave}>
-                                                {t('table.leave.yes')}
-                                            </Button>
+                                        variant="ghost"
+                                        icon="scroll-unfurled"
+                                        aria-label={t('rules.open')}
+                                        data-tip={t('rules.open')}
+                                        data-tip-pos="bottom"
+                                        onClick={() => setRulesOpen(true)}
+                                    />
+                                    {!sideInline && allowChat ? (
+                                        <span className="tool-with-dot">
                                             <Button
                                                 size="sm"
-                                                variant="ghost"
-                                                onClick={() => setConfirmLeave(false)}
+                                                icon="chat-bubble"
+                                                onClick={() => setSheetOpen(true)}
+                                                aria-label={t('panel.open')}
                                             >
-                                                {t('table.leave.no')}
+                                                {t('panel.open')}
                                             </Button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    icon="exit-door"
-                                    aria-label={t('table.leave.button')}
-                                    onClick={() => setConfirmLeave(true)}
-                                >
-                                    {breakpoint === 'mobile' ? undefined : t('table.leave.button')}
-                                </Button>
+                                            {unread > 0 ? (
+                                                <span className="unread-dot unread-dot--floating">
+                                                    {unread}
+                                                </span>
+                                            ) : null}
+                                        </span>
+                                    ) : null}
+                                </>
                             )}
                         </div>
                     </div>
 
                     {sideInline ? (
                         panel
+                    ) : tableBreakpoint === 'mobile' ? (
+                        // Phones: a centered modal, not a drag-to-dismiss sheet anchored to the
+                        // table's bottom edge - that read as "the table itself scrolls", which
+                        // is exactly what this table goes out of its way to never do.
+                        <AnimatePresence>
+                            {sheetOpen ? (
+                                <motion.div
+                                    key="scrim"
+                                    className="dialog-scrim"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    onClick={() => setSheetOpen(false)}
+                                >
+                                    <motion.div
+                                        key="dialog"
+                                        className="dialog panel panel--pad side-panel-dialog"
+                                        role="dialog"
+                                        aria-modal="true"
+                                        initial={{ opacity: 0, y: 24, scale: 0.97 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 24, scale: 0.97 }}
+                                        transition={{ type: 'spring', bounce: 0.2, duration: 0.45 }}
+                                        onClick={(event) => event.stopPropagation()}
+                                    >
+                                        <div className="row row--between">
+                                            <h2>{t('panel.label')}</h2>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                icon="cancel"
+                                                aria-label={t('common.close')}
+                                                onClick={() => setSheetOpen(false)}
+                                            />
+                                        </div>
+                                        <div className="dialog__body">{panel}</div>
+                                    </motion.div>
+                                </motion.div>
+                            ) : null}
+                        </AnimatePresence>
                     ) : (
                         <AnimatePresence>
                             {sheetOpen ? (
@@ -285,14 +355,18 @@ function MatchHud({
     state,
     showCode,
     revealIndex,
+    onLeave,
 }: {
     /** While a round is being revealed, the HUD still shows that round. */
     revealIndex: number | null;
     state: RedactedMatchState;
     showCode: boolean;
+    onLeave: () => void;
 }): JSX.Element {
     const now = useNow(1_000, state.endsAt !== null);
     const { t } = useTranslation();
+    const [confirmLeave, setConfirmLeave] = useState(false);
+    useBodyScrollLock(confirmLeave);
 
     return (
         <div className="hud" role="group" aria-label={t('table.hud')}>
@@ -324,6 +398,124 @@ function MatchHud({
                 <Icon name={state.endsAt ? 'stopwatch' : 'infinity'} />{' '}
                 {state.endsAt ? formatClock(state.endsAt - now) : t('format.noLimit')}
             </span>
+            {/* The one and only "leave the match" control - living here (not also floating over
+                the table) so it never reads as a second exit icon next to the account sign-out
+                button, which just happens to share the same door glyph. */}
+            <Button
+                size="sm"
+                variant="ghost"
+                icon="exit-door"
+                aria-label={t('table.leave.button')}
+                data-tip={t('table.leave.button')}
+                data-tip-pos="bottom"
+                onClick={() => setConfirmLeave(true)}
+            />
+            {confirmLeave ? (
+                <div className="dialog-overlay">
+                    <div
+                        className="leave-confirm"
+                        role="alertdialog"
+                        aria-label={t('table.leave.confirm')}
+                    >
+                        <span>
+                            {state.players.filter((p) => !p.isSpectator).length <= 2
+                                ? t('table.leave.duel')
+                                : t('table.leave.table')}
+                        </span>
+                        <div className="leave-confirm__actions">
+                            <Button size="sm" variant="ruby" onClick={onLeave}>
+                                {t('table.leave.yes')}
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setConfirmLeave(false)}
+                            >
+                                {t('table.leave.no')}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+        </div>
+    );
+}
+
+/** Phones: "cómo se juega" and "chat/posiciones" collapse into one kebab menu instead of two
+ *  separate floating buttons crowding the table's corner - the table itself needed that room
+ *  back far more than either control needed to stay one tap away instead of two. */
+function ToolsMenu({
+    allowChat,
+    unread,
+    onRules,
+    onChat,
+}: {
+    allowChat: boolean;
+    unread: number;
+    onRules: () => void;
+    onChat: () => void;
+}): JSX.Element {
+    const { t } = useTranslation();
+    const [open, setOpen] = useState(false);
+
+    return (
+        <div className="tools-menu">
+            <span className="tool-with-dot">
+                <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-label={t('table.tools.more')}
+                    aria-haspopup="menu"
+                    aria-expanded={open}
+                    onClick={() => setOpen((value) => !value)}
+                >
+                    <svg
+                        viewBox="0 0 24 24"
+                        className="btn__icon"
+                        aria-hidden="true"
+                        focusable="false"
+                    >
+                        <circle cx="5" cy="12" r="2.2" fill="currentColor" />
+                        <circle cx="12" cy="12" r="2.2" fill="currentColor" />
+                        <circle cx="19" cy="12" r="2.2" fill="currentColor" />
+                    </svg>
+                </Button>
+                {!open && unread > 0 ? (
+                    <span className="unread-dot unread-dot--floating">{unread}</span>
+                ) : null}
+            </span>
+            {open ? (
+                <>
+                    <div className="tools-menu__backdrop" onClick={() => setOpen(false)} />
+                    <div className="tools-menu__panel" role="menu">
+                        <button
+                            type="button"
+                            role="menuitem"
+                            className="tools-menu__item"
+                            onClick={() => {
+                                setOpen(false);
+                                onRules();
+                            }}
+                        >
+                            <Icon name="scroll-unfurled" /> {t('rules.open')}
+                        </button>
+                        {allowChat ? (
+                            <button
+                                type="button"
+                                role="menuitem"
+                                className="tools-menu__item"
+                                onClick={() => {
+                                    setOpen(false);
+                                    onChat();
+                                }}
+                            >
+                                <Icon name="chat-bubble" /> {t('panel.open')}
+                                {unread > 0 ? <span className="unread-dot">{unread}</span> : null}
+                            </button>
+                        ) : null}
+                    </div>
+                </>
+            ) : null}
         </div>
     );
 }

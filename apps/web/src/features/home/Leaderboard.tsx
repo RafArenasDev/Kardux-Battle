@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/Button';
 import { Icon } from '../../components/ui/Icon';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { getLeaderboard } from '../../lib/api';
 import { attributeMeta } from '../../lib/deck-meta';
 import { formatNumber } from '../../lib/format';
@@ -162,6 +163,7 @@ export function Leaderboard({ meId }: { meId: string | null }): JSX.Element {
  *  title/close button with the explanation scrolling underneath. */
 function HowScoredDialog({ open, onClose }: { open: boolean; onClose: () => void }): JSX.Element {
     const { t } = useTranslation();
+    useBodyScrollLock(open);
 
     useEffect(() => {
         if (!open) return;

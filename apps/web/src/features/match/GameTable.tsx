@@ -3,11 +3,14 @@ import { MAX_PLAYERS, TABLE_TIMING } from '@kardux/contracts';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { CSSProperties, JSX, MutableRefObject, ReactNode, RefObject } from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { CardBack, PlayingCard } from '../../components/cards/PlayingCard';
 import type { CardOutcome } from '../../components/cards/PlayingCard';
 import { Avatar } from '../../components/ui/Avatar';
+import { Button } from '../../components/ui/Button';
 import { Icon } from '../../components/ui/Icon';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import type { Breakpoint } from '../../hooks/useBreakpoint';
 import { useNow } from '../../hooks/useNow';
 import { serverNow } from '../../lib/clock';
@@ -175,6 +178,16 @@ export function GameTable({
         return rotated;
     }, [seated, state.yourId]);
     const leaderId = currentLeaderId(state);
+    // Same ranking SidePanel's "Posiciones" tab shows - computed here too so the phone's tap
+    // modal (no room for a whole standings list) can still surface "position 2 of 4" per seat.
+    const standings = useMemo(() => {
+        const active = [...state.players]
+            .filter((player) => !player.isSpectator || player.isEliminated)
+            .sort((a, b) => Number(a.hasLeft) - Number(b.hasLeft) || b.cardCount - a.cardCount);
+        const ranks = new Map<string, number>();
+        active.forEach((player, index) => ranks.set(player.id, index + 1));
+        return { ranks, total: active.length };
+    }, [state.players]);
     const deal = useDealCounts(state, dealing);
 
     /** What each pile shows right now: the deal in progress, the pre-reveal counts, or the
@@ -232,6 +245,7 @@ export function GameTable({
                 breakpoint={breakpoint}
                 seatGeometry={seatGeometry}
                 seatArcTable={seatArcTable}
+                standings={standings}
             />
 
             {/* Positioned straight on .table (not nested in .play-area, whose own box keeps
@@ -277,6 +291,8 @@ export function GameTable({
                 hand={hand}
                 isLeader={leaderId === state.yourId}
                 handCard={compact ? null : handCard}
+                compact={compact}
+                standings={standings}
             />
 
             {deal.counts ? (
@@ -811,9 +827,18 @@ function useSeatArc(
  *  A single shared avatar size was exactly what made a tablet fix quietly break desktop (and
  *  back), since both breakpoints rendered through the same Seat component and same number. */
 function opponentAvatarSize(breakpoint: string): number {
-    if (breakpoint === 'mobile') return 34;
+    // Mobile no longer carries a name/status next to the avatar (see CompactSeat) - it can
+    // afford a properly tappable size instead of squeezing in next to text.
+    if (breakpoint === 'mobile') return 44;
     if (breakpoint === 'tablet') return 34;
     return 32;
+}
+
+/** Same shape GameTable's `standings` memo produces - shared by every seat that can open the
+ *  phone's tap modal, so "position 2 of 4" always means the same ranking everywhere. */
+interface Standings {
+    ranks: Map<string, number>;
+    total: number;
 }
 
 function OpponentRow({
@@ -824,6 +849,7 @@ function OpponentRow({
     breakpoint,
     seatGeometry,
     seatArcTable,
+    standings,
 }: {
     opponents: Player[];
     leaderId: string | null;
@@ -832,6 +858,7 @@ function OpponentRow({
     breakpoint: string;
     seatGeometry: SeatGeometry;
     seatArcTable: SeatArcSample[];
+    standings: Standings;
 }): JSX.Element {
     const { t } = useTranslation();
     // Desktop/tablet: always SEAT_SLOTS <li>s, reserved whether filled or not, at fixed points -
@@ -841,6 +868,10 @@ function OpponentRow({
         ? opponents
         : Array.from({ length: SEAT_SLOTS }, (_, i) => opponents[i] ?? null);
     const avatarSize = opponentAvatarSize(breakpoint);
+    // Phones only (see CompactSeat): which rival's name/status is currently shown in the tap
+    // modal, since the row itself only has room for an avatar and a card count.
+    const [openId, setOpenId] = useState<string | null>(null);
+    const openPlayer = compact ? (opponents.find((player) => player.id === openId) ?? null) : null;
     return (
         <ul
             className={`opponents ${compact ? 'opponents--compact' : ''}`}
@@ -862,6 +893,7 @@ function OpponentRow({
                             status={seatStatus(t, player)}
                             compact={compact}
                             avatarSize={avatarSize}
+                            onOpen={compact ? () => setOpenId(player.id) : undefined}
                         />
                     </li>
                 ) : (
@@ -875,6 +907,16 @@ function OpponentRow({
                     </li>
                 ),
             )}
+            {compact ? (
+                <SeatInfoModal
+                    player={openPlayer}
+                    count={openPlayer ? countOf(openPlayer) : 0}
+                    rank={openPlayer ? standings.ranks.get(openPlayer.id) : undefined}
+                    total={standings.total}
+                    status={openPlayer ? seatStatus(t, openPlayer) : ''}
+                    onClose={() => setOpenId(null)}
+                />
+            ) : null}
         </ul>
     );
 }
@@ -887,6 +929,7 @@ function Seat({
     you = false,
     compact = false,
     avatarSize = 34,
+    onOpen,
 }: {
     player: Player;
     count: number;
@@ -897,16 +940,28 @@ function Seat({
     /** Tuned per breakpoint by the caller (see opponentAvatarSize) - never a shared default that
      *  would let a tablet-only or desktop-only tweak quietly move the other. */
     avatarSize?: number;
+    /** Phones only: tapping a rival opens the name/status modal instead of showing a pill (see
+     *  CompactSeat) - `MyZone`'s own seat (always the full pill, even on phones) never passes
+     *  this, so `compact` alone isn't enough to pick the branch below. */
+    onOpen?: () => void;
 }): JSX.Element {
     const { t } = useTranslation();
+
+    if (compact && onOpen) {
+        return (
+            <CompactSeat
+                player={player}
+                count={count}
+                isLeader={isLeader}
+                avatarSize={avatarSize}
+                onOpen={onOpen}
+            />
+        );
+    }
+
     return (
         <div
-            className={[
-                'seat',
-                isLeader && 'seat--leader',
-                you && 'seat--you',
-                compact && 'seat--compact',
-            ]
+            className={['seat', isLeader && 'seat--leader', you && 'seat--you']
                 .filter(Boolean)
                 .join(' ')}
         >
@@ -933,6 +988,120 @@ function Seat({
             </div>
             <Pile playerId={player.id} count={count} />
         </div>
+    );
+}
+
+/** Phones: a seat is just its avatar plus the same real `Pile` everyone else's cards fly to
+ *  (`data-pile-id`) - tap it for the name/status/position modal (see SeatInfoModal). Used for
+ *  both a rival (OpponentRow) and my own seat (MyZone) on phones, so the two never drift into
+ *  the "mine has everything, theirs has nothing" mismatch a full pill next to an avatar-only
+ *  one used to be. */
+function CompactSeat({
+    player,
+    count,
+    isLeader,
+    avatarSize,
+    onOpen,
+}: {
+    player: Player;
+    count: number;
+    isLeader: boolean;
+    avatarSize: number;
+    onOpen: () => void;
+}): JSX.Element {
+    const { t } = useTranslation();
+    return (
+        <button
+            type="button"
+            className="seat-compact"
+            onClick={onOpen}
+            aria-label={player.nickname}
+        >
+            <span className="seat-compact__avatar">
+                <Avatar
+                    seed={player.avatarSeed}
+                    size={avatarSize}
+                    active={isLeader}
+                    label={player.nickname}
+                />
+                {isLeader ? (
+                    <span className="seat__crown" aria-label={t('table.status.leader')}>
+                        <Icon name="crown" />
+                    </span>
+                ) : null}
+            </span>
+            <Pile playerId={player.id} count={count} />
+        </button>
+    );
+}
+
+/** The name/status/position a phone's compact seat has no room for, one tap away instead of
+ *  gone - "posición actual en la partida" alongside the card count, the same ranking
+ *  SidePanel's "Posiciones" tab shows (see GameTable's `standings` memo). */
+function SeatInfoModal({
+    player,
+    count,
+    rank,
+    total,
+    status,
+    onClose,
+}: {
+    player: Player | null;
+    count: number;
+    rank: number | undefined;
+    total: number;
+    status: string;
+    onClose: () => void;
+}): JSX.Element {
+    const { t } = useTranslation();
+    useBodyScrollLock(player !== null);
+    return createPortal(
+        <AnimatePresence>
+            {player ? (
+                <motion.div
+                    className="dialog-scrim"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={onClose}
+                >
+                    <motion.div
+                        className="dialog panel panel--pad seat-info-dialog"
+                        role="dialog"
+                        aria-modal="true"
+                        initial={{ opacity: 0, y: 24, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 24, scale: 0.97 }}
+                        transition={{ type: 'spring', bounce: 0.2, duration: 0.45 }}
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="row row--between">
+                            <h2>{displayNickname(player.nickname, t)}</h2>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                icon="cancel"
+                                aria-label={t('common.close')}
+                                onClick={onClose}
+                            />
+                        </div>
+                        <div className="seat-info-dialog__body">
+                            <Avatar seed={player.avatarSeed} size={72} label={player.nickname} />
+                            <div className="seat-info-dialog__stats">
+                                <span className="badge">{t('common.cards', { count })}</span>
+                                {rank ? (
+                                    <span className="badge badge--muted">
+                                        {t('table.info.position', { rank, total })}
+                                    </span>
+                                ) : null}
+                            </div>
+                            {status ? <span className="badge">{status}</span> : null}
+                        </div>
+                    </motion.div>
+                </motion.div>
+            ) : null}
+        </AnimatePresence>,
+        document.body,
     );
 }
 
@@ -1053,6 +1222,13 @@ function PlayArea({
     const result = reveal?.result ?? null;
     // The winning card only lights up once every card is face up.
     const showOutcome = reveal !== null && reveal.stage !== 'landing' && reveal.stage !== 'flip';
+    // A tie is only ever for the *highest* value (rule 7) - whoever played below that value
+    // still lost the round outright, even though their card rides along into the pot.
+    const tiedTopValue = useMemo(() => {
+        if (!result?.isTie) return null;
+        const values = Object.values(result.cards).map((c) => c.stats[result.attribute] ?? 0);
+        return Math.max(...values);
+    }, [result]);
     const attributeKey = reveal?.attribute ?? state.round?.attribute ?? null;
     const attribute = attributeKey ? attributeMeta('pokeapi', attributeKey) : null;
     const { t } = useTranslation();
@@ -1127,7 +1303,10 @@ function PlayArea({
                 const outcome: CardOutcome =
                     showOutcome && result
                         ? result.isTie
-                            ? 'tie'
+                            ? (result.cards[playerId]?.stats[result.attribute] ?? 0) ===
+                              tiedTopValue
+                                ? 'tie'
+                                : 'lose'
                             : playerId === result.winnerId
                               ? 'win'
                               : 'lose'
@@ -1617,6 +1796,8 @@ function MyZone({
     hand,
     isLeader,
     handCard,
+    compact,
+    standings,
 }: {
     state: RedactedMatchState;
     me: Player | undefined;
@@ -1625,8 +1806,13 @@ function MyZone({
     isLeader: boolean;
     /** Desktop and tablets: my card sits here. Phones: it moves to the middle of the table. */
     handCard: JSX.Element | null;
+    /** Phones: my own seat matches every rival's (avatar + pile, tap for the rest) instead of
+     *  the full pill - unifying the two is what "mine has a name, theirs doesn't" needed. */
+    compact: boolean;
+    standings: Standings;
 }): JSX.Element {
     const { t } = useTranslation();
+    const [infoOpen, setInfoOpen] = useState(false);
 
     if (!me || me.isSpectator || me.isEliminated) {
         return (
@@ -1649,13 +1835,33 @@ function MyZone({
                 {handCard}
 
                 <div className="my-zone__seat">
-                    <Seat
-                        player={me}
-                        count={count}
-                        isLeader={isLeader}
-                        status={seatStatus(t, me)}
-                        you
-                    />
+                    {compact ? (
+                        <>
+                            <CompactSeat
+                                player={me}
+                                count={count}
+                                isLeader={isLeader}
+                                avatarSize={opponentAvatarSize('mobile')}
+                                onOpen={() => setInfoOpen(true)}
+                            />
+                            <SeatInfoModal
+                                player={infoOpen ? me : null}
+                                count={count}
+                                rank={standings.ranks.get(me.id)}
+                                total={standings.total}
+                                status={t('common.youTag')}
+                                onClose={() => setInfoOpen(false)}
+                            />
+                        </>
+                    ) : (
+                        <Seat
+                            player={me}
+                            count={count}
+                            isLeader={isLeader}
+                            status={seatStatus(t, me)}
+                            you
+                        />
+                    )}
                 </div>
             </div>
         </section>

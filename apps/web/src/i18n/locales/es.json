@@ -149,16 +149,28 @@
             "submit": "Entrar",
             "noClipboard": "No encontramos un código en el portapapeles"
         },
-        "rooms": {
-            "title": "Mis salas privadas",
+        "history": {
+            "title": "Historial",
             "new": "Nueva",
             "guest": "Como invitado juegas partidas rápidas. Crea una cuenta para tener tus propias salas y aparecer en el ranking.",
-            "empty": "Aún no tienes salas abiertas. ¡Arma una y reta a tus amigos!",
-            "open": "Abrir",
+            "empty": "Aún no creaste ninguna sala privada. ¡Arma una y reta a tus amigos!",
+            "count_one": "{{count}} sala",
+            "count_other": "{{count}} salas",
+            "viewAll": "Ver todo",
+            "modalTitle": "Historial de salas",
+            "vs": "vs. {{name}}",
             "status": {
                 "LOBBY": "Esperando jugadores",
                 "IN_PROGRESS": "En juego",
-                "FINISHED": "Terminada"
+                "FINISHED": "Terminada",
+                "CANCELLED": "Cancelada"
+            },
+            "outcome": {
+                "won": "Ganaste",
+                "lost": "Perdiste",
+                "draw": "Empate",
+                "abandoned": "Abandonaste",
+                "cancelled": "Cancelada"
             }
         }
     },
@@ -274,7 +286,7 @@
         "invite": "Invitación a la sala",
         "invites": "te invita a jugar",
         "seats": "{{count}}/{{max}} jugadores",
-        "spectator": "En juego: entrarás como espectador",
+        "alreadyStarted": "Esta partida ya empezó y no acepta más jugadores.",
         "enter": "Entrar a la sala"
     },
     "lobby": {
@@ -312,6 +324,9 @@
         "entering": "Entrando a la mesa…",
         "reconnecting": "Reconectando…",
         "hud": "Estado de la partida",
+        "tools": {
+            "more": "Más opciones"
+        },
         "round": "Ronda",
         "roundNumber": "Ronda {{count}}",
         "timeLeft": "Tiempo restante",
@@ -373,6 +388,9 @@
             "table": "¿Abandonar? Pierdes y tus cartas se reparten entre los demás.",
             "yes": "Abandonar",
             "no": "Seguir jugando"
+        },
+        "info": {
+            "position": "Posición {{rank}} de {{total}}"
         }
     },
     "panel": {

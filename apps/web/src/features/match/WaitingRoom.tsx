@@ -3,9 +3,11 @@ import { AnimatePresence, motion } from 'framer-motion';
 import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Avatar } from '../../components/ui/Avatar';
+import { MailIcon, TelegramIcon, WhatsAppIcon } from '../../components/ui/BrandIcons';
 import { Button } from '../../components/ui/Button';
 import { Icon } from '../../components/ui/Icon';
 import { useToast } from '../../components/ui/Toast';
+import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { useNow } from '../../hooks/useNow';
 import { formatDuration } from '../../lib/format';
 import {
@@ -25,6 +27,21 @@ interface WaitingRoomProps {
     onLeave: () => void;
 }
 
+/** Tablet and desktop both got a wider card to fill, so both get a bigger avatar than
+ *  phones keep for now. */
+function seatAvatarSize(breakpoint: string): number {
+    if (breakpoint === 'mobile') return 58;
+    return 74;
+}
+
+/** How many seats sit per row. Desktop always reads as one line (that's the point of its
+ *  extra width); tablet only splits into two rows once a single line would crowd past three,
+ *  so a 2- or 3-seat room never reserves the same layout a full 6-seat one needs. */
+function seatGridColumns(total: number, breakpoint: string): number {
+    if (breakpoint === 'tablet') return total > 3 ? Math.ceil(total / 2) : total;
+    return total;
+}
+
 /**
  * One centered card for every lobby: the room (or the search), the seats filling up as players
  * arrive, the rules in play and the countdown - so the wait reads as a single live screen.
@@ -37,10 +54,12 @@ export function WaitingRoom({
 }: WaitingRoomProps): JSX.Element {
     const { t } = useTranslation();
     const toast = useToast();
+    const breakpoint = useBreakpoint();
     const now = useNow(200, state.phase === 'COUNTDOWN');
     const isHost = state.hostId === state.yourId;
     const seated = state.players.filter((player) => !player.isSpectator);
     const emptySeats = Math.max(0, state.config.maxPlayers - seated.length);
+    const seatTotal = seated.length + Math.min(emptySeats, 6);
     const isQuick = state.config.visibility === 'public';
     const canStart = seated.length >= state.config.minPlayers;
     const full = seated.length >= state.config.autoStartPlayers;
@@ -101,38 +120,49 @@ export function WaitingRoom({
                         <p className="text-3">{t('lobby.codeHint')}</p>
                         <div className="waiting__share">
                             <a
-                                className="btn btn--emerald btn--sm"
+                                className="btn btn--sm"
                                 href={whatsappUrl(state.code)}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                data-tip="WhatsApp"
                             >
-                                WhatsApp
+                                <WhatsAppIcon className="btn__icon" />
+                                <span className="waiting__share-text">WhatsApp</span>
                             </a>
                             <a
                                 className="btn btn--sm"
                                 href={telegramUrl(state.code)}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                data-tip="Telegram"
                             >
-                                Telegram
+                                <TelegramIcon className="btn__icon" />
+                                <span className="waiting__share-text">Telegram</span>
                             </a>
-                            <a className="btn btn--sm" href={emailUrl(state.code)}>
-                                <Icon name="envelope" className="btn__icon" /> {t('lobby.email')}
+                            <a
+                                className="btn btn--sm"
+                                href={emailUrl(state.code)}
+                                data-tip={t('lobby.email')}
+                            >
+                                <MailIcon className="btn__icon" />
+                                <span className="waiting__share-text">{t('lobby.email')}</span>
                             </a>
                             <Button
                                 size="sm"
                                 icon="linked-rings"
+                                data-tip={t('lobby.copyLink')}
                                 onClick={() => void copy(inviteUrl(state.code), t('lobby.link'))}
                             >
-                                {t('lobby.copyLink')}
+                                <span className="waiting__share-text">{t('lobby.copyLink')}</span>
                             </Button>
                             {canNativeShare() ? (
                                 <Button
                                     size="sm"
                                     icon="share"
+                                    data-tip={t('lobby.share')}
                                     onClick={() => void nativeShare(state.code)}
                                 >
-                                    {t('lobby.share')}
+                                    <span className="waiting__share-text">{t('lobby.share')}</span>
                                 </Button>
                             ) : null}
                         </div>
@@ -146,7 +176,12 @@ export function WaitingRoom({
                             {seated.length}/{state.config.maxPlayers}
                         </span>
                     </div>
-                    <ul className={`seat-grid ${isQuick ? 'seat-grid--duel' : ''}`}>
+                    <ul
+                        className={`seat-grid ${isQuick ? 'seat-grid--duel' : ''}`}
+                        style={{
+                            ['--seat-cols' as string]: seatGridColumns(seatTotal, breakpoint),
+                        }}
+                    >
                         <AnimatePresence initial={false}>
                             {seated.map((player, index) => (
                                 <motion.li
@@ -162,7 +197,10 @@ export function WaitingRoom({
                                         delay: index * 0.04,
                                     }}
                                 >
-                                    <Avatar seed={player.avatarSeed} size={58} />
+                                    <Avatar
+                                        seed={player.avatarSeed}
+                                        size={seatAvatarSize(breakpoint)}
+                                    />
                                     <strong className="seat-slot__name">{player.nickname}</strong>
                                     <span className="text-3 seat-slot__role">
                                         {player.id === state.hostId && !isQuick

@@ -8,6 +8,12 @@ html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     background: var(--bg);
+    /* The spec propagates the ROOT's overflow to the viewport, not `body`'s, whenever `body`
+       sets anything other than `visible` - without this, `body`'s own `overflow-x: hidden`
+       below is silently ignored for the actual viewport scrollbar, and any stray few-pixel
+       horizontal overflow on a phone still shows up as a thin gold scrollbar pinned to the
+       bottom of the screen (styled by the global `scrollbar-color` rule below). */
+    overflow-x: hidden;
 }
 
 body {
@@ -25,6 +31,13 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+}
+
+/* Applied by useBodyScrollLock while any modal/dialog/sheet is open - scrolling inside it must
+   never also scroll the app behind it (the leaderboard's "¿cómo se puntúa?" dialog used to leak
+   its scroll straight through to the home page underneath). */
+body.scroll-locked {
+    overflow: hidden;
 }
 
 #root {

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/Button';
 import { Icon } from '../../components/ui/Icon';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 
 const RULES = ['goal', 'deal', 'first', 'round', 'tie', 'leave', 'end'] as const;
 
@@ -17,6 +18,7 @@ export function RulesDialog({
     onClose: () => void;
 }): JSX.Element {
     const { t } = useTranslation();
+    useBodyScrollLock(open);
 
     useEffect(() => {
         if (!open) return;

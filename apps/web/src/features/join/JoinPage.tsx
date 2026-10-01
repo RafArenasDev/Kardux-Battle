@@ -64,61 +64,79 @@ export default function JoinPage(): JSX.Element {
         }
     }
 
+    // A match already underway gets the same bare error treatment as a dead code or a network
+    // failure - no code, no host, no seat count. Those only make sense for a room you could
+    // still join, and displaying them here just dressed up a dead end as an invitation.
+    const blockedMessage =
+        error ?? (match?.status === 'IN_PROGRESS' ? t('join.alreadyStarted') : null);
+
     return (
         <AppShell>
             <div className="join">
                 <div className="panel panel--pad join__panel">
-                    <span className="eyebrow">{t('join.invite')}</span>
-                    <span className="join__code">{code}</span>
-
-                    {error ? (
+                    {blockedMessage ? (
                         <>
-                            <p className="form-error">{error}</p>
+                            <p className="form-error">{blockedMessage}</p>
                             <Button icon="return-arrow" onClick={() => navigate('/home')}>
                                 {t('common.backHome')}
                             </Button>
                         </>
-                    ) : !match ? (
-                        <span className="spinner" style={{ ['--size' as string]: '32px' }} />
                     ) : (
                         <>
-                            <div className="row" style={{ justifyContent: 'center' }}>
-                                <img src={match.hostAvatarUrl} alt="" width={48} height={48} />
-                                <div style={{ textAlign: 'left' }}>
-                                    <strong>{match.hostNickname}</strong>
-                                    <div className="text-3">{t('join.invites')}</div>
-                                </div>
-                            </div>
-                            <div className="config-summary" style={{ justifyContent: 'center' }}>
-                                <span className="badge">
-                                    <Icon name="lightning-helix" /> Pokémon
-                                </span>
-                                <span className="badge badge--muted">
-                                    {t('join.seats', {
-                                        count: match.playerCount,
-                                        max: match.config.maxPlayers,
-                                    })}
-                                </span>
-                                <span className="badge badge--muted">
-                                    {formatDuration(match.config.matchDurationMs)}
-                                </span>
-                                {match.status === 'IN_PROGRESS' ? (
-                                    <span className="badge badge--lose">{t('join.spectator')}</span>
-                                ) : null}
-                            </div>
-                            <Button
-                                variant="gold"
-                                size="lg"
-                                block
-                                icon="crossed-swords"
-                                loading={joining}
-                                onClick={join}
-                            >
-                                {t('join.enter')}
-                            </Button>
-                            <Button variant="ghost" block onClick={() => navigate('/home')}>
-                                {t('common.notNow')}
-                            </Button>
+                            <span className="eyebrow">{t('join.invite')}</span>
+                            <span className="join__code">{code}</span>
+
+                            {!match ? (
+                                <span
+                                    className="spinner"
+                                    style={{ ['--size' as string]: '32px' }}
+                                />
+                            ) : (
+                                <>
+                                    <div className="row" style={{ justifyContent: 'center' }}>
+                                        <img
+                                            src={match.hostAvatarUrl}
+                                            alt=""
+                                            width={48}
+                                            height={48}
+                                        />
+                                        <div style={{ textAlign: 'left' }}>
+                                            <strong>{match.hostNickname}</strong>
+                                            <div className="text-3">{t('join.invites')}</div>
+                                        </div>
+                                    </div>
+                                    <div
+                                        className="config-summary"
+                                        style={{ justifyContent: 'center' }}
+                                    >
+                                        <span className="badge">
+                                            <Icon name="lightning-helix" /> Pokémon
+                                        </span>
+                                        <span className="badge badge--muted">
+                                            {t('join.seats', {
+                                                count: match.playerCount,
+                                                max: match.config.maxPlayers,
+                                            })}
+                                        </span>
+                                        <span className="badge badge--muted">
+                                            {formatDuration(match.config.matchDurationMs)}
+                                        </span>
+                                    </div>
+                                    <Button
+                                        variant="gold"
+                                        size="lg"
+                                        block
+                                        icon="crossed-swords"
+                                        loading={joining}
+                                        onClick={join}
+                                    >
+                                        {t('join.enter')}
+                                    </Button>
+                                    <Button variant="ghost" block onClick={() => navigate('/home')}>
+                                        {t('common.notNow')}
+                                    </Button>
+                                </>
+                            )}
                         </>
                     )}
                 </div>

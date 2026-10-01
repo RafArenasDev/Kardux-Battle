@@ -53,39 +53,45 @@ export function SidePanel({
         .filter((player) => !player.isSpectator || player.isEliminated)
         .sort((a, b) => Number(a.hasLeft) - Number(b.hasLeft) || b.cardCount - a.cardCount);
 
+    // Chat only makes sense between real people (guests or accounts) - there is nobody on the
+    // other end of it in a practice match against the machine.
+    const allowChat = !state.players.some((player) => player.id.startsWith('bot:'));
+
     return (
         <aside className="side-panel panel">
-            <div className="segmented" role="tablist" aria-label={t('panel.label')}>
-                {(['standings', 'chat'] as const).map((option) => (
-                    <button
-                        key={option}
-                        type="button"
-                        role="tab"
-                        className="segmented__item"
-                        aria-selected={tab === option}
-                        onClick={() => onTab(option)}
-                    >
-                        {tab === option ? (
-                            <motion.span
-                                layoutId="side-panel-thumb"
-                                className="segmented__thumb"
-                                transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
-                            />
-                        ) : null}
-                        {t(`panel.${option}`)}
-                        {option === 'chat' && unread > 0 ? (
-                            <span
-                                className="unread-dot"
-                                aria-label={t('panel.unread', { count: unread })}
-                            >
-                                {unread}
-                            </span>
-                        ) : null}
-                    </button>
-                ))}
-            </div>
+            {allowChat ? (
+                <div className="segmented" role="tablist" aria-label={t('panel.label')}>
+                    {(['standings', 'chat'] as const).map((option) => (
+                        <button
+                            key={option}
+                            type="button"
+                            role="tab"
+                            className="segmented__item"
+                            aria-selected={tab === option}
+                            onClick={() => onTab(option)}
+                        >
+                            {tab === option ? (
+                                <motion.span
+                                    layoutId="side-panel-thumb"
+                                    className="segmented__thumb"
+                                    transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
+                                />
+                            ) : null}
+                            {t(`panel.${option}`)}
+                            {option === 'chat' && unread > 0 ? (
+                                <span
+                                    className="unread-dot"
+                                    aria-label={t('panel.unread', { count: unread })}
+                                >
+                                    {unread}
+                                </span>
+                            ) : null}
+                        </button>
+                    ))}
+                </div>
+            ) : null}
 
-            {tab === 'standings' ? (
+            {tab === 'standings' || !allowChat ? (
                 <ol className="standings">
                     <li className="standings__legend text-3">{t('panel.legend')}</li>
                     {standings.map((player, index) => (
