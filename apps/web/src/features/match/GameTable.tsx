@@ -250,6 +250,13 @@ export function GameTable({
             hand={hand}
             faceRect={myFaceRect}
             shared={compact}
+            // Mobile only (both portrait and landscape): StatusLine already says "X está
+            // eligiendo atributo..." right above, covering the exact same "it's not your turn"
+            // info - a second, separate "solo quien elige ve su carta" message on the card
+            // itself was redundant and, on the new landscape table, visibly stuck past when the
+            // card had already launched, overlapping the throw animation. Tablet/desktop keep it
+            // - explicit ask was mobile-only.
+            hideBlindHint={breakpoint === 'mobile'}
             onSelectAttribute={onSelectAttribute}
         />
     );
@@ -1785,19 +1792,24 @@ function HandCard({
     hand,
     faceRect,
     shared,
+    hideBlindHint,
     onSelectAttribute,
 }: {
     hand: HandState;
     faceRect: MutableRefObject<DOMRect | null>;
     /** Phones: the card can move to my seat at the table, so it animates between both. */
     shared: boolean;
+    /** Mobile only: StatusLine already names whoever's choosing right above this card, so the
+     *  card itself doesn't need its own separate "solo quien elige ve su carta" text too - see
+     *  this prop's own call site for the full reasoning. */
+    hideBlindHint: boolean;
     onSelectAttribute: (attribute: string) => void;
 }): JSX.Element {
     const { t } = useTranslation();
     return (
         <div className="my-zone__card" data-my-card>
             <AnimatePresence initial={false}>
-                {hand.blind ? (
+                {hand.blind && !hideBlindHint ? (
                     <motion.p
                         key="blind"
                         className="my-card__blind"
