@@ -371,46 +371,67 @@ function DealLayer({
 
     useLayoutEffect(() => {
         const table = tableRef.current;
-        const deck = table?.querySelector('[data-deck-anchor]');
-        if (!table || !deck) return;
-        setOrigin(centerIn(table, deck));
+        if (!table) return undefined;
 
-        // Real deal order: one card at a time around the table, in seating order.
-        const receivers = state.players
-            .filter((player) => !player.isSpectator || player.isEliminated)
-            .map((player) => ({ id: player.id, total: player.cardCount }));
-        const order: string[] = [];
-        const max = Math.max(0, ...receivers.map((receiver) => receiver.total));
-        for (let lap = 0; lap < max; lap++) {
-            for (const receiver of receivers) if (lap < receiver.total) order.push(receiver.id);
-        }
-        const perFlight = Math.max(1, Math.ceil(order.length / MAX_DEAL_FLIGHTS));
-        const planned: Flight[] = [];
-        for (let index = 0; index < order.length; index += perFlight) {
-            const playerId = order[index]!;
-            const pile = table.querySelector(`[data-pile-id="${CSS.escape(playerId)}"]`);
-            const cards = order
-                .slice(index, index + perFlight)
-                .filter((id) => id === playerId).length;
-            planned.push({
-                id: index,
-                playerId,
-                cards,
-                delay: SHUFFLE_MS + (index / Math.max(1, order.length)) * DEAL_WINDOW_MS,
-                to: pile ? centerIn(table, pile) : centerIn(table, deck),
-            });
-        }
-        // Chunks keep each receiver's total exact even when a flight carries several cards.
-        const assigned: Record<string, number> = {};
-        for (const flight of planned)
-            assigned[flight.playerId] = (assigned[flight.playerId] ?? 0) + flight.cards;
-        for (const receiver of receivers) {
-            const missing = receiver.total - (assigned[receiver.id] ?? 0);
-            const last = [...planned].reverse().find((flight) => flight.playerId === receiver.id);
-            if (last && missing !== 0) last.cards += missing;
-        }
-        setFlights(planned);
-        // Measured once, when the deal starts.
+        const measure = (): void => {
+            const deck = table.querySelector('[data-deck-anchor]');
+            if (!deck) return;
+            setOrigin(centerIn(table, deck));
+
+            // Real deal order: one card at a time around the table, in seating order.
+            const receivers = state.players
+                .filter((player) => !player.isSpectator || player.isEliminated)
+                .map((player) => ({ id: player.id, total: player.cardCount }));
+            const order: string[] = [];
+            const max = Math.max(0, ...receivers.map((receiver) => receiver.total));
+            for (let lap = 0; lap < max; lap++) {
+                for (const receiver of receivers) if (lap < receiver.total) order.push(receiver.id);
+            }
+            const perFlight = Math.max(1, Math.ceil(order.length / MAX_DEAL_FLIGHTS));
+            const planned: Flight[] = [];
+            for (let index = 0; index < order.length; index += perFlight) {
+                const playerId = order[index]!;
+                const pile = table.querySelector(`[data-pile-id="${CSS.escape(playerId)}"]`);
+                const cards = order
+                    .slice(index, index + perFlight)
+                    .filter((id) => id === playerId).length;
+                planned.push({
+                    id: index,
+                    playerId,
+                    cards,
+                    delay: SHUFFLE_MS + (index / Math.max(1, order.length)) * DEAL_WINDOW_MS,
+                    to: pile ? centerIn(table, pile) : centerIn(table, deck),
+                });
+            }
+            // Chunks keep each receiver's total exact even when a flight carries several cards.
+            const assigned: Record<string, number> = {};
+            for (const flight of planned)
+                assigned[flight.playerId] = (assigned[flight.playerId] ?? 0) + flight.cards;
+            for (const receiver of receivers) {
+                const missing = receiver.total - (assigned[receiver.id] ?? 0);
+                const last = [...planned]
+                    .reverse()
+                    .find((flight) => flight.playerId === receiver.id);
+                if (last && missing !== 0) last.cards += missing;
+            }
+            setFlights(planned);
+        };
+
+        measure();
+
+        // On a real phone, mounting right as the table asks for fullscreen + a landscape lock
+        // (MatchPage's own effect, same instant the lobby ends) races a genuine, slow viewport
+        // rotation - unlike desktop or a device-emulator, where that request is a no-op and the
+        // table is already full-size on the very first frame. A `ResizeObserver` here means a
+        // mount that lands mid-rotation gets its flight paths corrected once the table reaches
+        // its real post-rotation size, instead of flying every card to coordinates measured
+        // against the portrait layout that was on screen for one frame before the fix.
+        const observer = new ResizeObserver(measure);
+        observer.observe(table);
+        return () => observer.disconnect();
+        // Re-measuring already depends only on live DOM nodes (`tableRef`/data attributes) found
+        // fresh inside `measure` itself - re-running this whenever `state` changes would restart
+        // the whole deal, which is not what a resize mid-deal should do.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 

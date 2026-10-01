@@ -542,6 +542,10 @@ export class MatchRuntimeService implements OnModuleDestroy {
         if (autoSelect) clearTimeout(autoSelect);
         this.autoSelects.delete(matchId);
         this.sessions.delete(matchId);
+        // `withLock` chains a new Promise onto this map on every dispatch and never removed the
+        // old one on its own - left out of this cleanup, every match that ever ran left one
+        // resolved Promise permanently rooted here for the life of the process.
+        this.locks.delete(matchId);
         if (this.redis?.status === 'ready') {
             await this.redis.del(`${STATE_PREFIX}${matchId}`).catch(() => undefined);
         }
@@ -812,7 +816,22 @@ export class MatchRuntimeService implements OnModuleDestroy {
     private scheduleTimer(matchId: string, state: MatchState): void {
         this.clearTimer(matchId);
 
-        if (state.phase === 'FINISHED') return;
+        if (state.phase === 'FINISHED') {
+            // Nothing left to tick toward, but the live session (the full `MatchState` - every
+            // player's deck, round history, the lot) was still sitting in `this.sessions`
+            // forever before this: `dispose()` was only ever called for a lobby the host closed
+            // or a match abandoned down to one player, never for the common case of a match
+            // actually being played to its end. On this single long-lived process, every
+            // finished match quietly kept its full state in memory for good - the real cause
+            // behind production slowing down/crashing over time while a dev server (restarted
+            // on every save) never showed it. Give reconnecting clients the same grace window
+            // the Redis snapshot already gets (`FINISHED_STATE_TTL_SECONDS`) before releasing it.
+            const timer = setTimeout(() => {
+                void this.dispose(matchId);
+            }, FINISHED_STATE_TTL_SECONDS * 1000);
+            this.timers.set(matchId, timer);
+            return;
+        }
 
         const deadlines = [state.countdownEndsAt, state.turnDeadline, state.endsAt].filter(
             (value): value is number => value !== null,
