@@ -2,6 +2,7 @@ import type { RedactedMatchState } from '@kardux/contracts';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
@@ -47,7 +48,9 @@ export default function MatchPage(): JSX.Element {
     const { state, quickRematch } = session;
     const [sheetOpen, setSheetOpen] = useState(false);
     const [rulesOpen, setRulesOpen] = useState(false);
+    const [confirmLeave, setConfirmLeave] = useState(false);
     useBodyScrollLock(sheetOpen);
+    useBodyScrollLock(confirmLeave);
     const [tab, setTab] = useState<PanelTab>('standings');
     const [seenMessages, setSeenMessages] = useState(0);
     const leftOnPurpose = useRef(false);
@@ -177,9 +180,17 @@ export default function MatchPage(): JSX.Element {
                         state={state}
                         showCode={!isQuick}
                         revealIndex={session.reveal?.result.index ?? null}
-                        onLeave={leave}
                     />
                 ) : null
+            }
+            accountAction={
+                state && !inLobby
+                    ? {
+                          icon: 'exit-door',
+                          label: t('table.leave.button'),
+                          onClick: () => setConfirmLeave(true),
+                      }
+                    : undefined
             }
         >
             {!state ? (
@@ -347,6 +358,36 @@ export default function MatchPage(): JSX.Element {
                 ) : null}
             </AnimatePresence>
             <RulesDialog open={rulesOpen} onClose={() => setRulesOpen(false)} />
+            {state && confirmLeave
+                ? createPortal(
+                      <div className="dialog-overlay">
+                          <div
+                              className="leave-confirm"
+                              role="alertdialog"
+                              aria-label={t('table.leave.confirm')}
+                          >
+                              <span>
+                                  {state.players.filter((p) => !p.isSpectator).length <= 2
+                                      ? t('table.leave.duel')
+                                      : t('table.leave.table')}
+                              </span>
+                              <div className="leave-confirm__actions">
+                                  <Button size="sm" variant="ruby" onClick={leave}>
+                                      {t('table.leave.yes')}
+                                  </Button>
+                                  <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => setConfirmLeave(false)}
+                                  >
+                                      {t('table.leave.no')}
+                                  </Button>
+                              </div>
+                          </div>
+                      </div>,
+                      document.body,
+                  )
+                : null}
         </AppShell>
     );
 }
@@ -355,18 +396,14 @@ function MatchHud({
     state,
     showCode,
     revealIndex,
-    onLeave,
 }: {
     /** While a round is being revealed, the HUD still shows that round. */
     revealIndex: number | null;
     state: RedactedMatchState;
     showCode: boolean;
-    onLeave: () => void;
 }): JSX.Element {
     const now = useNow(1_000, state.endsAt !== null);
     const { t } = useTranslation();
-    const [confirmLeave, setConfirmLeave] = useState(false);
-    useBodyScrollLock(confirmLeave);
 
     return (
         <div className="hud" role="group" aria-label={t('table.hud')}>
@@ -398,45 +435,6 @@ function MatchHud({
                 <Icon name={state.endsAt ? 'stopwatch' : 'infinity'} />{' '}
                 {state.endsAt ? formatClock(state.endsAt - now) : t('format.noLimit')}
             </span>
-            {/* The one and only "leave the match" control - living here (not also floating over
-                the table) so it never reads as a second exit icon next to the account sign-out
-                button, which just happens to share the same door glyph. */}
-            <Button
-                size="sm"
-                variant="ghost"
-                icon="exit-door"
-                aria-label={t('table.leave.button')}
-                data-tip={t('table.leave.button')}
-                data-tip-pos="bottom"
-                onClick={() => setConfirmLeave(true)}
-            />
-            {confirmLeave ? (
-                <div className="dialog-overlay">
-                    <div
-                        className="leave-confirm"
-                        role="alertdialog"
-                        aria-label={t('table.leave.confirm')}
-                    >
-                        <span>
-                            {state.players.filter((p) => !p.isSpectator).length <= 2
-                                ? t('table.leave.duel')
-                                : t('table.leave.table')}
-                        </span>
-                        <div className="leave-confirm__actions">
-                            <Button size="sm" variant="ruby" onClick={onLeave}>
-                                {t('table.leave.yes')}
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setConfirmLeave(false)}
-                            >
-                                {t('table.leave.no')}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
         </div>
     );
 }
