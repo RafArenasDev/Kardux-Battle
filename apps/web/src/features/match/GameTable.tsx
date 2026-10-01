@@ -366,37 +366,15 @@ function DealLayer({
     tableRef: RefObject<HTMLDivElement>;
     onLand: (playerId: string, cards: number) => void;
 }): JSX.Element {
-    // TEMP DIAGNOSTIC - remove once the production-only "deal never animates" bug is found.
-    // eslint-disable-next-line no-console
-    console.log('[deal-diag-render]', {
-        hasTableRef: !!tableRef,
-        hasTableRefCurrent: !!tableRef.current,
-    });
     const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
     const [flights, setFlights] = useState<Flight[]>([]);
 
     useLayoutEffect(() => {
-        const table = tableRef.current;
-        // TEMP DIAGNOSTIC - remove once the production-only "deal never animates" bug is found.
-        // eslint-disable-next-line no-console
-        console.log('[deal-diag-mount]', {
-            tableIsNull: !table,
-            documentHasTable: !!document.querySelector('.table'),
-        });
-        if (!table) return undefined;
+        let retryFrame = 0;
+        let observer: ResizeObserver | undefined;
 
-        const measure = (): void => {
+        const measure = (table: HTMLDivElement): void => {
             const deck = table.querySelector('[data-deck-anchor]');
-            // TEMP DIAGNOSTIC - remove once the production-only "deal never animates" bug is found.
-            // eslint-disable-next-line no-console
-            console.log('[deal-diag]', {
-                deckFound: !!deck,
-                tableConnected: table.isConnected,
-                tableChildCount: table.children.length,
-                tableInnerHTMLLen: table.innerHTML.length,
-                globalAnchorCount: document.querySelectorAll('[data-deck-anchor]').length,
-                globalAnchorInTable: document.querySelectorAll('.table [data-deck-anchor]').length,
-            });
             if (!deck) return;
             setOrigin(centerIn(table, deck));
 
@@ -439,18 +417,38 @@ function DealLayer({
             setFlights(planned);
         };
 
-        measure();
+        // `tableRef.current` can still be null on this effect's very first run - confirmed in
+        // production (never recovers there) vs. local dev (silently "fixed" every time by
+        // StrictMode's deliberate extra mount/unmount/remount cycle, which happens to give the
+        // ref a second, working attempt). Root cause not fully pinned down, but the fix doesn't
+        // need to be: retry on the next frame instead of giving up permanently the one time the
+        // ref isn't attached yet on this effect's first pass.
+        const start = (): void => {
+            const table = tableRef.current;
+            if (!table) {
+                retryFrame = requestAnimationFrame(start);
+                return;
+            }
+            measure(table);
 
-        // On a real phone, mounting right as the table asks for fullscreen + a landscape lock
-        // (MatchPage's own effect, same instant the lobby ends) races a genuine, slow viewport
-        // rotation - unlike desktop or a device-emulator, where that request is a no-op and the
-        // table is already full-size on the very first frame. A `ResizeObserver` here means a
-        // mount that lands mid-rotation gets its flight paths corrected once the table reaches
-        // its real post-rotation size, instead of flying every card to coordinates measured
-        // against the portrait layout that was on screen for one frame before the fix.
-        const observer = new ResizeObserver(measure);
-        observer.observe(table);
-        return () => observer.disconnect();
+            // On a real phone, mounting right as the table asks for fullscreen + a landscape
+            // lock (MatchPage's own effect, same instant the lobby ends) races a genuine, slow
+            // viewport rotation - unlike desktop or a device-emulator, where that request is a
+            // no-op and the table is already full-size on the very first frame. A
+            // `ResizeObserver` here means a mount that lands mid-rotation gets its flight paths
+            // corrected once the table reaches its real post-rotation size, instead of flying
+            // every card to coordinates measured against the portrait layout that was on screen
+            // for one frame before the fix.
+            observer = new ResizeObserver(() => measure(table));
+            observer.observe(table);
+        };
+
+        start();
+
+        return () => {
+            cancelAnimationFrame(retryFrame);
+            observer?.disconnect();
+        };
         // Re-measuring already depends only on live DOM nodes (`tableRef`/data attributes) found
         // fresh inside `measure` itself - re-running this whenever `state` changes would restart
         // the whole deal, which is not what a resize mid-deal should do.
