@@ -1133,22 +1133,39 @@
     }
 }
 
-/* Phones: no room to seat rivals around an oval, so they go back to a plain, scrollable strip -
-   still an OVERLAY though (position stays absolute, inherited from the base `.opponents` rule),
-   never an in-flow element. Making this `position: static` used to be the actual bug behind
-   "the table's center sits too low": an in-flow strip here pushed `.board` down and shrank it,
-   which is exactly the one thing every other breakpoint goes out of its way to prevent. */
-.table--mobile .opponents {
-    top: 0;
-    bottom: auto;
-    display: flex;
-    justify-content: center;
-    padding: 0 140px 0 0;
-}
+/* Portrait phones only - the orientation lock refused, or an in-progress match was reached
+   before a real device actually engaged it (see MatchPage's tryLockMatchOrientation). No real
+   width to seat rivals around an oval here, so they go back to a plain, scrollable strip - still
+   an OVERLAY though (position stays absolute, inherited from the base `.opponents` rule), never
+   an in-flow element. Making this `position: static` used to be the actual bug behind "the
+   table's center sits too low": an in-flow strip here pushed `.board` down and shrank it, which
+   is exactly the one thing every other breakpoint goes out of its way to prevent.
+   Landscape - the table's actual intended state on a phone during a real match - gets the real
+   oval felt and seat-arc from the base (non-prefixed) rules instead, completely unmodified, the
+   same shape tablet/desktop already use successfully - see the landscape block further down for
+   its own sizing instead. Confirmed on a real device: without this split, the compact column
+   layout below was still rendering even once landscape engaged, avatars stacked straight down
+   the middle of a wide screen with nothing resembling a table, one of them overlapping the very
+   card it sat on. */
+@media (orientation: portrait) {
+    .table--mobile .opponents {
+        top: 0;
+        bottom: auto;
+        display: flex;
+        justify-content: center;
+        padding: 0 140px 0 0;
+    }
 
-.table--mobile .opponent {
-    position: static;
-    transform: none;
+    .table--mobile .opponent {
+        position: static;
+        transform: none;
+    }
+
+    .table--mobile .table__felt {
+        inset: 0;
+        border-radius: 0;
+        box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.7);
+    }
 }
 
 .my-zone--bar {
@@ -1167,12 +1184,6 @@
        reserves room for it - the same rule desktop/tablet already follow, so .board's height
        (and the table's true center inside it) never moves for anything floating over it. */
     padding-inline: 8px;
-}
-
-.table--mobile .table__felt {
-    inset: 0;
-    border-radius: 0;
-    box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.7);
 }
 
 .opponents--compact {
@@ -1256,11 +1267,9 @@
     justify-self: center;
 }
 
-/* Short landscape phones: shrink the hand card and tighten the spacing around it so nothing
-   is cut off - the board itself needs no special-casing here, it already always fills the
-   table's real height (see .table--mobile .opponents/.my-zone above), so this is purely about
-   not wasting the little vertical room there is on gaps sized for a tall portrait screen. */
-@media (max-height: 560px) {
+/* Short portrait phones only (the orientation-lock fallback, see the portrait block above):
+   shrink the hand card and tighten the spacing around it so nothing is cut off. */
+@media (max-height: 560px) and (orientation: portrait) {
     .table,
     .table--mobile {
         --card-lg: clamp(120px, 42dvh, 200px);
@@ -1275,6 +1284,32 @@
     .table--mobile .my-zone {
         gap: 4px;
         padding-bottom: 4px;
+    }
+}
+
+/* Phones in landscape - the table's real, intended state during an active match (see
+   MatchPage's tryLockMatchOrientation): the real oval felt and seat-arc from the base
+   (non-prefixed) rules apply completely unmodified here, the same shape tablet/desktop already
+   use, just sized down for a short screen instead of tablet's own generous values. Confirmed
+   oversized on a real device at mobile's portrait/compact sizing above - the choosing card alone
+   nearly filled the whole screen, and its own avatar sat right on top of the attribute rows
+   underneath it. */
+@media (orientation: landscape) {
+    .table--mobile {
+        --card-lg: clamp(90px, 26dvh, 135px);
+        --pile-w: clamp(20px, 5dvh, 28px);
+    }
+
+    .table--mobile .board__row {
+        padding-inline: clamp(8px, 2vw, 24px);
+    }
+
+    /* No name/status next to the avatar here (see Seat's `showName` in GameTable.tsx) - the
+       padding/gap meant to give that text room to breathe is otherwise just dead space next to
+       a small avatar. */
+    .table--mobile .seat {
+        gap: 4px;
+        padding: 4px 8px 4px 4px;
     }
 }
 

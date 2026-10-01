@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/Button';
 import { Icon } from '../../components/ui/Icon';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import type { Breakpoint } from '../../hooks/useBreakpoint';
+import { useViewport } from '../../hooks/useBreakpoint';
 import { useNow } from '../../hooks/useNow';
 import { serverNow } from '../../lib/clock';
 import { attributeMeta, formatStat } from '../../lib/deck-meta';
@@ -80,10 +81,16 @@ const SLOT_GAP_PX = 12;
  * then the same two-row clustering mobile uses for 5-7 (a tablet held upright genuinely can't
  * fit 7 in one row the way a laptop/monitor can).
  */
-function columnsFor(breakpoint: Breakpoint, count: number): number {
+function columnsFor(breakpoint: Breakpoint, compact: boolean, count: number): number {
     if (count <= 1) return 1;
     if (breakpoint === 'desktop') return count;
-    if (breakpoint === 'tablet') return count <= 4 ? count : Math.ceil(count / 2);
+    // Mobile in landscape (not compact - see GameTable's own `compact`) has the real oval table
+    // like tablet/desktop, not the narrow portrait column compact mode assumes - same
+    // single-row-until-5+ rule as tablet, not the "wraps to 2 rows past 3" rule compact mode
+    // needs for a screen one card barely fits across.
+    if (breakpoint === 'tablet' || (breakpoint === 'mobile' && !compact)) {
+        return count <= 4 ? count : Math.ceil(count / 2);
+    }
     if (count === 2) return 1;
     if (count === 3) return 3;
     return Math.ceil(count / 2);
@@ -212,7 +219,17 @@ export function GameTable({
     };
     const potSize = frozen ? frozen.pot : state.potSize;
     const deckSize = deal.counts ? deal.deckLeft : state.undealtCount;
-    const compact = breakpoint === 'mobile';
+    // Portrait only - a phone rotated to landscape (the table's own forced orientation, see
+    // MatchPage's tryLockMatchOrientation) has real width to seat rivals around an oval like
+    // tablet/desktop instead of the narrow compact column. Confirmed live on a real device: the
+    // old `breakpoint === 'mobile'` check alone kept the portrait layout even once landscape was
+    // forced, since `breakpoint` only tracks phone-sized vs. not, never orientation - avatars
+    // ended up stacked down the middle of a wide screen, overlapping the very card they sit on.
+    const { isPortrait } = useViewport();
+    const compact = breakpoint === 'mobile' && isPortrait;
+    // False only for mobile in landscape (see Seat's own comment) - every other breakpoint,
+    // including mobile portrait's own compact mode, already shows a name one way or another.
+    const showSeatNames = breakpoint !== 'mobile' || compact;
     const hand = useHand(state, {
         busy: reveal !== null || deal.counts !== null,
         isLeader: leaderId === state.yourId,
@@ -253,7 +270,8 @@ export function GameTable({
                 opponents={opponents}
                 leaderId={leaderId}
                 countOf={countOf}
-                compact={breakpoint === 'mobile'}
+                compact={compact}
+                showNames={showSeatNames}
                 breakpoint={breakpoint}
                 seatGeometry={seatGeometry}
                 seatArcTable={seatArcTable}
@@ -304,6 +322,8 @@ export function GameTable({
                 isLeader={leaderId === state.yourId}
                 handCard={compact ? null : handCard}
                 compact={compact}
+                showName={showSeatNames}
+                breakpoint={breakpoint}
                 standings={standings}
             />
 
@@ -861,13 +881,18 @@ function useSeatArc(
     return { geometry, myZoneBottom };
 }
 
-/** Tuned independently per breakpoint on purpose - changing one must never move the other.
- *  A single shared avatar size was exactly what made a tablet fix quietly break desktop (and
- *  back), since both breakpoints rendered through the same Seat component and same number. */
-function opponentAvatarSize(breakpoint: string): number {
-    // Mobile no longer carries a name/status next to the avatar (see CompactSeat) - it can
-    // afford a properly tappable size instead of squeezing in next to text.
-    if (breakpoint === 'mobile') return 44;
+/** Tuned independently per breakpoint (and, for mobile, per orientation) on purpose - changing
+ *  one must never move another. A single shared avatar size was exactly what made a tablet fix
+ *  quietly break desktop (and back), since both breakpoints rendered through the same Seat
+ *  component and same number. */
+function opponentAvatarSize(breakpoint: string, compact: boolean): number {
+    if (breakpoint === 'mobile') {
+        // Portrait/compact: no name/status next to the avatar (see CompactSeat), so it can
+        // afford a properly tappable size instead of squeezing in next to text. Landscape: a
+        // real seat on the oval table like tablet/desktop, matched to tablet's own size since
+        // the phone screen is smaller but held closer.
+        return compact ? 44 : 34;
+    }
     if (breakpoint === 'tablet') return 34;
     return 32;
 }
@@ -884,6 +909,7 @@ function OpponentRow({
     leaderId,
     countOf,
     compact,
+    showNames,
     breakpoint,
     seatGeometry,
     seatArcTable,
@@ -893,6 +919,9 @@ function OpponentRow({
     leaderId: string | null;
     countOf: (player: Player) => number;
     compact: boolean;
+    /** False only for mobile in landscape - the real oval seat, no room/need for a name pill
+     *  next to a small avatar on a short screen (see Seat's own comment). */
+    showNames: boolean;
     breakpoint: string;
     seatGeometry: SeatGeometry;
     seatArcTable: SeatArcSample[];
@@ -905,7 +934,7 @@ function OpponentRow({
     const slots: (Player | null)[] = compact
         ? opponents
         : Array.from({ length: SEAT_SLOTS }, (_, i) => opponents[i] ?? null);
-    const avatarSize = opponentAvatarSize(breakpoint);
+    const avatarSize = opponentAvatarSize(breakpoint, compact);
     // Phones only (see CompactSeat): which rival's name/status is currently shown in the tap
     // modal, since the row itself only has room for an avatar and a card count.
     const [openId, setOpenId] = useState<string | null>(null);
@@ -930,6 +959,7 @@ function OpponentRow({
                             isLeader={leaderId === player.id}
                             status={seatStatus(t, player)}
                             compact={compact}
+                            showName={showNames}
                             avatarSize={avatarSize}
                             onOpen={compact ? () => setOpenId(player.id) : undefined}
                         />
@@ -966,6 +996,7 @@ function Seat({
     status,
     you = false,
     compact = false,
+    showName = true,
     avatarSize = 34,
     onOpen,
 }: {
@@ -975,6 +1006,11 @@ function Seat({
     status: string;
     you?: boolean;
     compact?: boolean;
+    /** False only for mobile in landscape: a real seat on the oval table, like tablet/desktop,
+     *  but a short phone screen has no room to spare for a name pill next to a small avatar
+     *  there - avatar + card count only, same as this breakpoint's own compact/portrait mode
+     *  already shows before a tap (see CompactSeat). */
+    showName?: boolean;
     /** Tuned per breakpoint by the caller (see opponentAvatarSize) - never a shared default that
      *  would let a tablet-only or desktop-only tweak quietly move the other. */
     avatarSize?: number;
@@ -1016,14 +1052,16 @@ function Seat({
                     </span>
                 ) : null}
             </div>
-            <div className="seat__info">
-                <strong className="seat__name">{displayNickname(player.nickname, t)}</strong>
-                {you ? (
-                    <span className="seat__status seat__you-tag">{t('common.youTag')}</span>
-                ) : (
-                    <span className="seat__status">{status || ' '}</span>
-                )}
-            </div>
+            {showName ? (
+                <div className="seat__info">
+                    <strong className="seat__name">{displayNickname(player.nickname, t)}</strong>
+                    {you ? (
+                        <span className="seat__status seat__you-tag">{t('common.youTag')}</span>
+                    ) : (
+                        <span className="seat__status">{status || ' '}</span>
+                    )}
+                </div>
+            ) : null}
             <Pile playerId={player.id} count={count} />
         </div>
     );
@@ -1284,11 +1322,14 @@ function PlayArea({
 
     // Desktop confirmed good at 150 (a big duel was reading as oversized there). Tablet gets
     // its own value instead of sharing desktop's - same single-row layout and order logic, just
-    // scaled for its own size class, not desktop's or mobile's. Mobile is the opposite
+    // scaled for its own size class, not desktop's or mobile's. Mobile portrait is the opposite
     // complaint from desktop's - already tight on width, a lower cap there only made cards read
-    // as too small, so it keeps closer to what it had.
-    const inPlayMaxWidth = breakpoint === 'mobile' ? 220 : breakpoint === 'tablet' ? 170 : 150;
-    const columns = columnsFor(breakpoint, slotIds.length);
+    // as too small, so it keeps closer to what it had. Mobile landscape is its own case again:
+    // real width like tablet, but a short height to fit it in - confirmed oversized at
+    // portrait's 220 on a real device (the choosing card alone nearly filled the screen).
+    const inPlayMaxWidth =
+        breakpoint === 'mobile' ? (compact ? 220 : 110) : breakpoint === 'tablet' ? 170 : 150;
+    const columns = columnsFor(breakpoint, compact, slotIds.length);
     const fit = fitCards(slotIds.length, columns, stage.width, stage.height, inPlayMaxWidth);
     // Only mobile's choosing card actually renders inside .play-area (.play-area__hand) - on
     // tablet/desktop it renders in .my-zone, a sibling of this element, which never sees a
@@ -1835,6 +1876,8 @@ function MyZone({
     isLeader,
     handCard,
     compact,
+    showName,
+    breakpoint,
     standings,
 }: {
     state: RedactedMatchState;
@@ -1842,11 +1885,16 @@ function MyZone({
     count: number;
     hand: HandState;
     isLeader: boolean;
-    /** Desktop and tablets: my card sits here. Phones: it moves to the middle of the table. */
+    /** Desktop, tablets, and mobile in landscape: my card sits here. Mobile in portrait: it
+     *  moves to the middle of the table instead. */
     handCard: JSX.Element | null;
-    /** Phones: my own seat matches every rival's (avatar + pile, tap for the rest) instead of
-     *  the full pill - unifying the two is what "mine has a name, theirs doesn't" needed. */
+    /** Phones in portrait: my own seat matches every rival's (avatar + pile, tap for the rest)
+     *  instead of the full pill - unifying the two is what "mine has a name, theirs doesn't"
+     *  needed. */
     compact: boolean;
+    /** False only for mobile in landscape (see Seat's own comment). */
+    showName: boolean;
+    breakpoint: string;
     standings: Standings;
 }): JSX.Element {
     const { t } = useTranslation();
@@ -1879,7 +1927,7 @@ function MyZone({
                                 player={me}
                                 count={count}
                                 isLeader={isLeader}
-                                avatarSize={opponentAvatarSize('mobile')}
+                                avatarSize={opponentAvatarSize('mobile', true)}
                                 onOpen={() => setInfoOpen(true)}
                             />
                             <SeatInfoModal
@@ -1897,6 +1945,8 @@ function MyZone({
                             count={count}
                             isLeader={isLeader}
                             status={seatStatus(t, me)}
+                            showName={showName}
+                            avatarSize={opponentAvatarSize(breakpoint, compact)}
                             you
                         />
                     )}
