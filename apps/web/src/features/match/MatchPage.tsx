@@ -119,9 +119,12 @@ export default function MatchPage(): JSX.Element {
     // gets a chat tab/button, there is nobody on the other end of it.
     const allowChat = !state?.players.some((player) => player.id.startsWith('bot:'));
 
-    // Phones only, once the match itself is on screen (never the lobby, never anywhere else
-    // in the app): try to go fullscreen and lock landscape, the same way a video player does
-    // when you tap its own fullscreen button - never a "please rotate your device" message.
+    // Phones only, and only once the match itself is on screen - never the lobby/countdown wait,
+    // which stays in whatever orientation the player is already holding the phone in. Entering
+    // fullscreen+landscape exactly when the table loads (not a moment sooner) is a deliberate,
+    // explicit requirement: a quick-match search or a private lobby's wait is a normal portrait
+    // screen, and only the table itself ever asks for landscape, the same way a video player only
+    // goes fullscreen when you tap its own button, never a "please rotate your device" message.
     // Both calls need a real permission the browser can refuse (most reliably on iOS Safari,
     // which never lets a plain web page lock orientation at all) - best effort, silent either
     // way, since the table's own layout has to work in portrait regardless. An installed PWA
@@ -129,11 +132,6 @@ export default function MatchPage(): JSX.Element {
     useEffect(() => {
         if (inLobby || tableBreakpoint !== 'mobile') return undefined;
 
-        // The entry points (quick match, host start, join) already fire this themselves, inside
-        // their own click handler, which is the only place Android reliably treats the request
-        // as gesture-triggered. This call is the fallback for landing here without a fresh click
-        // - a page refresh, a direct link, a reconnect - so leaving a match still always returns
-        // to portrait below even on that path.
         tryLockMatchOrientation();
 
         return () => {

@@ -10,7 +10,6 @@ import { useToast } from '../../components/ui/Toast';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { useNow } from '../../hooks/useNow';
 import { formatDuration } from '../../lib/format';
-import { tryLockMatchOrientation } from '../../lib/matchFullscreen';
 import {
     canNativeShare,
     copyToClipboard,
@@ -289,10 +288,7 @@ export function WaitingRoom({
                             block
                             icon="crossed-swords"
                             disabled={!canStart}
-                            onClick={() => {
-                                tryLockMatchOrientation();
-                                onStart();
-                            }}
+                            onClick={onStart}
                         >
                             {canStart
                                 ? t('lobby.start')

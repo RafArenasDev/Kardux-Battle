@@ -1,16 +1,10 @@
 const PHONE_QUERY = '(max-width: 767px), (max-height: 767px)';
 
 /**
- * Best-effort, silent: ask for fullscreen + landscape the instant a phone-sized screen taps its
- * way into a match (quick match, practice, host start, join). Both browser APIs only reliably
- * grant themselves when called synchronously inside a real user gesture - by the time a match
- * page's own effect runs after navigation/socket round-trips, Android Chrome no longer treats
- * the call as gesture-triggered and silently ignores it. Calling this first, right in the click
- * handler, gives the same request its best shot before any of that async work happens.
- *
- * MatchPage still carries its own effect as a fallback for entering a match without a fresh
- * click (a page refresh, a direct link) - this never replaces that, only improves the common
- * case.
+ * Best-effort, silent: ask for fullscreen + landscape on a phone-sized screen. Called only once,
+ * from MatchPage's own effect exactly when the table itself loads - never from a lobby/countdown
+ * wait or any entry-point click, since those are a deliberately normal portrait screen and the
+ * table is the only part of the app that ever asks for landscape.
  */
 export function tryLockMatchOrientation(): void {
     if (typeof window === 'undefined' || !window.matchMedia(PHONE_QUERY).matches) return;
