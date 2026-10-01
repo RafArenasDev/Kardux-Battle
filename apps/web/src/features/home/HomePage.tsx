@@ -16,9 +16,14 @@ import { clearSession, getUser, isGuest } from '../../lib/session';
 import { extractRoomCode, readClipboardCode } from '../../lib/share';
 import { disconnectGameSocket, whenConnected } from '../../lib/socket';
 import { RulesDialog } from '../rules/RulesDialog';
+import { HistoryModal } from './HistoryModal';
+import { HistoryRow } from './HistoryRow';
 import { Leaderboard } from './Leaderboard';
 
 const CODE_PATTERN = /^[0-9A-F]{6}$/;
+/** Rooms shown inline before "ver todo" takes over - just enough to feel alive without
+ *  turning the home page itself into a list that needs scrolling. */
+const HISTORY_PREVIEW_COUNT = 4;
 
 const cardMotion = {
     initial: { opacity: 0, y: 16 },
@@ -38,14 +43,13 @@ export default function HomePage(): JSX.Element {
     const [code, setCode] = useState('');
     const [quickBusy, setQuickBusy] = useState<'rival' | 'bot' | null>(null);
     const [rulesOpen, setRulesOpen] = useState(false);
+    const [historyOpen, setHistoryOpen] = useState(false);
 
     useEffect(() => {
         if (guest) return;
         let cancelled = false;
         listMyMatches()
-            .then(
-                (list) => !cancelled && setRooms(list.filter((room) => room.status !== 'FINISHED')),
-            )
+            .then((list) => !cancelled && setRooms(list))
             .catch(() => undefined);
         return () => {
             cancelled = true;
@@ -236,7 +240,14 @@ export default function HomePage(): JSX.Element {
                 <section className="home__grid">
                     <div className="panel panel--pad stack home__panel">
                         <div className="row row--between">
-                            <h3>{t('home.rooms.title')}</h3>
+                            <h3>
+                                {t('home.history.title')}
+                                {!guest && rooms.length > 0 ? (
+                                    <span className="badge tabular" style={{ marginLeft: 8 }}>
+                                        {t('home.history.count', { count: rooms.length })}
+                                    </span>
+                                ) : null}
+                            </h3>
                             {!guest ? (
                                 <Button
                                     size="sm"
@@ -244,46 +255,36 @@ export default function HomePage(): JSX.Element {
                                     icon="card-draw"
                                     onClick={() => navigate('/create')}
                                 >
-                                    {t('home.rooms.new')}
+                                    {t('home.history.new')}
                                 </Button>
                             ) : null}
                         </div>
                         {guest ? (
                             <div className="empty-state">
                                 <Icon name="hooded-figure" />
-                                <p>{t('home.rooms.guest')}</p>
+                                <p>{t('home.history.guest')}</p>
                             </div>
                         ) : rooms.length === 0 ? (
                             <div className="empty-state">
                                 <Icon name="card-draw" />
-                                <p>{t('home.rooms.empty')}</p>
+                                <p>{t('home.history.empty')}</p>
                             </div>
                         ) : (
-                            <ul className="room-list home__scroll">
-                                {rooms.map((room) => (
-                                    <li key={room.matchId} className="room-item">
-                                        <span className="room-item__code">{room.code}</span>
-                                        <span className="room-item__meta">
-                                            <strong>
-                                                {t('common.players', {
-                                                    count: room.playerCount,
-                                                })}{' '}
-                                                / {room.config.maxPlayers}
-                                            </strong>
-                                            <span className="text-3">
-                                                {t(`home.rooms.status.${room.status}`)}
-                                            </span>
-                                        </span>
-                                        <Button
-                                            size="sm"
-                                            variant="gold"
-                                            onClick={() => navigate(`/join/${room.code}`)}
-                                        >
-                                            {t('home.rooms.open')}
-                                        </Button>
-                                    </li>
-                                ))}
-                            </ul>
+                            <>
+                                <ul className="room-list">
+                                    {rooms.slice(0, HISTORY_PREVIEW_COUNT).map((room) => (
+                                        <HistoryRow key={room.matchId} room={room} />
+                                    ))}
+                                </ul>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    block
+                                    onClick={() => setHistoryOpen(true)}
+                                >
+                                    {t('home.history.viewAll')}
+                                </Button>
+                            </>
                         )}
                     </div>
 
@@ -291,6 +292,7 @@ export default function HomePage(): JSX.Element {
                 </section>
             </div>
             <RulesDialog open={rulesOpen} onClose={() => setRulesOpen(false)} />
+            <HistoryModal open={historyOpen} rooms={rooms} onClose={() => setHistoryOpen(false)} />
         </AppShell>
     );
 }

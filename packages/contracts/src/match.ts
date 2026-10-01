@@ -7,7 +7,7 @@ import { matchConfigPatchSchema, matchConfigSchema } from './match-config.js';
  * which only exists once `MatchRuntimeService` has a live match loaded. A row can sit in
  * `LOBBY` for a long time before any engine state exists for it at all.
  */
-export const MATCH_RECORD_STATUSES = ['LOBBY', 'IN_PROGRESS', 'FINISHED'] as const;
+export const MATCH_RECORD_STATUSES = ['LOBBY', 'IN_PROGRESS', 'FINISHED', 'CANCELLED'] as const;
 export type MatchRecordStatus = (typeof MATCH_RECORD_STATUSES)[number];
 export const matchRecordStatusSchema = z.enum(MATCH_RECORD_STATUSES);
 
@@ -45,12 +45,23 @@ export const MATCH_PLAYER_ROLES = ['admin', 'player'] as const;
 export type MatchPlayerRole = (typeof MATCH_PLAYER_ROLES)[number];
 export const matchPlayerRoleSchema = z.enum(MATCH_PLAYER_ROLES);
 
+/** The host's own outcome in a finished/cancelled match, for the history panel - `null` while
+ *  the match is still `LOBBY`/`IN_PROGRESS` (nothing to report yet). `abandoned` takes
+ *  priority over `lost`: both leave the host at 0 cards in last place, but only one of them
+ *  was their own choice. */
+export const MATCH_OUTCOMES = ['won', 'lost', 'draw', 'abandoned', 'cancelled'] as const;
+export type MatchOutcome = (typeof MATCH_OUTCOMES)[number];
+export const matchOutcomeSchema = z.enum(MATCH_OUTCOMES);
+
 /** `GET /matches/mine`'s per-item shape: the same `MatchSummary` plus the caller's role in
  *  that specific match. A host who is *also* an approved player in their own match still
  *  only gets `"admin"` - host status takes precedence, since the host is who `match:respondJoin`
  *  authorizes regardless of whether they seated themselves as a player too. */
 export const matchSummaryWithRoleSchema = matchSummarySchema.extend({
     role: matchPlayerRoleSchema,
+    winnerNickname: z.string().min(1).nullable(),
+    isDraw: z.boolean(),
+    outcome: matchOutcomeSchema.nullable(),
 });
 export type MatchSummaryWithRole = z.infer<typeof matchSummaryWithRoleSchema>;
 

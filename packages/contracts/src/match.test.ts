@@ -7,8 +7,8 @@ const validSummary = {
     status: 'LOBBY' as const,
     config: {
         minPlayers: 2,
-        maxPlayers: 7,
-        autoStartPlayers: 7,
+        maxPlayers: 6,
+        autoStartPlayers: 6,
         autoStartCountdownMs: 5000,
         matchDurationMs: 3_600_000,
         turnTimeoutMs: 30_000,
@@ -18,7 +18,6 @@ const validSummary = {
         attributeCount: 4,
         deckSources: ['pokeapi'] as const,
         mixSources: false,
-        allowSpectators: true,
         fillWithBots: false,
         visibility: 'public' as const,
     },
@@ -27,6 +26,9 @@ const validSummary = {
     hostAvatarUrl: 'data:image/svg+xml;utf8,%3Csvg%3E%3C%2Fsvg%3E',
     playerCount: 1,
     createdAt: '2026-09-21T00:00:00.000Z',
+    winnerNickname: null,
+    isDraw: false,
+    outcome: null,
 };
 
 describe('matchSummaryWithRoleSchema', () => {

@@ -51,7 +51,10 @@ export class RetentionService implements OnApplicationBootstrap {
             const matches = await this.prisma.match.deleteMany({
                 where: {
                     OR: [
-                        { status: 'FINISHED', createdAt: { lt: finishedBefore } },
+                        {
+                            status: { in: ['FINISHED', 'CANCELLED'] },
+                            createdAt: { lt: finishedBefore },
+                        },
                         {
                             status: { in: ['LOBBY', 'IN_PROGRESS'] },
                             createdAt: { lt: staleBefore },
@@ -95,7 +98,9 @@ export class RetentionService implements OnApplicationBootstrap {
         if (sizeMb < limitMb) return;
 
         const events = await this.prisma.matchEvent.deleteMany({});
-        const matches = await this.prisma.match.deleteMany({ where: { status: 'FINISHED' } });
+        const matches = await this.prisma.match.deleteMany({
+            where: { status: { in: ['FINISHED', 'CANCELLED'] } },
+        });
         this.logger.warn(
             `Database at ${sizeMb.toFixed(0)} MB (limit ${limitMb} MB): removed ${matches.count} finished match(es) and ${events.count} event(s).`,
         );

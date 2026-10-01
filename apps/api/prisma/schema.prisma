@@ -43,6 +43,10 @@ enum MatchStatus {
   LOBBY
   IN_PROGRESS
   FINISHED
+  /// The host closed an empty, pre-deal private lobby (`MatchRuntimeService.cancelMatch`) -
+  /// kept as a row instead of deleted so it still shows up in the host's history, pruned by
+  /// the same retention rule as a `FINISHED` match.
+  CANCELLED
 }
 
 /// One playthrough. `config`/`winnerId` mirror `@kardux/contracts`'s `MatchConfig`/
@@ -111,6 +115,10 @@ model MatchPlayer {
   finalCards    Int?
   placement     Int?
   eliminatedAt  DateTime?
+  /// Set from the engine's `Player.hasLeft` when the match finishes - distinguishes "abandoned"
+  /// from a fair elimination for history, since both otherwise look identical (0 cards, an
+  /// `eliminatedAt`, last place).
+  hasLeft       Boolean           @default(false)
 
   @@unique([matchId, userId])
   @@index([matchId])

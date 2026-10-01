@@ -484,7 +484,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
         const userId = this.userIdOf(playerId);
 
         if (beforeDeal && state.config.visibility === 'private' && state.hostId === playerId) {
-            await this.deleteMatch(matchId);
+            await this.cancelMatch(matchId);
             return;
         }
 
@@ -518,6 +518,18 @@ export class MatchRuntimeService implements OnModuleDestroy {
         this.closeRoom(matchId);
         await this.dispose(matchId);
         await this.prisma.match.deleteMany({ where: { id: matchId } });
+    }
+
+    /** The host closes an empty, pre-deal private lobby: kept as a `CANCELLED` row instead of
+     *  deleted, so it still shows up in the host's history - otherwise the same cleanup as
+     *  {@link deleteMatch} for the sockets still sitting in the room. */
+    async cancelMatch(matchId: string): Promise<void> {
+        this.closeRoom(matchId);
+        await this.dispose(matchId);
+        await this.prisma.match.updateMany({
+            where: { id: matchId, status: 'LOBBY' },
+            data: { status: 'CANCELLED', endedAt: new Date() },
+        });
     }
 
     /** Stops everything this process runs for a match (host deleted it, or it ended). */
@@ -773,6 +785,7 @@ export class MatchRuntimeService implements OnModuleDestroy {
                         finalCards: player.cardCount,
                         placement: index + 1,
                         eliminatedAt: player.eliminatedAt ? new Date(player.eliminatedAt) : null,
+                        hasLeft: player.hasLeft,
                     },
                 }),
             ),

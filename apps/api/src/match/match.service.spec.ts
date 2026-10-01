@@ -98,20 +98,28 @@ describe('MatchService.getByCode', () => {
 });
 
 describe('MatchService.listMine', () => {
-    it("lists only the caller's hosted private rooms, as admin", async () => {
+    const RIVAL = { id: 'rival-1', nickname: 'ShadowKnight', avatarSeed: 'ShadowKnight' };
+
+    function row(overrides: Partial<Record<string, unknown>>) {
+        return {
+            id: 'match-1',
+            code: 'AAAAAA',
+            status: 'LOBBY',
+            config: { visibility: 'private' },
+            hostId: HOST.id,
+            host: HOST,
+            winnerId: null,
+            isDraw: false,
+            _count: { players: 1 },
+            players: [{ userId: HOST.id, hasLeft: false, user: HOST }],
+            createdAt: new Date('2026-09-21T12:00:00.000Z'),
+            ...overrides,
+        };
+    }
+
+    it("lists only the caller's hosted private rooms, as admin, with no outcome yet", async () => {
         const { service, prisma } = createService();
-        vi.mocked(prisma.match.findMany).mockResolvedValueOnce([
-            {
-                id: 'match-1',
-                code: 'AAAAAA',
-                status: 'LOBBY',
-                config: { visibility: 'private' },
-                hostId: HOST.id,
-                host: HOST,
-                _count: { players: 1 },
-                createdAt: new Date('2026-09-21T12:00:00.000Z'),
-            },
-        ] as never);
+        vi.mocked(prisma.match.findMany).mockResolvedValueOnce([row({})] as never);
 
         const result = await service.listMine(HOST.id);
 
@@ -121,7 +129,60 @@ describe('MatchService.listMine', () => {
             }),
         );
         expect(result).toEqual([
-            expect.objectContaining({ matchId: 'match-1', role: 'admin', playerCount: 1 }),
+            expect.objectContaining({
+                matchId: 'match-1',
+                role: 'admin',
+                playerCount: 1,
+                outcome: null,
+                winnerNickname: null,
+            }),
         ]);
+    });
+
+    it('reports "won" when the host is the winner of a finished match', async () => {
+        const { service, prisma } = createService();
+        vi.mocked(prisma.match.findMany).mockResolvedValueOnce([
+            row({
+                status: 'FINISHED',
+                winnerId: HOST.id,
+                players: [
+                    { userId: HOST.id, hasLeft: false, user: HOST },
+                    { userId: RIVAL.id, hasLeft: false, user: RIVAL },
+                ],
+            }),
+        ] as never);
+
+        const [result] = await service.listMine(HOST.id);
+
+        expect(result).toMatchObject({ outcome: 'won', winnerNickname: HOST.nickname });
+    });
+
+    it('reports "abandoned" instead of "lost" when the host is the one who quit', async () => {
+        const { service, prisma } = createService();
+        vi.mocked(prisma.match.findMany).mockResolvedValueOnce([
+            row({
+                status: 'FINISHED',
+                winnerId: RIVAL.id,
+                players: [
+                    { userId: HOST.id, hasLeft: true, user: HOST },
+                    { userId: RIVAL.id, hasLeft: false, user: RIVAL },
+                ],
+            }),
+        ] as never);
+
+        const [result] = await service.listMine(HOST.id);
+
+        expect(result).toMatchObject({ outcome: 'abandoned', winnerNickname: RIVAL.nickname });
+    });
+
+    it('reports "cancelled" for a lobby the host closed before anyone else joined', async () => {
+        const { service, prisma } = createService();
+        vi.mocked(prisma.match.findMany).mockResolvedValueOnce([
+            row({ status: 'CANCELLED' }),
+        ] as never);
+
+        const [result] = await service.listMine(HOST.id);
+
+        expect(result).toMatchObject({ outcome: 'cancelled' });
     });
 });

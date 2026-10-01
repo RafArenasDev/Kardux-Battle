@@ -1,10 +1,16 @@
 import type {
     CreateMatchRequest,
     MatchConfig,
+    MatchOutcome,
     MatchSummary,
     MatchSummaryWithRole,
 } from '@kardux/contracts';
-import type { Match, Prisma, Player as PlayerRow } from '@prisma/client';
+import type {
+    Match,
+    MatchPlayer as MatchPlayerRow,
+    Prisma,
+    Player as PlayerRow,
+} from '@prisma/client';
 import { randomInt, randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { matchConfigSchema } from '@kardux/contracts';
@@ -27,6 +33,20 @@ const WITH_HOST_AND_COUNT = {
 } satisfies Prisma.MatchInclude;
 
 type MatchWithHost = Match & { host: PlayerRow; _count: { players: number } };
+
+/** Adds every approved seat (with its account) to `WITH_HOST_AND_COUNT`, so the history list
+ *  can work out the host's own outcome and the winner's nickname without a second query. */
+const WITH_HOST_AND_PLAYERS = {
+    ...WITH_HOST_AND_COUNT,
+    players: {
+        where: { status: 'APPROVED' },
+        include: { user: true },
+    },
+} satisfies Prisma.MatchInclude;
+
+type MatchWithHostAndPlayers = MatchWithHost & {
+    players: (MatchPlayerRow & { user: PlayerRow })[];
+};
 
 /**
  * Two kinds of rooms:
@@ -109,16 +129,17 @@ export class MatchService {
         return this.toSummary(match);
     }
 
-    /** The host's private rooms - the only place a private match is ever listed. */
+    /** The host's private rooms, newest first - their whole history (open, cancelled, and
+     *  finished alike), the only place a private match is ever listed. */
     async listMine(userId: string): Promise<MatchSummaryWithRole[]> {
         const hosted = await this.prisma.match.findMany({
             where: { hostId: userId, config: { path: ['visibility'], equals: 'private' } },
-            include: WITH_HOST_AND_COUNT,
+            include: WITH_HOST_AND_PLAYERS,
             orderBy: { createdAt: 'desc' },
             take: 20,
         });
 
-        return hosted.map((match) => ({ ...this.toSummary(match), role: 'admin' as const }));
+        return hosted.map((match) => this.toHistoryItem(match, userId));
     }
 
     /** The match the caller is currently seated in (lobby or playing), for "Continuar". */
@@ -209,6 +230,38 @@ export class MatchService {
             hostAvatarUrl: buildAvatarUrl(match.host.avatarSeed),
             playerCount: match._count.players,
             createdAt: match.createdAt.toISOString(),
+        };
+    }
+
+    /** The host's own result for one of their private rooms - `null` while it's still
+     *  `LOBBY`/`IN_PROGRESS`, since there's nothing to report yet. `abandoned` beats `lost`:
+     *  both leave the host at 0 cards in last place, only `hasLeft` says which one it was. */
+    private toHistoryItem(
+        match: MatchWithHostAndPlayers,
+        hostUserId: string,
+    ): MatchSummaryWithRole {
+        const hostRow = match.players.find((player) => player.userId === hostUserId);
+        const winnerRow = match.players.find((player) => player.userId === match.winnerId);
+
+        const outcome: MatchOutcome | null =
+            match.status === 'CANCELLED'
+                ? 'cancelled'
+                : match.status !== 'FINISHED'
+                  ? null
+                  : hostRow?.hasLeft
+                    ? 'abandoned'
+                    : match.isDraw
+                      ? 'draw'
+                      : match.winnerId === hostUserId
+                        ? 'won'
+                        : 'lost';
+
+        return {
+            ...this.toSummary(match),
+            role: 'admin',
+            winnerNickname: winnerRow?.user.nickname ?? null,
+            isDraw: match.isDraw,
+            outcome,
         };
     }
 }
