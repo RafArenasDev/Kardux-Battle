@@ -129,8 +129,15 @@ export default function MatchPage(): JSX.Element {
     // which never lets a plain web page lock orientation at all) - best effort, silent either
     // way, since the table's own layout has to work in portrait regardless. An installed PWA
     // already owns the whole screen, so requestFullscreen is normally a harmless no-op there.
+    //
+    // `session.finished` is also a release condition, not just `inLobby`: the result screen
+    // (`FinishOverlay`) renders as an overlay ON TOP of the still-mounted table, it doesn't send
+    // `state.phase` back to LOBBY/COUNTDOWN - without this, the phone stayed locked in fullscreen
+    // landscape through the whole result screen and only released once the player actually
+    // tapped away, instead of the moment the match itself ends.
+    const matchOrientationActive = !inLobby && tableBreakpoint === 'mobile' && !session.finished;
     useEffect(() => {
-        if (inLobby || tableBreakpoint !== 'mobile') return undefined;
+        if (!matchOrientationActive) return undefined;
 
         tryLockMatchOrientation();
 
@@ -144,7 +151,7 @@ export default function MatchPage(): JSX.Element {
                 void document.exitFullscreen?.().catch(() => undefined);
             }
         };
-    }, [inLobby, tableBreakpoint]);
+    }, [matchOrientationActive]);
 
     const panel = state ? (
         <SidePanel
