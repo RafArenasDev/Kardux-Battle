@@ -65,18 +65,16 @@ function applyPlayerJoin(
         return fail(state, 'ERR_VALIDATION');
     }
 
-    const isSpectator = state.phase !== 'LOBBY';
-
-    if (isSpectator && !state.config.allowSpectators) {
+    // Joining only ever seats an active player - "spectator" exists solely for someone who ran
+    // out of cards mid-match (rule 9), never for a newcomer arriving after the lobby closed.
+    if (state.phase !== 'LOBBY') {
         return fail(state, 'ERR_MATCH_ALREADY_STARTED');
     }
 
-    if (!isSpectator) {
-        const activeCount = state.players.filter((player) => !player.isSpectator).length;
+    const activeCount = state.players.filter((player) => !player.isSpectator).length;
 
-        if (activeCount >= state.config.maxPlayers) {
-            return fail(state, 'ERR_MATCH_FULL');
-        }
+    if (activeCount >= state.config.maxPlayers) {
+        return fail(state, 'ERR_MATCH_FULL');
     }
 
     const player: Player = {
@@ -85,7 +83,7 @@ function applyPlayerJoin(
         avatarSeed: action.avatarSeed,
         joinOrder: state.players.length,
         seat: state.players.length,
-        isSpectator,
+        isSpectator: false,
         isEliminated: false,
         eliminatedAt: null,
         cardCount: 0,

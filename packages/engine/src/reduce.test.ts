@@ -50,34 +50,32 @@ describe('player.join', () => {
         expect(result.events[0]).toMatchObject({ type: 'error', code: 'ERR_MATCH_FULL' });
     });
 
-    it('joins as a spectator once the match is underway, if allowSpectators is enabled', () => {
+    it('rejects joining once the match has left the lobby, even with open seats', () => {
         const ongoing = state({
             phase: 'AWAITING_ATTRIBUTE',
-            config: config({ allowSpectators: true }),
-            players: [player('alice')],
-        });
-
-        const { state: next } = reduce(
-            ongoing,
-            { type: 'player.join', playerId: 'zed', nickname: 'Zed', avatarSeed: 'z' },
-            ctx(),
-        );
-
-        const zed = next.players.find((p) => p.id === 'zed');
-
-        expect(zed?.isSpectator).toBe(true);
-        expect(next.turnOrder).not.toContain('zed');
-    });
-
-    it('rejects joining mid-match when allowSpectators is disabled', () => {
-        const ongoing = state({
-            phase: 'AWAITING_ATTRIBUTE',
-            config: config({ allowSpectators: false }),
+            config: config({ maxPlayers: 6 }),
             players: [player('alice')],
         });
 
         const result = reduce(
             ongoing,
+            { type: 'player.join', playerId: 'zed', nickname: 'Zed', avatarSeed: 'z' },
+            ctx(),
+        );
+
+        expect(result.state.version).toBe(ongoing.version);
+        expect(result.events[0]).toMatchObject({
+            type: 'error',
+            code: 'ERR_MATCH_ALREADY_STARTED',
+        });
+        expect(result.state.players.some((p) => p.id === 'zed')).toBe(false);
+    });
+
+    it('rejects joining mid-match during the countdown too, not just once cards are dealt', () => {
+        const counting = state({ phase: 'COUNTDOWN', players: [player('alice')] });
+
+        const result = reduce(
+            counting,
             { type: 'player.join', playerId: 'zed', nickname: 'Zed', avatarSeed: 'z' },
             ctx(),
         );

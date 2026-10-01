@@ -7,8 +7,8 @@ describe('matchConfigSchema', () => {
 
         expect(result).toMatchObject({
             minPlayers: 2,
-            maxPlayers: 7,
-            autoStartPlayers: 7,
+            maxPlayers: 6,
+            autoStartPlayers: 6,
             autoStartCountdownMs: 5_000,
             matchDurationMs: 3_600_000,
             turnTimeoutMs: 30_000,
@@ -18,7 +18,6 @@ describe('matchConfigSchema', () => {
             attributeCount: 4,
             deckSources: ['pokeapi'],
             mixSources: false,
-            allowSpectators: true,
             fillWithBots: false,
             visibility: 'private',
         });

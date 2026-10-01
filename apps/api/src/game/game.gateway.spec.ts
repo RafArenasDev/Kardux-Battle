@@ -76,9 +76,9 @@ describe('GameGateway (/game)', () => {
     }
 
     async function createMatch(hostId: string, maxPlayers: number) {
-        // `autoStartPlayers` defaults to 7 and matchConfigSchema requires it to sit between
-        // minPlayers and maxPlayers - pin it to maxPlayers so small-capacity test matches
-        // (e.g. maxPlayers=2) don't fail that cross-field check.
+        // `autoStartPlayers` defaults to MAX_PLAYERS and matchConfigSchema requires it to sit
+        // between minPlayers and maxPlayers - pin it to maxPlayers so small-capacity test
+        // matches (e.g. maxPlayers=2) don't fail that cross-field check.
         const config = matchConfigSchema.parse({
             visibility: 'public',
             maxPlayers,
@@ -112,7 +112,7 @@ describe('GameGateway (/game)', () => {
 
     it('direct join succeeds and broadcasts match:playerJoined to the room', async () => {
         const host = await createUser('Host');
-        const match = await createMatch(host.id, 7);
+        const match = await createMatch(host.id, 6);
         const hostSocket = await connect(host.id, 'Host');
 
         await hostSocket.timeout(2000).emitWithAck('match:join', {
@@ -185,7 +185,7 @@ describe('GameGateway (/game)', () => {
 
     it('request join stays pending until the host approves it, then broadcasts and notifies the requester', async () => {
         const host = await createUser('Host');
-        const match = await createMatch(host.id, 7);
+        const match = await createMatch(host.id, 6);
         const hostSocket = await connect(host.id, 'Host');
         await hostSocket.timeout(2000).emitWithAck('match:join', {
             code: match.code,
@@ -241,7 +241,7 @@ describe('GameGateway (/game)', () => {
 
     it('request join is rejected by the host and the row is kept as REJECTED', async () => {
         const host = await createUser('Host');
-        const match = await createMatch(host.id, 7);
+        const match = await createMatch(host.id, 6);
         const hostSocket = await connect(host.id, 'Host');
         await hostSocket.timeout(2000).emitWithAck('match:join', {
             code: match.code,

@@ -26,9 +26,11 @@ victoria (`#2DD4A7`) y carmesí para derrota (`#EF4A5A`). Tipografía display **
    atributos numéricos** (3 a 6).
 2. **Sala**: quien crea la partida recibe un **código hexadecimal** de 6 caracteres (ej. `A3F9C1`)
    y un enlace para compartir. Los demás entran con ese código.
-3. **Inicio**: el anfitrión puede iniciar cuando haya ≥ `minPlayers`. Al llegar a
-   `autoStartPlayers` arranca una cuenta regresiva visible de 5 s, cancelable solo por el
-   anfitrión.
+3. **Inicio**: el anfitrión puede iniciar cuando haya ≥ `minPlayers`, aunque no se haya llegado a
+   `maxPlayers`. Al llegar a `autoStartPlayers` arranca una cuenta regresiva visible de 5 s,
+   cancelable solo por el anfitrión. Una vez que la sala deja `LOBBY` (cuenta regresiva incluida),
+   nadie más puede entrar: el intento falla con "la sala ya empezó", sin excepción de solo-mirar.
+   El cupo (`maxPlayers`) solo se valida mientras la sala sigue en `LOBBY`.
 4. **Reparto**: se baraja el mazo completo con RNG sembrado y se reparte por turnos. Las cartas que
    no alcanzan para una vuelta completa (o que exceden `cardsPerPlayer`, si está definido) quedan
    fuera de juego en el mazo de la mesa. Cada jugador recibe una **pila boca abajo** y solo ve su
@@ -63,7 +65,7 @@ Esquema Zod único en `packages/contracts/src/match-config.ts`, validado en clie
 | `cardsPerPlayer`                           | 0               | `0` = repartir todo lo posible                                                                  |
 | `firstTurn`                                | `lowest_card`   | `first_joined` en la práctica contra la máquina                                                 |
 | `deckSources`                              | `['pokeapi']`   | Preparado para sumar más fuentes                                                                |
-| `visibility`, `allowSpectators`            | privada, sí     |                                                                                                 |
+| `visibility`                               | privada         |                                                                                                 |
 
 Se rechazan combinaciones imposibles (`autoStartPlayers > maxPlayers`, `minPlayers > maxPlayers`,
 mazo insuficiente para los jugadores, etc.).

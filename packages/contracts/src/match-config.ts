@@ -35,7 +35,6 @@ export const matchConfigShape = {
     firstTurn: z.enum(['lowest_card', 'first_joined']).default('lowest_card'),
     deckSources: z.array(deckSourceIdSchema).min(1).default(['pokeapi']),
     mixSources: z.boolean().default(false),
-    allowSpectators: z.boolean().default(true),
     fillWithBots: z.boolean().default(false),
     visibility: z.enum(['public', 'private']).default('private'),
     seed: z.string().min(1).optional(),
