@@ -2,7 +2,7 @@ import type { Card, Player, RedactedMatchState } from '@kardux/contracts';
 import { MAX_PLAYERS, TABLE_TIMING } from '@kardux/contracts';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { CSSProperties, JSX, MutableRefObject, ReactNode, RefObject } from 'react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { CardBack, PlayingCard } from '../../components/cards/PlayingCard';
@@ -124,7 +124,19 @@ export function GameTable({
     breakpoint,
     onSelectAttribute,
 }: GameTableProps): JSX.Element {
-    const tableRef = useRef<HTMLDivElement>(null);
+    const tableRef = useRef<HTMLDivElement | null>(null);
+    // `tableRef.current` alone can't drive an effect - plain refs don't trigger a re-render when
+    // they're attached, which is exactly what let DealLayer's very first measurement run before
+    // the node existed (see its own comment). `tableNode` mirrors the same element through a
+    // callback ref instead, specifically so DealLayer can depend on it: React only re-renders
+    // DealLayer with a non-null `tableNode` once the real DOM node is attached, by construction -
+    // no "is it ready yet" polling needed. Every other consumer below still reads the plain
+    // `tableRef.current` lazily inside its own effect/handler, unaffected.
+    const [tableNode, setTableNode] = useState<HTMLDivElement | null>(null);
+    const setTableRef = useCallback((node: HTMLDivElement | null) => {
+        tableRef.current = node;
+        setTableNode(node);
+    }, []);
     const { geometry: seatGeometry, myZoneBottom } = useSeatArc(tableRef, breakpoint);
     const seatArcTable = useMemo(() => buildSeatArcLengthTable(seatGeometry), [seatGeometry]);
     // Real top edge of whatever .play-area is actually showing (the in-play cards - 1 or 2 rows
@@ -228,7 +240,7 @@ export function GameTable({
     return (
         <div
             className={`table table--${breakpoint}`}
-            ref={tableRef}
+            ref={setTableRef}
             style={
                 myZoneBottom !== null
                     ? ({ '--my-zone-bottom': `${myZoneBottom}px` } as CSSProperties)
@@ -296,7 +308,7 @@ export function GameTable({
             />
 
             {deal.counts ? (
-                <DealLayer key="deal" state={state} tableRef={tableRef} onLand={deal.land} />
+                <DealLayer key="deal" state={state} table={tableNode} onLand={deal.land} />
             ) : null}
 
             <AnimatePresence>
@@ -359,21 +371,26 @@ interface Flight {
 /** Shuffle on the deck spot, then deal round-robin to every pile, one flight per card. */
 function DealLayer({
     state,
-    tableRef,
+    table,
     onLand,
 }: {
     state: RedactedMatchState;
-    tableRef: RefObject<HTMLDivElement>;
+    table: HTMLDivElement | null;
     onLand: (playerId: string, cards: number) => void;
 }): JSX.Element {
     const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
     const [flights, setFlights] = useState<Flight[]>([]);
 
+    // `table` comes from GameTable's callback ref (see its own comment) instead of a plain
+    // `tableRef.current` read here - by construction, this effect's first real run always sees
+    // the attached DOM node, never null. An earlier version read `tableRef.current` directly and
+    // could see it as null on its very first pass in production (not locally - React StrictMode's
+    // dev-only extra mount/unmount/remount cycle happened to retry with an attached ref the
+    // second time around), which silently skipped the whole deal animation every single time.
     useLayoutEffect(() => {
-        let retryFrame = 0;
-        let observer: ResizeObserver | undefined;
+        if (!table) return undefined;
 
-        const measure = (table: HTMLDivElement): void => {
+        const measure = (): void => {
             const deck = table.querySelector('[data-deck-anchor]');
             if (!deck) return;
             setOrigin(centerIn(table, deck));
@@ -417,43 +434,23 @@ function DealLayer({
             setFlights(planned);
         };
 
-        // `tableRef.current` can still be null on this effect's very first run - confirmed in
-        // production (never recovers there) vs. local dev (silently "fixed" every time by
-        // StrictMode's deliberate extra mount/unmount/remount cycle, which happens to give the
-        // ref a second, working attempt). Root cause not fully pinned down, but the fix doesn't
-        // need to be: retry on the next frame instead of giving up permanently the one time the
-        // ref isn't attached yet on this effect's first pass.
-        const start = (): void => {
-            const table = tableRef.current;
-            if (!table) {
-                retryFrame = requestAnimationFrame(start);
-                return;
-            }
-            measure(table);
+        measure();
 
-            // On a real phone, mounting right as the table asks for fullscreen + a landscape
-            // lock (MatchPage's own effect, same instant the lobby ends) races a genuine, slow
-            // viewport rotation - unlike desktop or a device-emulator, where that request is a
-            // no-op and the table is already full-size on the very first frame. A
-            // `ResizeObserver` here means a mount that lands mid-rotation gets its flight paths
-            // corrected once the table reaches its real post-rotation size, instead of flying
-            // every card to coordinates measured against the portrait layout that was on screen
-            // for one frame before the fix.
-            observer = new ResizeObserver(() => measure(table));
-            observer.observe(table);
-        };
-
-        start();
-
-        return () => {
-            cancelAnimationFrame(retryFrame);
-            observer?.disconnect();
-        };
-        // Re-measuring already depends only on live DOM nodes (`tableRef`/data attributes) found
+        // On a real phone, mounting right as the table asks for fullscreen + a landscape lock
+        // (MatchPage's own effect, same instant the lobby ends) races a genuine, slow viewport
+        // rotation - unlike desktop or a device-emulator, where that request is a no-op and the
+        // table is already full-size on the very first frame. A `ResizeObserver` here means a
+        // mount that lands mid-rotation gets its flight paths corrected once the table reaches
+        // its real post-rotation size, instead of flying every card to coordinates measured
+        // against the portrait layout that was on screen for one frame before the fix.
+        const observer = new ResizeObserver(measure);
+        observer.observe(table);
+        return () => observer.disconnect();
+        // Re-measuring already depends only on live DOM nodes (`table`/data attributes) found
         // fresh inside `measure` itself - re-running this whenever `state` changes would restart
         // the whole deal, which is not what a resize mid-deal should do.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [table]);
 
     if (!origin) return <div className="deal-layer" aria-hidden />;
 
