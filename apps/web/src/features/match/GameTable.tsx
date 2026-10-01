@@ -366,11 +366,23 @@ function DealLayer({
     tableRef: RefObject<HTMLDivElement>;
     onLand: (playerId: string, cards: number) => void;
 }): JSX.Element {
+    // TEMP DIAGNOSTIC - remove once the production-only "deal never animates" bug is found.
+    // eslint-disable-next-line no-console
+    console.log('[deal-diag-render]', {
+        hasTableRef: !!tableRef,
+        hasTableRefCurrent: !!tableRef.current,
+    });
     const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
     const [flights, setFlights] = useState<Flight[]>([]);
 
     useLayoutEffect(() => {
         const table = tableRef.current;
+        // TEMP DIAGNOSTIC - remove once the production-only "deal never animates" bug is found.
+        // eslint-disable-next-line no-console
+        console.log('[deal-diag-mount]', {
+            tableIsNull: !table,
+            documentHasTable: !!document.querySelector('.table'),
+        });
         if (!table) return undefined;
 
         const measure = (): void => {
