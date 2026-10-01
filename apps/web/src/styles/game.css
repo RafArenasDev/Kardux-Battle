@@ -1296,20 +1296,31 @@
    underneath it. */
 @media (orientation: landscape) {
     .table--mobile {
-        --card-lg: clamp(90px, 26dvh, 135px);
-        --pile-w: clamp(20px, 5dvh, 28px);
+        /* Bigger than the first pass here - confirmed on a real device that attribute rows were
+           too small to tap reliably. Rival/my own seats shrank to make room (see
+           opponentAvatarSize and --pile-w right below) instead of fighting this for space. */
+        --card-lg: clamp(130px, 34dvh, 190px);
+        --pile-w: clamp(16px, 4dvh, 22px);
     }
 
     .table--mobile .board__row {
         padding-inline: clamp(8px, 2vw, 24px);
     }
 
-    /* No name/status next to the avatar here (see Seat's `showName` in GameTable.tsx) - the
-       padding/gap meant to give that text room to breathe is otherwise just dead space next to
-       a small avatar. */
-    .table--mobile .seat {
-        gap: 4px;
-        padding: 4px 8px 4px 4px;
+    /* Explicit ask: my own choosing card sits large enough to partly cover my own seat right
+       below it (never a rival's - every opponent stays a plain, separate oval seat), with the
+       turn timer above the card and the status message above that, never overlapping either -
+       status-slot's own position is already live-measured off the card's real top edge (see
+       GameTable's statusTop), so it tracks this automatically as the card's size changes. */
+    .table--mobile .my-zone__card {
+        position: relative;
+        z-index: 2;
+        margin-bottom: -26px;
+    }
+
+    .table--mobile .my-zone__seat {
+        position: relative;
+        z-index: 1;
     }
 }
 

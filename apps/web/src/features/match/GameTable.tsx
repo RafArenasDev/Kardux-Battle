@@ -889,9 +889,11 @@ function opponentAvatarSize(breakpoint: string, compact: boolean): number {
     if (breakpoint === 'mobile') {
         // Portrait/compact: no name/status next to the avatar (see CompactSeat), so it can
         // afford a properly tappable size instead of squeezing in next to text. Landscape: a
-        // real seat on the oval table like tablet/desktop, matched to tablet's own size since
-        // the phone screen is smaller but held closer.
-        return compact ? 44 : 34;
+        // real seat on the oval table like tablet/desktop, but smaller than tablet's own size -
+        // confirmed on a real device that the choosing card needs the room more, and every
+        // rival seat here is already tap-to-reveal (see CompactSeat/showName) instead of needing
+        // to read at a glance.
+        return compact ? 44 : 26;
     }
     if (breakpoint === 'tablet') return 34;
     return 32;
@@ -935,10 +937,13 @@ function OpponentRow({
         ? opponents
         : Array.from({ length: SEAT_SLOTS }, (_, i) => opponents[i] ?? null);
     const avatarSize = opponentAvatarSize(breakpoint, compact);
-    // Phones only (see CompactSeat): which rival's name/status is currently shown in the tap
-    // modal, since the row itself only has room for an avatar and a card count.
+    // Whenever there's no name pill (compact/portrait, or mobile-landscape's own real-but-small
+    // seat - see `showNames`): which rival's name/status/position is currently shown in the tap
+    // modal instead, since the seat itself only has room for an avatar and a card count.
     const [openId, setOpenId] = useState<string | null>(null);
-    const openPlayer = compact ? (opponents.find((player) => player.id === openId) ?? null) : null;
+    const openPlayer = !showNames
+        ? (opponents.find((player) => player.id === openId) ?? null)
+        : null;
     return (
         <ul
             className={`opponents ${compact ? 'opponents--compact' : ''}`}
@@ -958,10 +963,9 @@ function OpponentRow({
                             count={countOf(player)}
                             isLeader={leaderId === player.id}
                             status={seatStatus(t, player)}
-                            compact={compact}
                             showName={showNames}
                             avatarSize={avatarSize}
-                            onOpen={compact ? () => setOpenId(player.id) : undefined}
+                            onOpen={!showNames ? () => setOpenId(player.id) : undefined}
                         />
                     </li>
                 ) : (
@@ -975,7 +979,7 @@ function OpponentRow({
                     </li>
                 ),
             )}
-            {compact ? (
+            {!showNames ? (
                 <SeatInfoModal
                     player={openPlayer}
                     count={openPlayer ? countOf(openPlayer) : 0}
@@ -995,7 +999,6 @@ function Seat({
     isLeader,
     status,
     you = false,
-    compact = false,
     showName = true,
     avatarSize = 34,
     onOpen,
@@ -1005,7 +1008,6 @@ function Seat({
     isLeader: boolean;
     status: string;
     you?: boolean;
-    compact?: boolean;
     /** False only for mobile in landscape: a real seat on the oval table, like tablet/desktop,
      *  but a short phone screen has no room to spare for a name pill next to a small avatar
      *  there - avatar + card count only, same as this breakpoint's own compact/portrait mode
@@ -1014,14 +1016,14 @@ function Seat({
     /** Tuned per breakpoint by the caller (see opponentAvatarSize) - never a shared default that
      *  would let a tablet-only or desktop-only tweak quietly move the other. */
     avatarSize?: number;
-    /** Phones only: tapping a rival opens the name/status modal instead of showing a pill (see
-     *  CompactSeat) - `MyZone`'s own seat (always the full pill, even on phones) never passes
-     *  this, so `compact` alone isn't enough to pick the branch below. */
+    /** Whenever there's no name pill: tapping a rival opens the name/status/position modal
+     *  instead (see CompactSeat) - `MyZone`'s own seat (always a real seat, even without a name)
+     *  never passes this, so `showName` alone isn't enough to pick the branch below. */
     onOpen?: () => void;
 }): JSX.Element {
     const { t } = useTranslation();
 
-    if (compact && onOpen) {
+    if (!showName && onOpen) {
         return (
             <CompactSeat
                 player={player}
@@ -1921,13 +1923,13 @@ function MyZone({
                 {handCard}
 
                 <div className="my-zone__seat">
-                    {compact ? (
+                    {!showName ? (
                         <>
                             <CompactSeat
                                 player={me}
                                 count={count}
                                 isLeader={isLeader}
-                                avatarSize={opponentAvatarSize('mobile', true)}
+                                avatarSize={opponentAvatarSize(breakpoint, compact)}
                                 onOpen={() => setInfoOpen(true)}
                             />
                             <SeatInfoModal
