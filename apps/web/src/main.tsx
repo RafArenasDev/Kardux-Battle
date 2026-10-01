@@ -22,8 +22,23 @@ const container = document.getElementById('root');
 if (!container) throw new Error('#root element not found.');
 
 // Installable PWA (also on localhost in dev, so installing can be tested before deploying):
-// offline app shell, silently updated in the background.
-registerSW({ immediate: true });
+// offline app shell, silently updated in the background. `workbox-window`'s own update check
+// only fires once, at this registration call - a tab/installed app left open across a deploy
+// (or resumed from the OS task switcher, which on Android often doesn't count as a fresh
+// top-level navigation) would otherwise keep running the service worker it started with
+// forever, no matter how long the new one has been live on the server. Re-running the check
+// periodically and whenever the app regains focus closes that gap; `registerType: 'autoUpdate'`
+// already reloads the page automatically once a newer worker activates.
+registerSW({
+    immediate: true,
+    onRegisteredSW(_url, registration) {
+        if (!registration) return;
+        window.setInterval(() => void registration.update(), 60_000);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') void registration.update();
+        });
+    },
+});
 
 createRoot(container).render(
     <StrictMode>
