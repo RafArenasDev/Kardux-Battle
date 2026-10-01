@@ -375,6 +375,16 @@ function DealLayer({
 
         const measure = (): void => {
             const deck = table.querySelector('[data-deck-anchor]');
+            // TEMP DIAGNOSTIC - remove once the production-only "deal never animates" bug is found.
+            // eslint-disable-next-line no-console
+            console.log('[deal-diag]', {
+                deckFound: !!deck,
+                tableConnected: table.isConnected,
+                tableChildCount: table.children.length,
+                tableInnerHTMLLen: table.innerHTML.length,
+                globalAnchorCount: document.querySelectorAll('[data-deck-anchor]').length,
+                globalAnchorInTable: document.querySelectorAll('.table [data-deck-anchor]').length,
+            });
             if (!deck) return;
             setOrigin(centerIn(table, deck));
 
