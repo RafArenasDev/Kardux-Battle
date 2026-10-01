@@ -114,7 +114,15 @@ export default function MatchPage(): JSX.Element {
         navigate('/home', { replace: true, state: quick ? { quick: true } : null });
     }
 
-    const inLobby = state?.phase === 'LOBBY' || state?.phase === 'COUNTDOWN';
+    // `!state` counts as "in lobby" too - before the first `match:state` socket update arrives,
+    // `state` is still null, and `state?.phase` reads as undefined, which used to make this false
+    // for one render. That spuriously flipped `matchOrientationActive` below true→false right as
+    // the real lobby loaded, running its effect's cleanup and exiting the fullscreen the entry
+    // tap had just (correctly) acquired - confirmed on a real phone via a frame-by-frame video:
+    // fullscreen visibly drops the instant "¡Rival encontrado!" replaces the loading state, and
+    // every later re-entry attempt fires from a React effect, not a gesture, so it silently fails
+    // for the rest of the match.
+    const inLobby = !state || state.phase === 'LOBBY' || state.phase === 'COUNTDOWN';
     // Chat only makes sense between real people - a practice match against the machine never
     // gets a chat tab/button, there is nobody on the other end of it.
     const allowChat = !state?.players.some((player) => player.id.startsWith('bot:'));
