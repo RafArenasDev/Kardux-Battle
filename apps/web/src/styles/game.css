@@ -1322,6 +1322,15 @@
         position: relative;
         z-index: 1;
     }
+
+    /* Avatar beside the pile/count instead of stacked above it - explicit ask: a seat here was
+       reading taller than it needed to on a short screen. Same CompactSeat markup portrait's
+       own horizontal-scroll strip uses, just a row instead of a column. */
+    .table--mobile .seat-compact {
+        grid-auto-flow: column;
+        align-items: center;
+        gap: 4px;
+    }
 }
 
 /* Side panel */
