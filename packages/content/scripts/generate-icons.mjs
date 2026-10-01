@@ -63,6 +63,7 @@ const ICONS = [
     'infinity',
     'linked-rings',
     'envelope',
+    'paper-plane',
     'return-arrow',
     'cancel',
     'magic-portal',

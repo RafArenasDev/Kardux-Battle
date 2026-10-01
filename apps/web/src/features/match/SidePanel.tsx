@@ -170,7 +170,7 @@ export function SidePanel({
                         <Button
                             type="submit"
                             variant="gold"
-                            icon="chat-bubble"
+                            icon="paper-plane"
                             aria-label={t('panel.send')}
                             disabled={!text.trim()}
                         />
