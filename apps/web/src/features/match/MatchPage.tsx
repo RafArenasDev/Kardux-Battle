@@ -14,7 +14,7 @@ import type { Breakpoint } from '../../hooks/useBreakpoint';
 import { useBreakpoint, useMediaQuery } from '../../hooks/useBreakpoint';
 import { useDocumentTitle, useNow } from '../../hooks/useNow';
 import { formatClock } from '../../lib/format';
-import { tryLockMatchOrientation } from '../../lib/matchFullscreen';
+import { tryEnterFullscreen, tryLockMatchOrientation } from '../../lib/matchFullscreen';
 import { RulesDialog } from '../rules/RulesDialog';
 import { FinishOverlay } from './FinishOverlay';
 import { GameTable } from './GameTable';
@@ -197,7 +197,14 @@ export default function MatchPage(): JSX.Element {
                 <div className="match-lobby">
                     <WaitingRoom
                         state={state}
-                        onStart={session.start}
+                        onStart={() => {
+                            // Synchronous, before session.start()'s own fire-and-forget emit -
+                            // see matchFullscreen.ts's own comment. The host's "Listo" tap is the
+                            // most reliable entry point for a private room: create/join can both
+                            // happen long before this, well outside any gesture window by then.
+                            tryEnterFullscreen();
+                            session.start();
+                        }}
                         onCancelCountdown={session.cancelCountdown}
                         onLeave={leave}
                     />

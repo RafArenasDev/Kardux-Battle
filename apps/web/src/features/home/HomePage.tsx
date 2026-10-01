@@ -13,6 +13,7 @@ import { useDocumentTitle } from '../../hooks/useNow';
 import { listMyMatches } from '../../lib/api';
 import { errorMessage, isErrorPayload } from '../../lib/errors';
 import { clearSession, getUser, isGuest } from '../../lib/session';
+import { tryEnterFullscreen } from '../../lib/matchFullscreen';
 import { extractRoomCode, readClipboardCode } from '../../lib/share';
 import { disconnectGameSocket, whenConnected } from '../../lib/socket';
 import { RulesDialog } from '../rules/RulesDialog';
@@ -57,6 +58,10 @@ export default function HomePage(): JSX.Element {
     }, [guest]);
 
     async function quickMatch(vsBot = false): Promise<void> {
+        // Synchronous, before any `await` below - still inside this click's own gesture, which
+        // `requestFullscreen()` needs (confirmed on a real phone: it silently fails once this
+        // function has yielded past its first `await`).
+        tryEnterFullscreen();
         setQuickBusy(vsBot ? 'bot' : 'rival');
         try {
             const socket = await whenConnected();

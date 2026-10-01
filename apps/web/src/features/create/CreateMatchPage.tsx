@@ -15,6 +15,7 @@ import { createMatch, listDeckSources } from '../../lib/api';
 import { errorMessage, isErrorPayload } from '../../lib/errors';
 import { formatDuration } from '../../lib/format';
 import { useLocale } from '../../lib/i18n';
+import { tryEnterFullscreen } from '../../lib/matchFullscreen';
 import { getUser, isGuest } from '../../lib/session';
 import { whenConnected } from '../../lib/socket';
 
@@ -96,6 +97,8 @@ export default function CreateMatchPage(): JSX.Element {
     async function submit(): Promise<void> {
         const user = getUser();
         if (!user || problem) return;
+        // Synchronous, before any `await` below - see matchFullscreen.ts's own comment.
+        tryEnterFullscreen();
         setBusy(true);
         try {
             const match = await createMatch(config);

@@ -11,6 +11,7 @@ import { useDocumentTitle } from '../../hooks/useNow';
 import { getMatchByCode } from '../../lib/api';
 import { errorMessage, isErrorPayload } from '../../lib/errors';
 import { formatDuration } from '../../lib/format';
+import { tryEnterFullscreen } from '../../lib/matchFullscreen';
 import { getUser, isAuthenticated, setPostAuthRedirect } from '../../lib/session';
 import { whenConnected } from '../../lib/socket';
 
@@ -48,6 +49,8 @@ export default function JoinPage(): JSX.Element {
     async function join(): Promise<void> {
         const user = getUser();
         if (!user) return;
+        // Synchronous, before any `await` below - see matchFullscreen.ts's own comment.
+        tryEnterFullscreen();
         setJoining(true);
         try {
             const socket = await whenConnected();
